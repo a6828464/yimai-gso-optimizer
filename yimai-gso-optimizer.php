@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.4.0
+ * Version: 2.4.1
  * Author: 一麦瑜伽
  * Text Domain: yimai-gso-optimizer
  * Requires at least: 5.8
@@ -13,12 +13,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-if ( defined( 'YIMAI_GSO_MERGED_GEO_LOADED' ) ) {
+if ( defined( 'YIMAI_GSO_LOADED' ) ) {
     return;
 }
-define( 'YIMAI_GSO_MERGED_GEO_LOADED', true );
+define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.0' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.1' );
 
 /**
  * 全局预览检测函数 - 统一判断是否是预览请求
@@ -118,7 +118,7 @@ require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-merged-geo-automation.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-knowledge-center.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-migration.php';
 
-// 旧 wpaip_ 前缀数据（options/meta/数据表/cron）一次性迁移到 yimai_gso_ 前缀
+// 旧前缀数据（options/meta/数据表/cron）一次性迁移到 yimai_gso_ 前缀
 YIMAI_GSO_DB_Migration::init();
 
 // 注册定时发布守护进程钩子（每30分钟扫描，异步派发执行）
@@ -820,7 +820,7 @@ class YIMAI_GSO_Plugin {
 
         if ( strpos( $site_url, 'https://' ) !== 0 && strpos( $home_url, 'https://' ) !== 0 ) {
             echo '<div class="notice notice-warning is-dismissible">';
-            echo '<p><strong>白雀AI SEO 提示</strong>: 您的网站当前未启用 HTTPS (' . esc_html( $site_url ) . ')。</p>';
+            echo '<p><strong>一麦AI SEO 提示</strong>: 您的网站当前未启用 HTTPS (' . esc_html( $site_url ) . ')。</p>';
             echo '<p style="font-size:13px;color:#666">建议启用 SSL 证书并设置站点地址为 https:// 开头，这对 SEO 和 GEO 双引擎优化都十分重要。</p>';
             echo '</div>';
         }

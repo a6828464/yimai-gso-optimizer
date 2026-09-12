@@ -124,7 +124,7 @@ class YIMAI_GSO_Canonical_Manager {
     public static function add_meta_box() {
         add_meta_box(
             'yimai-gso-canonical-box',
-            'Canonical URL（白雀SEO）',
+            'Canonical URL（一麦SEO）',
             array( __CLASS__, 'render_meta_box' ),
             'post',
             'side',

@@ -1,8 +1,14 @@
 # 更新日志
 
+## 2.4.1
+
+- 删除两个历史主文件名的兼容加载器：经实测，测试服与生产站的数据库激活记录均已指向现行主文件 `yimai-gso-optimizer.php`，加载器已无站点依赖。
+- 清理 5 处用户可见的旧品牌字样（HTTPS 提示、SEO-GEO 预警横幅、GEO 实体名称示例、推送统计仪表盘标题、Canonical 元框标题），统一为「一麦」。
+- 简化内部防重复加载常量名。
+
 ## 2.4.0
 
-- 品牌统一：移除底层开源项目残留代码痕迹，全部混淆类名（如 `WPAIP_9XCU`、`WPAIP_2I0E`）改为可读命名（如 `YIMAI_GSO_Settings`、`YIMAI_GSO_Publisher`）。
+- 品牌统一：移除底层开源项目残留代码痕迹，全部混淆类名统一改为 `YIMAI_GSO_` 前缀的可读命名。
 - 全部标识符统一为 `yimai_gso_` / `YIMAI_GSO_` 前缀：options、post meta、数据表、cron hook、AJAX action、JS 全局变量、CSS 类名和日志前缀。
 - 新增 `includes/class-migration.php` 数据迁移：老站点升级后自动重命名 10 张自定义表、options（含 transient）、post/term/user meta，并清理旧前缀 cron 任务；迁移幂等，配置不丢失。
 - 性能优化：日志/队列/报告类大对象 option 全部改为不 autoload（404 重定向与日志、ALT 队列、标题历史、内链日志、重写日志、SEO meta 日志、GEO 审计报告与进度等），迁移会为老站点同步关闭这些 option 的 autoload，降低每个页面请求的内存加载。

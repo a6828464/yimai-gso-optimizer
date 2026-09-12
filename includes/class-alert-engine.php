@@ -537,7 +537,7 @@ class YIMAI_GSO_Alert_Engine {
         $alert_page = admin_url( 'admin.php?page=yimai-gso-dashboard&tab=l5-alerts' );
 
         echo '<div class="notice notice-warning is-dismissible">';
-        echo '<p><strong>🔔 白雀 SEO-GEO 预警：</strong>检测到 ' . esc_html( $count ) . ' 个需要关注的问题</p>';
+        echo '<p><strong>🔔 一麦 SEO-GEO 预警：</strong>检测到 ' . esc_html( $count ) . ' 个需要关注的问题</p>';
         echo '<ul style="margin:4px 0 8px 16px;font-size:13px;">';
         foreach ( $alerts as $alert ) {
             echo '<li>' . esc_html( $alert['title'] ) . '</li>';

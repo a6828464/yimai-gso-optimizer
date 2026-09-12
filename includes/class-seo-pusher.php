@@ -1304,7 +1304,7 @@ class YIMAI_GSO_SEO_Pusher {
     public function register_dashboard_widget() {
         wp_add_dashboard_widget(
             'yimai_gso_seo_push_widget',
-            '白雀AI - 搜索引擎推送统计',
+            '一麦AI - 搜索引擎推送统计',
             array( $this, 'render_dashboard_widget' )
         );
     }

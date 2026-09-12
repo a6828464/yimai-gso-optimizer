@@ -8702,7 +8702,7 @@ class YIMAI_GSO_Admin {
                     <label>实体名称</label>
                     <input type="text" id="geo-entity-name" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_name'] ); ?>"
-                           placeholder="例如：白雀科技"
+                           placeholder="例如：一麦瑜伽"
                            <?php disabled( ! $feature_ok ); ?>>
                 </div>
                 <div class="yimai-gso-field-group">
