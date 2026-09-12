@@ -2,32 +2,32 @@
 /**
  * 404 页面 SEO 优化
  * 检测死链、301重定向管理、自定义404页面、一键修复内链死链
- * v2.5.0：新增重定向管理+一键修复+爬虫识别+日志筛选导出+忽略规则
+ * 新增重定向管理+一键修复+爬虫识别+日志筛选导出+忽略规则
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_MP32 {
+class YIMAI_GSO_404_Optimizer {
 
     /**
      * 初始化
      */
     public static function init() {
-        add_action( 'wp_ajax_wpaip_404_scan', array( __CLASS__, 'ajax_scan_dead_links' ) );
-        add_action( 'wp_ajax_wpaip_404_get_detail', array( __CLASS__, 'ajax_get_link_detail' ) );
-        add_action( 'wp_ajax_wpaip_404_generate_page', array( __CLASS__, 'ajax_generate_404_page' ) );
-        add_action( 'wp_ajax_wpaip_404_save_settings', array( __CLASS__, 'ajax_save_settings' ) );
+        add_action( 'wp_ajax_yimai_gso_404_scan', array( __CLASS__, 'ajax_scan_dead_links' ) );
+        add_action( 'wp_ajax_yimai_gso_404_get_detail', array( __CLASS__, 'ajax_get_link_detail' ) );
+        add_action( 'wp_ajax_yimai_gso_404_generate_page', array( __CLASS__, 'ajax_generate_404_page' ) );
+        add_action( 'wp_ajax_yimai_gso_404_save_settings', array( __CLASS__, 'ajax_save_settings' ) );
 
-        // v2.5.0 新增 AJAX
-        add_action( 'wp_ajax_wpaip_404_apply_redirect', array( __CLASS__, 'ajax_apply_redirect' ) );
-        add_action( 'wp_ajax_wpaip_404_remove_dead_link', array( __CLASS__, 'ajax_remove_dead_link' ) );
-        add_action( 'wp_ajax_wpaip_404_batch_apply', array( __CLASS__, 'ajax_batch_apply_redirects' ) );
-        add_action( 'wp_ajax_wpaip_404_get_redirects', array( __CLASS__, 'ajax_get_redirects' ) );
-        add_action( 'wp_ajax_wpaip_404_delete_redirect', array( __CLASS__, 'ajax_delete_redirect' ) );
-        add_action( 'wp_ajax_wpaip_404_import_redirects', array( __CLASS__, 'ajax_import_redirects' ) );
-        add_action( 'wp_ajax_wpaip_404_export_redirects', array( __CLASS__, 'ajax_export_redirects' ) );
-        add_action( 'wp_ajax_wpaip_404_clear_logs', array( __CLASS__, 'ajax_clear_logs' ) );
-        add_action( 'wp_ajax_wpaip_404_export_csv', array( __CLASS__, 'ajax_export_csv' ) );
-        add_action( 'wp_ajax_wpaip_404_save_ignore_rules', array( __CLASS__, 'ajax_save_ignore_rules' ) );
+        //  新增 AJAX
+        add_action( 'wp_ajax_yimai_gso_404_apply_redirect', array( __CLASS__, 'ajax_apply_redirect' ) );
+        add_action( 'wp_ajax_yimai_gso_404_remove_dead_link', array( __CLASS__, 'ajax_remove_dead_link' ) );
+        add_action( 'wp_ajax_yimai_gso_404_batch_apply', array( __CLASS__, 'ajax_batch_apply_redirects' ) );
+        add_action( 'wp_ajax_yimai_gso_404_get_redirects', array( __CLASS__, 'ajax_get_redirects' ) );
+        add_action( 'wp_ajax_yimai_gso_404_delete_redirect', array( __CLASS__, 'ajax_delete_redirect' ) );
+        add_action( 'wp_ajax_yimai_gso_404_import_redirects', array( __CLASS__, 'ajax_import_redirects' ) );
+        add_action( 'wp_ajax_yimai_gso_404_export_redirects', array( __CLASS__, 'ajax_export_redirects' ) );
+        add_action( 'wp_ajax_yimai_gso_404_clear_logs', array( __CLASS__, 'ajax_clear_logs' ) );
+        add_action( 'wp_ajax_yimai_gso_404_export_csv', array( __CLASS__, 'ajax_export_csv' ) );
+        add_action( 'wp_ajax_yimai_gso_404_save_ignore_rules', array( __CLASS__, 'ajax_save_ignore_rules' ) );
 
         // 自定义404页面生效
         add_action( 'template_include', array( __CLASS__, 'maybe_serve_custom_404' ), 999 );
@@ -93,10 +93,10 @@ class WPAIP_MP32 {
         if ( is_404() ) {
             $url   = $_SERVER['REQUEST_URI'] ?? '';
             $query = $_SERVER['QUERY_STRING'] ?? '';
-            $key   = 'wpaip_404_logs';
+            $key   = 'yimai_gso_404_logs';
 
             // 检查忽略规则
-            $ignore_rules = WPAIP_9XCU::get( 'optimize_404_ignore_rules', '' );
+            $ignore_rules = YIMAI_GSO_Settings::get( 'optimize_404_ignore_rules', '' );
             if ( ! empty( $ignore_rules ) ) {
                 $patterns = array_filter( array_map( 'trim', explode( "\n", $ignore_rules ) ) );
                 foreach ( $patterns as $pattern ) {
@@ -156,7 +156,7 @@ class WPAIP_MP32 {
     // ─────────── AJAX：扫描死链 ───────────
 
     public static function ajax_scan_dead_links() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -183,7 +183,7 @@ class WPAIP_MP32 {
 
         // ★ 扩展：自动应用重定向建议同时支持内链扫描（internal）与死链日志（logs）
         //    只要开启自动应用且最佳匹配≥80，自动创建 301 重定向。
-        if ( in_array( $source, array( 'internal', 'logs' ), true ) && 1 == WPAIP_9XCU::get( 'optimize_404_auto_redirect', 0 ) ) {
+        if ( in_array( $source, array( 'internal', 'logs' ), true ) && 1 == YIMAI_GSO_Settings::get( 'optimize_404_auto_redirect', 0 ) ) {
             foreach ( $dead_links as $link ) {
                 if ( ! empty( $link['redirect_suggestions'] ) && ( $link['redirect_suggestions'][0]['score'] ?? 0 ) >= 80 ) {
                     self::create_redirect( $link['path'], $link['redirect_suggestions'][0]['url'], $link['redirect_suggestions'][0]['title'] );
@@ -194,14 +194,14 @@ class WPAIP_MP32 {
         $stats = self::get_404_stats( $bot_filter, $time_range );
 
         if ( 'internal' === $source && 1 === $page ) {
-            $cached_total = get_transient( 'wpaip_404_internal_total' );
+            $cached_total = get_transient( 'yimai_gso_404_internal_total' );
             if ( false === $cached_total ) {
                 $cached_total = self::estimate_internal_dead_link_count();
-                set_transient( 'wpaip_404_internal_total', $cached_total, HOUR_IN_SECONDS );
+                set_transient( 'yimai_gso_404_internal_total', $cached_total, HOUR_IN_SECONDS );
             }
             $stats['total_internal'] = intval( $cached_total );
         } elseif ( 'internal' === $source && $stats['total_internal'] < 0 ) {
-            $cached_total = get_transient( 'wpaip_404_internal_total' );
+            $cached_total = get_transient( 'yimai_gso_404_internal_total' );
             if ( false !== $cached_total ) {
                 $stats['total_internal'] = intval( $cached_total );
             }
@@ -221,7 +221,7 @@ class WPAIP_MP32 {
      * 获取死链详情 + 重定向建议
      */
     public static function ajax_get_link_detail() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -230,7 +230,7 @@ class WPAIP_MP32 {
             wp_send_json_error( array( 'message' => '缺少路径参数。' ) );
         }
 
-        $logs   = get_option( 'wpaip_404_logs', array() );
+        $logs   = get_option( 'yimai_gso_404_logs', array() );
         $target = null;
         foreach ( $logs as $log ) {
             if ( $log['path'] === $path ) {
@@ -253,7 +253,7 @@ class WPAIP_MP32 {
      * 获取所有重定向规则
      */
     public static function ajax_get_redirects() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -261,7 +261,7 @@ class WPAIP_MP32 {
         $per_page = min( 50, max( 10, absint( $_POST['per_page'] ?? 20 ) ) );
         $search   = sanitize_text_field( $_POST['search'] ?? '' );
 
-        $redirects = get_option( 'wpaip_404_redirects', array() );
+        $redirects = get_option( 'yimai_gso_404_redirects', array() );
         if ( ! is_array( $redirects ) ) {
             $redirects = array();
         }
@@ -300,7 +300,7 @@ class WPAIP_MP32 {
      * 应用/创建一条 301 重定向
      */
     public static function ajax_apply_redirect() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -327,7 +327,7 @@ class WPAIP_MP32 {
      */
     private static function redirect_exists( $from_path ) {
         $from_path = self::normalize_redirect_source( $from_path );
-        $redirects = get_option( 'wpaip_404_redirects', array() );
+        $redirects = get_option( 'yimai_gso_404_redirects', array() );
         if ( ! is_array( $redirects ) ) {
             return false;
         }
@@ -373,7 +373,7 @@ class WPAIP_MP32 {
             return false;
         }
 
-        $redirects = get_option( 'wpaip_404_redirects', array() );
+        $redirects = get_option( 'yimai_gso_404_redirects', array() );
         if ( ! is_array( $redirects ) ) {
             $redirects = array();
         }
@@ -398,19 +398,19 @@ class WPAIP_MP32 {
                 'server_written' => false,
             );
         }
-        update_option( 'wpaip_404_redirects', $redirects );
+        update_option( 'yimai_gso_404_redirects', $redirects, false );
 
         // 尝试写入 .htaccess / Nginx 配置（best-effort，真正的跳转由 WP 内部钩子保证）
         $server_result = self::write_server_redirect( $from_path, $to_url );
         if ( $server_result ) {
-            $redirects = get_option( 'wpaip_404_redirects', array() );
+            $redirects = get_option( 'yimai_gso_404_redirects', array() );
             foreach ( $redirects as $i => $r ) {
                 if ( self::normalize_redirect_source( $r['source'] ?? '' ) === $from_path ) {
                     $redirects[ $i ]['server_written'] = true;
                     break;
                 }
             }
-            update_option( 'wpaip_404_redirects', $redirects );
+            update_option( 'yimai_gso_404_redirects', $redirects, false );
         }
 
         self::ensure_wp_redirect_rules();
@@ -421,7 +421,7 @@ class WPAIP_MP32 {
      * 删除一条重定向规则
      */
     public static function ajax_delete_redirect() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -430,12 +430,12 @@ class WPAIP_MP32 {
             wp_send_json_error( array( 'message' => '缺少参数。' ) );
         }
 
-        $redirects = get_option( 'wpaip_404_redirects', array() );
+        $redirects = get_option( 'yimai_gso_404_redirects', array() );
         $redirects = array_filter( $redirects, function( $r ) use ( $source ) {
             return ( $r['source'] ?? '' ) !== $source;
         });
         $redirects = array_values( $redirects );
-        update_option( 'wpaip_404_redirects', $redirects );
+        update_option( 'yimai_gso_404_redirects', $redirects, false );
 
         wp_send_json_success( array( 'message' => '重定向规则已删除。' ) );
     }
@@ -444,7 +444,7 @@ class WPAIP_MP32 {
      * 批量应用重定向建议
      */
     public static function ajax_batch_apply_redirects() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -453,7 +453,7 @@ class WPAIP_MP32 {
             wp_send_json_error( array( 'message' => '请选择要应用的建议。' ) );
         }
 
-        $redirects = get_option( 'wpaip_404_redirects', array() );
+        $redirects = get_option( 'yimai_gso_404_redirects', array() );
         if ( ! is_array( $redirects ) ) {
             $redirects = array();
         }
@@ -494,7 +494,7 @@ class WPAIP_MP32 {
             self::write_server_redirect( $from, $to );
         }
 
-        update_option( 'wpaip_404_redirects', $redirects );
+        update_option( 'yimai_gso_404_redirects', $redirects, false );
         self::ensure_wp_redirect_rules();
 
         wp_send_json_success( array(
@@ -507,7 +507,7 @@ class WPAIP_MP32 {
      * 导入重定向（CSV 格式）
      */
     public static function ajax_import_redirects() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -517,7 +517,7 @@ class WPAIP_MP32 {
         }
 
         $lines = array_filter( explode( "\n", trim( $csv ) ) );
-        $redirects = get_option( 'wpaip_404_redirects', array() );
+        $redirects = get_option( 'yimai_gso_404_redirects', array() );
         if ( ! is_array( $redirects ) ) {
             $redirects = array();
         }
@@ -559,7 +559,7 @@ class WPAIP_MP32 {
             $imported++;
         }
 
-        update_option( 'wpaip_404_redirects', $redirects );
+        update_option( 'yimai_gso_404_redirects', $redirects, false );
         self::ensure_wp_redirect_rules();
 
         wp_send_json_success( array(
@@ -572,11 +572,11 @@ class WPAIP_MP32 {
      * 导出重定向为 CSV
      */
     public static function ajax_export_redirects() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
-        $redirects = get_option( 'wpaip_404_redirects', array() );
+        $redirects = get_option( 'yimai_gso_404_redirects', array() );
         $csv = "source,target,target_title,created_at\n";
         foreach ( $redirects as $r ) {
             $csv .= '"' . ( $r['source'] ?? '' ) . '","' . ( $r['target'] ?? '' ) . '","' . ( $r['target_title'] ?? '' ) . '","' . ( $r['created_at'] ?? '' ) . '"' . "\n";
@@ -629,22 +629,29 @@ class WPAIP_MP32 {
             return true;
         }
 
-        $wpaip_marker = '# WPAIP 301 Redirects';
+        $yimai_gso_marker = '# 一麦GSO 301 Redirects';
+        $legacy_marker = '# WPAIP 301 Redirects'; // 旧版本写入的标记，仅用于识别已有规则块
         $wp_marker    = '# BEGIN WordPress';
 
-        // 如果 WPAIP 标记已存在，在该标记后追加规则
-        if ( strpos( $content, $wpaip_marker ) !== false ) {
+        // 优先使用新标记；老站点 .htaccess 里已是旧标记时沿用旧标记追加，避免产生重复块
+        $marker = $yimai_gso_marker;
+        if ( strpos( $content, $yimai_gso_marker ) === false && strpos( $content, $legacy_marker ) !== false ) {
+            $marker = $legacy_marker;
+        }
+
+        // 如果标记已存在，在该标记后追加规则
+        if ( strpos( $content, $marker ) !== false ) {
             $content = preg_replace(
-                '/(' . preg_quote( $wpaip_marker, '/' ) . '.+\n)/',
+                '/(' . preg_quote( $marker, '/' ) . '.+\n)/',
                 "$0" . $rule . "\n",
                 $content,
                 1
             );
         } elseif ( strpos( $content, $wp_marker ) !== false ) {
-            // 首次插入：在 # BEGIN WordPress 前创建 WPAIP 标记块
-            $content = str_replace( $wp_marker, $wpaip_marker . "\n" . $rule . "\n\n" . $wp_marker, $content );
+            // 首次插入：在 # BEGIN WordPress 前创建标记块
+            $content = str_replace( $wp_marker, $yimai_gso_marker . "\n" . $rule . "\n\n" . $wp_marker, $content );
         } else {
-            $content .= "\n" . $wpaip_marker . "\n" . $rule . "\n";
+            $content .= "\n" . $yimai_gso_marker . "\n" . $rule . "\n";
         }
 
         $result = file_put_contents( $htaccess, $content );
@@ -655,7 +662,7 @@ class WPAIP_MP32 {
      * 写 Nginx 301 重定向（生成配置片段，提示用户手动添加）
      */
     private static function write_nginx_redirect( $from_path, $to_url ) {
-        $nginx_config_dir = ABSPATH . '../wpaip-redirects/';
+        $nginx_config_dir = ABSPATH . '../yimai-gso-redirects/';
         if ( ! is_dir( $nginx_config_dir ) ) {
             @mkdir( $nginx_config_dir, 0755, true );
         }
@@ -668,7 +675,7 @@ class WPAIP_MP32 {
             return true;
         }
 
-        $header = "# WPAIP 301 重定向配置\n# 请在 Nginx 主配置中 include 此文件：\n# include " . $conf_file . ";\n\n";
+        $header = "# 一麦GSO 301 重定向配置\n# 请在 Nginx 主配置中 include 此文件：\n# include " . $conf_file . ";\n\n";
         if ( ! file_exists( $conf_file ) ) {
             file_put_contents( $conf_file, $header . $rule . "\n" );
         } else {
@@ -696,7 +703,7 @@ class WPAIP_MP32 {
      * 在 WordPress 内部处理 301 重定向（优先于服务器配置）
      */
     public static function handle_wp_redirects() {
-        $redirects = get_option( 'wpaip_404_redirects', array() );
+        $redirects = get_option( 'yimai_gso_404_redirects', array() );
         if ( empty( $redirects ) ) {
             return;
         }
@@ -748,7 +755,7 @@ class WPAIP_MP32 {
      * 用于：① 前台真实 404 命中时自动建重定向；② 死链扫描时批量建重定向。
      */
     private static function maybe_auto_apply_redirect( $path ) {
-        if ( 1 != WPAIP_9XCU::get( 'optimize_404_auto_redirect', 0 ) ) {
+        if ( 1 != YIMAI_GSO_Settings::get( 'optimize_404_auto_redirect', 0 ) ) {
             return;
         }
         $path = self::normalize_redirect_source( $path );
@@ -762,7 +769,7 @@ class WPAIP_MP32 {
         }
 
         // 节流：同一路径 1 小时内只计算一次建议，避免高频 404 时反复查库
-        $cache_key = 'wpaip_auto404_' . md5( $path );
+        $cache_key = 'yimai_gso_auto404_' . md5( $path );
         if ( false !== get_transient( $cache_key ) ) {
             return;
         }
@@ -784,7 +791,7 @@ class WPAIP_MP32 {
      * 移除文章中的死链（保留锚文本，去掉 <a> 标签）
      */
     public static function ajax_remove_dead_link() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -811,8 +818,8 @@ class WPAIP_MP32 {
         ) );
 
         // 清除相关缓存
-        delete_transient( 'wpaip_dead_links_page_1' );
-        delete_transient( 'wpaip_404_internal_total' );
+        delete_transient( 'yimai_gso_dead_links_page_1' );
+        delete_transient( 'yimai_gso_404_internal_total' );
         clean_post_cache( $post_id );
 
         wp_send_json_success( array( 'message' => '死链已移除，锚文本已保留。' ) );
@@ -828,7 +835,7 @@ class WPAIP_MP32 {
             return $template;
         }
 
-        $enabled = WPAIP_9XCU::get( 'optimize_404_custom_enabled', 0 );
+        $enabled = YIMAI_GSO_Settings::get( 'optimize_404_custom_enabled', 0 );
         if ( ! $enabled ) {
             return $template;
         }
@@ -905,7 +912,7 @@ class WPAIP_MP32 {
         }
 
         // 获取自定义HTML（如果有）
-        $custom_html = WPAIP_9XCU::get( 'optimize_404_custom_page', '' );
+        $custom_html = YIMAI_GSO_Settings::get( 'optimize_404_custom_page', '' );
         $body_html = ! empty( $custom_html ) ? $custom_html : sprintf(
             '<div style="max-width:720px;margin:60px auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">
                 <div style="text-align:center;margin-bottom:32px">
@@ -952,7 +959,7 @@ class WPAIP_MP32 {
     // ─────────── 生成自定义404页面HTML（供管理后台预览） ───────────
 
     public static function ajax_generate_404_page() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -1004,14 +1011,14 @@ class WPAIP_MP32 {
         wp_send_json_success( array(
             'html'       => $html,
             'site_name'  => $site_name,
-            'preview_url' => $home_url . '?wpaip_404_preview=1',
+            'preview_url' => $home_url . '?yimai_gso_404_preview=1',
         ) );
     }
 
     // ─────────── 设置保存 ───────────
 
     public static function ajax_save_settings() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足。' ) );
         }
@@ -1020,10 +1027,10 @@ class WPAIP_MP32 {
 
         // ★ 修复：isset(0) 仍返回 true，导致取消勾选时仍然保存为 1。
         //    前端 $.post 在取消勾选时发送 0，改用 absint 正确解析。
-        WPAIP_9XCU::set( 'optimize_404_log_enabled', absint( $_POST['log_enabled'] ?? 0 ) );
-        WPAIP_9XCU::set( 'optimize_404_custom_enabled', absint( $_POST['custom_enabled'] ?? 0 ) );
-        WPAIP_9XCU::set( 'optimize_404_auto_redirect', absint( $_POST['auto_redirect'] ?? 0 ) );
-        WPAIP_9XCU::set( 'optimize_404_custom_page', wp_kses_post( $_POST['custom_page'] ?? '' ) );
+        YIMAI_GSO_Settings::set( 'optimize_404_log_enabled', absint( $_POST['log_enabled'] ?? 0 ) );
+        YIMAI_GSO_Settings::set( 'optimize_404_custom_enabled', absint( $_POST['custom_enabled'] ?? 0 ) );
+        YIMAI_GSO_Settings::set( 'optimize_404_auto_redirect', absint( $_POST['auto_redirect'] ?? 0 ) );
+        YIMAI_GSO_Settings::set( 'optimize_404_custom_page', wp_kses_post( $_POST['custom_page'] ?? '' ) );
 
         wp_send_json_success( array( 'message' => '设置已保存。' ) );
     }
@@ -1031,22 +1038,22 @@ class WPAIP_MP32 {
     // ─────────── P3: 日志清空 ───────────
 
     public static function ajax_clear_logs() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
-        update_option( 'wpaip_404_logs', array() );
+        update_option( 'yimai_gso_404_logs', array(), false );
         wp_send_json_success( array( 'message' => '404 日志已清空。' ) );
     }
 
     // ─────────── P3: 导出CSV ───────────
 
     public static function ajax_export_csv() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
-        $logs = get_option( 'wpaip_404_logs', array() );
+        $logs = get_option( 'yimai_gso_404_logs', array() );
 
         // 过滤静态资源
         $skip_ext = array( '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.map' );
@@ -1073,7 +1080,7 @@ class WPAIP_MP32 {
      * 保存忽略规则（正则表达式，每行一个）
      */
     public static function ajax_save_ignore_rules() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -1088,7 +1095,7 @@ class WPAIP_MP32 {
             $valid_list[] = $line;
         }
         $rules = implode( "\n", $valid_list );
-        WPAIP_9XCU::set( 'optimize_404_ignore_rules', $rules );
+        YIMAI_GSO_Settings::set( 'optimize_404_ignore_rules', $rules );
 
         wp_send_json_success( array( 'message' => '忽略规则已保存。' ) );
     }
@@ -1099,7 +1106,7 @@ class WPAIP_MP32 {
      * 从 404 日志获取死链列表（支持 bot_filter、search、time_range）
      */
     private static function get_404_logs( $page, $per_page, $bot_filter = 'all', $search = '', $time_range = 'all' ) {
-        $logs = get_option( 'wpaip_404_logs', array() );
+        $logs = get_option( 'yimai_gso_404_logs', array() );
         if ( ! is_array( $logs ) ) {
             return array();
         }
@@ -1186,8 +1193,8 @@ class WPAIP_MP32 {
     private static function scan_internal_dead_links( $page, $per_page, $search = '' ) {
         global $wpdb;
 
-        $pt_list = WPAIP_B7PQ::sql_type_list();
-        $cache_key = 'wpaip_dead_links_page_' . $page . ( $search ? '_q_' . md5( $search ) : '' );
+        $pt_list = YIMAI_GSO_Post_Type_Helper::sql_type_list();
+        $cache_key = 'yimai_gso_dead_links_page_' . $page . ( $search ? '_q_' . md5( $search ) : '' );
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             return $cached;
@@ -1292,8 +1299,8 @@ class WPAIP_MP32 {
     private static function url_to_postid_fast( $url ) {
         global $wpdb;
         // 内容类型列表（与 scan_internal_dead_links / find_redirect_suggestions 保持一致），避免未定义导致 post_type IN () 语法错误
-        $pt_list = class_exists( 'WPAIP_B7PQ' )
-            ? WPAIP_B7PQ::sql_type_list()
+        $pt_list = class_exists( 'YIMAI_GSO_Post_Type_Helper' )
+            ? YIMAI_GSO_Post_Type_Helper::sql_type_list()
             : "'post','page'";
         $path = wp_parse_url( $url, PHP_URL_PATH );
         if ( empty( $path ) ) return url_to_postid( $url );
@@ -1416,7 +1423,7 @@ class WPAIP_MP32 {
         // 策略2：关键词搜索
         if ( ! empty( $keywords ) ) {
             $search_term = implode( ' ', array_slice( $keywords, 0, 3 ) );
-            $query = new WP_Query( array( 'post_type' => WPAIP_B7PQ::get_supported(), 'post_status' => 'publish', 'posts_per_page' => $limit * 3, 's' => $search_term, 'orderby' => 'date' ) );
+            $query = new WP_Query( array( 'post_type' => YIMAI_GSO_Post_Type_Helper::get_supported(), 'post_status' => 'publish', 'posts_per_page' => $limit * 3, 's' => $search_term, 'orderby' => 'date' ) );
             foreach ( $query->posts as $post ) {
                 $score = 0;
                 foreach ( $keywords as $kw ) {
@@ -1485,7 +1492,7 @@ class WPAIP_MP32 {
      * 获取404统计数据（支持bot_filter和time_range筛选）
      */
     private static function get_404_stats( $bot_filter = 'all', $time_range = 'all' ) {
-        $logs = get_option( 'wpaip_404_logs', array() );
+        $logs = get_option( 'yimai_gso_404_logs', array() );
         if ( ! is_array( $logs ) ) {
             $logs = array();
         }

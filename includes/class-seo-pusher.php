@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_WLDZ {
+class YIMAI_GSO_SEO_Pusher {
 
     private static $instance = null;
     
@@ -38,18 +38,18 @@ class WPAIP_WLDZ {
         add_action( 'transition_post_status', array( $this, 'on_post_status_change' ), 20, 3 );
         
         // 异步推送队列处理（发布流程不阻塞）
-        add_action( 'wpaip_process_seo_push_queue', array( $this, 'process_seo_queue' ) );
+        add_action( 'yimai_gso_process_seo_push_queue', array( $this, 'process_seo_queue' ) );
         
         // AJAX 钩子
-        add_action( 'wp_ajax_wpaip_seo_push_single', array( $this, 'ajax_push_single' ) );
-        add_action( 'wp_ajax_wpaip_seo_push_batch', array( $this, 'ajax_push_batch' ) );
-        add_action( 'wp_ajax_wpaip_seo_push_sitemap', array( $this, 'ajax_push_sitemap' ) );
-        add_action( 'wp_ajax_wpaip_seo_push_get_logs', array( $this, 'ajax_get_logs' ) );
-        add_action( 'wp_ajax_wpaip_seo_push_clear_logs', array( $this, 'ajax_clear_logs' ) );
-        add_action( 'wp_ajax_wpaip_seo_get_stats', array( $this, 'ajax_get_stats' ) );
-        add_action( 'wp_ajax_wpaip_seo_test_connection', array( $this, 'ajax_test_connection' ) );
-        add_action( 'wp_ajax_wpaip_seo_push_get_posts', array( $this, 'ajax_get_posts' ) );
-        add_action( 'wp_ajax_wpaip_save_seo_push_settings', array( $this, 'ajax_save_settings' ) );
+        add_action( 'wp_ajax_yimai_gso_seo_push_single', array( $this, 'ajax_push_single' ) );
+        add_action( 'wp_ajax_yimai_gso_seo_push_batch', array( $this, 'ajax_push_batch' ) );
+        add_action( 'wp_ajax_yimai_gso_seo_push_sitemap', array( $this, 'ajax_push_sitemap' ) );
+        add_action( 'wp_ajax_yimai_gso_seo_push_get_logs', array( $this, 'ajax_get_logs' ) );
+        add_action( 'wp_ajax_yimai_gso_seo_push_clear_logs', array( $this, 'ajax_clear_logs' ) );
+        add_action( 'wp_ajax_yimai_gso_seo_get_stats', array( $this, 'ajax_get_stats' ) );
+        add_action( 'wp_ajax_yimai_gso_seo_test_connection', array( $this, 'ajax_test_connection' ) );
+        add_action( 'wp_ajax_yimai_gso_seo_push_get_posts', array( $this, 'ajax_get_posts' ) );
+        add_action( 'wp_ajax_yimai_gso_save_seo_push_settings', array( $this, 'ajax_save_settings' ) );
         
         // 注册小工具
         add_action( 'wp_dashboard_setup', array( $this, 'register_dashboard_widget' ) );
@@ -70,7 +70,7 @@ class WPAIP_WLDZ {
      */
     public function on_post_status_change( $new_status, $old_status, $post ) {
         // 预览请求跳过（防止内存溢出）
-        if ( function_exists( 'wpaip_is_preview_request' ) && wpaip_is_preview_request() ) {
+        if ( function_exists( 'yimai_gso_is_preview_request' ) && yimai_gso_is_preview_request() ) {
             return;
         }
 
@@ -87,25 +87,25 @@ class WPAIP_WLDZ {
         }
 
         // 仅处理插件支持的内容类型（默认：post + page）
-        if ( ! WPAIP_B7PQ::is_supported( $post->post_type ) ) {
+        if ( ! YIMAI_GSO_Post_Type_Helper::is_supported( $post->post_type ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPAIP SEO] 不支持的内容类型: ' . $post->post_type . ', 文章 ID: ' . $post->ID );
+                error_log( '[YIMAI GSO] 不支持的内容类型: ' . $post->post_type . ', 文章 ID: ' . $post->ID );
             }
             return;
         }
         
         // 检查自动推送开关
-        if ( ! WPAIP_9XCU::get( 'seo_push_auto_enabled', 0 ) ) {
+        if ( ! YIMAI_GSO_Settings::get( 'seo_push_auto_enabled', 0 ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPAIP SEO] 自动推送未开启，文章 ID: ' . $post->ID );
+                error_log( '[YIMAI GSO] 自动推送未开启，文章 ID: ' . $post->ID );
             }
             return;
         }
 
         // 更新推送：仅当开启时才入队
-        if ( $old_status === 'publish' && ! WPAIP_9XCU::get( 'seo_push_on_update', 1 ) ) {
+        if ( $old_status === 'publish' && ! YIMAI_GSO_Settings::get( 'seo_push_on_update', 1 ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPAIP SEO] 更新推送未开启，文章 ID: ' . $post->ID );
+                error_log( '[YIMAI GSO] 更新推送未开启，文章 ID: ' . $post->ID );
             }
             return;
         }
@@ -113,7 +113,7 @@ class WPAIP_WLDZ {
         // 功能权限检查：只有SEO版才能使用SEO推送
         if ( ! true || ! true ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPAIP SEO] 功能权限不足，文章 ID: ' . $post->ID );
+                error_log( '[YIMAI GSO] 功能权限不足，文章 ID: ' . $post->ID );
             }
             return;
         }
@@ -126,7 +126,7 @@ class WPAIP_WLDZ {
         
         // 入队异步推送（不再同步阻塞发布流程）
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( '[WPAIP SEO] 文章入队: ' . $post->ID );
+            error_log( '[YIMAI GSO] 文章入队: ' . $post->ID );
         }
         $this->add_to_seo_queue( $post->ID );
     }
@@ -179,7 +179,7 @@ class WPAIP_WLDZ {
         }
 
         // 记录日志（按批量记录，每个URL一条，success字段记录该URL是否推送成功）
-        error_log( '[WPAIP SEO] 开始记录日志，URL数: ' . count( $urls ) );
+        error_log( '[YIMAI GSO] 开始记录日志，URL数: ' . count( $urls ) );
         foreach ( $urls as $url ) {
             $log_results = array(
                 'baidu' => array(
@@ -195,7 +195,7 @@ class WPAIP_WLDZ {
                     'msg'     => $results['google']['msg'] ?? '',
                 ),
             );
-            error_log( '[WPAIP SEO] 记录日志 URL: ' . $url );
+            error_log( '[YIMAI GSO] 记录日志 URL: ' . $url );
             $this->log_push( $url, $log_results, $type );
         }
         
@@ -203,7 +203,7 @@ class WPAIP_WLDZ {
         $any_success = ( ! empty( $results['baidu']['success'] ) || ! empty( $results['bing']['success'] ) || ! empty( $results['google']['success'] ) );
         if ( $any_success && ! empty( $post_ids ) ) {
             foreach ( $post_ids as $pid ) {
-                update_post_meta( intval( $pid ), '_wpaip_seo_pushed', time() );
+                update_post_meta( intval( $pid ), '_yimai_gso_seo_pushed', time() );
             }
         }
         
@@ -214,7 +214,7 @@ class WPAIP_WLDZ {
      * 检查平台是否启用
      */
     private function is_platform_enabled( $platform ) {
-        return (bool) WPAIP_9XCU::get( 'seo_push_' . $platform . '_enabled', 0 );
+        return (bool) YIMAI_GSO_Settings::get( 'seo_push_' . $platform . '_enabled', 0 );
     }
     
     /**
@@ -285,7 +285,7 @@ class WPAIP_WLDZ {
      * 官方示例：http://data.zz.baidu.com/urls?site=www.example.com&token=edk7yc4rEZP9pDQD
      */
     private function get_baidu_api_url( $type = '' ) {
-        $api_address = WPAIP_9XCU::get( 'seo_push_baidu_api_address', '' );
+        $api_address = YIMAI_GSO_Settings::get( 'seo_push_baidu_api_address', '' );
         
         // 优先使用用户粘贴的完整接口地址
         if ( ! empty( $api_address ) ) {
@@ -303,7 +303,7 @@ class WPAIP_WLDZ {
         }
         
         // 回退：仅用 token 自动拼接（site 用纯域名）
-        $token = WPAIP_9XCU::get( 'seo_push_baidu_token', '' );
+        $token = YIMAI_GSO_Settings::get( 'seo_push_baidu_token', '' );
         if ( empty( $token ) ) {
             return new WP_Error( 'baidu_no_config', '未配置百度推送，请填写接口调用地址' );
         }
@@ -318,13 +318,13 @@ class WPAIP_WLDZ {
      */
     private function push_to_bing( $urls ) {
         // 优先使用 IndexNow API（必应官方推荐，简单高效）
-        $indexnow_key = WPAIP_9XCU::get( 'seo_push_bing_indexnow_key', '' );
+        $indexnow_key = YIMAI_GSO_Settings::get( 'seo_push_bing_indexnow_key', '' );
         if ( ! empty( $indexnow_key ) ) {
             return $this->push_to_indexnow( $urls, $indexnow_key );
         }
         
         // 备选：旧版 Submit API
-        $api_key = WPAIP_9XCU::get( 'seo_push_bing_api_key', '' );
+        $api_key = YIMAI_GSO_Settings::get( 'seo_push_bing_api_key', '' );
         if ( ! empty( $api_key ) ) {
             return $this->push_to_bing_legacy( $urls, $api_key );
         }
@@ -461,7 +461,7 @@ class WPAIP_WLDZ {
      * 推送到 Google（双通道：优先 Indexing API，备选 Sitemap Ping）
      */
     private function push_to_google( $urls ) {
-        $mode = WPAIP_9XCU::get( 'seo_push_google_mode', 'sitemap_ping' );
+        $mode = YIMAI_GSO_Settings::get( 'seo_push_google_mode', 'sitemap_ping' );
 
         if ( $mode === 'indexing_api' ) {
             return $this->push_to_google_indexing_api( $urls );
@@ -512,7 +512,7 @@ class WPAIP_WLDZ {
      * 文档：https://developers.google.com/search/apis/indexing-api/v3/quickstart
      */
     private function push_to_google_indexing_api( $urls ) {
-        $service_json = WPAIP_9XCU::get( 'seo_push_google_service_json', '' );
+        $service_json = YIMAI_GSO_Settings::get( 'seo_push_google_service_json', '' );
         if ( empty( $service_json ) ) {
             return array(
                 'success' => 0,
@@ -638,15 +638,15 @@ class WPAIP_WLDZ {
     /**
      * Google API HTTP 代理请求（国内服务器绕过 GFW 访问 Google 服务）
      * 
-     * 使用方式：在 wp-config.php 中定义 WPAIP_GOOGLE_PROXY 常量
-     * define( 'WPAIP_GOOGLE_PROXY', 'http://127.0.0.1:10809' );
+     * 使用方式：在 wp-config.php 中定义 YIMAI_GSO_GOOGLE_PROXY 常量
+     * define( 'YIMAI_GSO_GOOGLE_PROXY', 'http://127.0.0.1:10809' );
      * 
      * @param string $url   请求 URL
      * @param array  $args  请求参数 {method, body, headers, timeout}
      * @return array|WP_Error 模拟 wp_remote_post 返回格式（兼容 wp_remote_retrieve_body / wp_remote_retrieve_response_code）
      */
     private function google_proxy_request( $url, $args = array() ) {
-        $proxy = defined( 'WPAIP_GOOGLE_PROXY' ) ? WPAIP_GOOGLE_PROXY : '';
+        $proxy = defined( 'YIMAI_GSO_GOOGLE_PROXY' ) ? YIMAI_GSO_GOOGLE_PROXY : '';
 
         $ch = curl_init();
         curl_setopt( $ch, CURLOPT_URL, $url );
@@ -707,9 +707,9 @@ class WPAIP_WLDZ {
     // ==================== 异步推送队列 ====================
 
     /** @var string 推送队列 option 键名 */
-    const SEO_QUEUE_OPTION = 'wpaip_seo_push_queue';
+    const SEO_QUEUE_OPTION = 'yimai_gso_seo_push_queue';
     /** @var string 异步处理 cron 钩子名 */
-    const SEO_QUEUE_CRON   = 'wpaip_process_seo_push_queue';
+    const SEO_QUEUE_CRON   = 'yimai_gso_process_seo_push_queue';
 
     /**
      * 将文章加入推送队列（transition_post_status 钩子中调用，毫秒级返回）
@@ -730,7 +730,7 @@ class WPAIP_WLDZ {
         // 队列容量保护（最大50条，与SEO元数据队列保持一致）
         if ( count( $queue ) >= 50 ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPAIP SEO] 推送队列已满(50)，文章未入队: ' . $post_id );
+                error_log( '[YIMAI GSO] 推送队列已满(50)，文章未入队: ' . $post_id );
             }
             return;
         }
@@ -738,7 +738,7 @@ class WPAIP_WLDZ {
         // 去重
         if ( in_array( $post_id, $queue, true ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPAIP SEO] 文章已在队列中: ' . $post_id );
+                error_log( '[YIMAI GSO] 文章已在队列中: ' . $post_id );
             }
             return;
         }
@@ -746,23 +746,23 @@ class WPAIP_WLDZ {
         $queue[] = $post_id;
         update_option( self::SEO_QUEUE_OPTION, $queue, false );
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( '[WPAIP SEO] 文章已加入队列: ' . $post_id . '，队列长度: ' . count( $queue ) );
+            error_log( '[YIMAI GSO] 文章已加入队列: ' . $post_id . '，队列长度: ' . count( $queue ) );
         }
 
         // 安排异步处理（60秒后执行，避开发布高峰期）
         if ( ! wp_next_scheduled( self::SEO_QUEUE_CRON ) ) {
             wp_schedule_single_event( time() + 60, self::SEO_QUEUE_CRON );
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPAIP SEO] 已安排 WP-Cron 事件处理队列' );
+                error_log( '[YIMAI GSO] 已安排 WP-Cron 事件处理队列' );
             }
         }
 
         // 主动触发 wp-cron.php 立即处理（防止低流量站点队列堆积）
         if ( ! ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) && function_exists( 'spawn_cron' ) ) {
-            $last_trigger = get_transient( 'wpaip_last_cron_trigger' );
+            $last_trigger = get_transient( 'yimai_gso_last_cron_trigger' );
             if ( false === $last_trigger ) {
                 spawn_cron();
-                set_transient( 'wpaip_last_cron_trigger', time(), 1 );
+                set_transient( 'yimai_gso_last_cron_trigger', time(), 1 );
             }
         }
     }
@@ -772,16 +772,16 @@ class WPAIP_WLDZ {
      * 每次最多处理 5 篇，避免超时
      */
     public function process_seo_queue() {
-        error_log( '[WPAIP SEO] 开始处理推送队列' );
+        error_log( '[YIMAI GSO] 开始处理推送队列' );
 
         $queue = get_option( self::SEO_QUEUE_OPTION, array() );
         if ( ! is_array( $queue ) || empty( $queue ) ) {
             delete_option( self::SEO_QUEUE_OPTION );
-            error_log( '[WPAIP SEO] 队列为空，跳过处理' );
+            error_log( '[YIMAI GSO] 队列为空，跳过处理' );
             return;
         }
 
-        error_log( '[WPAIP SEO] 队列中有 ' . count( $queue ) . ' 篇文章待推送' );
+        error_log( '[YIMAI GSO] 队列中有 ' . count( $queue ) . ' 篇文章待推送' );
 
         // 每次最多处理5篇
         $batch = array_splice( $queue, 0, 5 );
@@ -791,9 +791,9 @@ class WPAIP_WLDZ {
             if ( $post_id <= 0 ) {
                 continue;
             }
-            error_log( '[WPAIP SEO] 正在推送文章 ID: ' . $post_id );
+            error_log( '[YIMAI GSO] 正在推送文章 ID: ' . $post_id );
             $results = $this->push_post( $post_id, 'auto' );
-            error_log( '[WPAIP SEO] 文章 ID: ' . $post_id . ' 推送结果: ' . wp_json_encode( $results ) );
+            error_log( '[YIMAI GSO] 文章 ID: ' . $post_id . ' 推送结果: ' . wp_json_encode( $results ) );
         }
 
         // 队列还有剩余 → 30秒后继续处理
@@ -838,8 +838,8 @@ class WPAIP_WLDZ {
                     
                 case self::PLATFORM_BING:
                     // 必应通过 IndexNow 或旧版 API 提交 Sitemap URL
-                    $indexnow_key = WPAIP_9XCU::get( 'seo_push_bing_indexnow_key', '' );
-                    $api_key = WPAIP_9XCU::get( 'seo_push_bing_api_key', '' );
+                    $indexnow_key = YIMAI_GSO_Settings::get( 'seo_push_bing_indexnow_key', '' );
+                    $api_key = YIMAI_GSO_Settings::get( 'seo_push_bing_api_key', '' );
                     
                     if ( ! empty( $indexnow_key ) ) {
                         $results['bing'] = $this->push_to_indexnow( array( $sitemap_url ), $indexnow_key );
@@ -885,7 +885,7 @@ class WPAIP_WLDZ {
      */
     private function log_push( $url, $results, $type ) {
         global $wpdb;
-        $table = $wpdb->prefix . 'wpaip_seo_push_logs';
+        $table = $wpdb->prefix . 'yimai_gso_seo_push_logs';
         
         // 确保表存在
         $this->ensure_log_table();
@@ -902,14 +902,14 @@ class WPAIP_WLDZ {
             'created_at' => current_time( 'mysql' ),
         );
         
-        error_log( '[WPAIP SEO] 准备写入日志: ' . wp_json_encode( $log_data ) );
+        error_log( '[YIMAI GSO] 准备写入日志: ' . wp_json_encode( $log_data ) );
         
         $result = $wpdb->insert( $table, $log_data );
         
         if ( $result === false ) {
-            error_log( '[WPAIP SEO] 日志写入失败: ' . $wpdb->last_error );
+            error_log( '[YIMAI GSO] 日志写入失败: ' . $wpdb->last_error );
         } else {
-            error_log( '[WPAIP SEO] 日志写入成功，ID: ' . $wpdb->insert_id );
+            error_log( '[YIMAI GSO] 日志写入成功，ID: ' . $wpdb->insert_id );
         }
     }
     
@@ -918,7 +918,7 @@ class WPAIP_WLDZ {
      */
     private function ensure_log_table() {
         global $wpdb;
-        $table = $wpdb->prefix . 'wpaip_seo_push_logs';
+        $table = $wpdb->prefix . 'yimai_gso_seo_push_logs';
         
         $charset_collate = $wpdb->get_charset_collate();
         
@@ -962,7 +962,7 @@ class WPAIP_WLDZ {
      */
     public function get_stats( $days = 30 ) {
         global $wpdb;
-        $table = $wpdb->prefix . 'wpaip_seo_push_logs';
+        $table = $wpdb->prefix . 'yimai_gso_seo_push_logs';
         $this->ensure_log_table();
         
         $since = gmdate( 'Y-m-d H:i:s', current_time( 'timestamp' ) - $days * DAY_IN_SECONDS );
@@ -992,7 +992,7 @@ class WPAIP_WLDZ {
      */
     public function get_logs( $page = 1, $per_page = 20, $platform = '' ) {
         global $wpdb;
-        $table = $wpdb->prefix . 'wpaip_seo_push_logs';
+        $table = $wpdb->prefix . 'yimai_gso_seo_push_logs';
         $this->ensure_log_table();
         
         $offset = ( $page - 1 ) * $per_page;
@@ -1033,7 +1033,7 @@ class WPAIP_WLDZ {
      */
     public function clear_logs( $before_date = '' ) {
         global $wpdb;
-        $table = $wpdb->prefix . 'wpaip_seo_push_logs';
+        $table = $wpdb->prefix . 'yimai_gso_seo_push_logs';
         
         if ( empty( $before_date ) ) {
             return $wpdb->query( "TRUNCATE TABLE $table" );
@@ -1051,7 +1051,7 @@ class WPAIP_WLDZ {
      * AJAX: 推送单篇文章
      */
     public function ajax_push_single() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1069,7 +1069,7 @@ class WPAIP_WLDZ {
      * AJAX: 批量推送
      */
     public function ajax_push_batch() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1099,7 +1099,7 @@ class WPAIP_WLDZ {
      * AJAX: 推送Sitemap
      */
     public function ajax_push_sitemap() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1113,7 +1113,7 @@ class WPAIP_WLDZ {
      * AJAX: 获取推送日志
      */
     public function ajax_get_logs() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1129,7 +1129,7 @@ class WPAIP_WLDZ {
      * AJAX: 清除日志
      */
     public function ajax_clear_logs() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1143,7 +1143,7 @@ class WPAIP_WLDZ {
      * AJAX: 获取统计
      */
     public function ajax_get_stats() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1160,7 +1160,7 @@ class WPAIP_WLDZ {
      * AJAX: 测试连接
      */
     public function ajax_test_connection() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1185,8 +1185,8 @@ class WPAIP_WLDZ {
                 break;
                 
             case 'bing':
-                $indexnow_key = WPAIP_9XCU::get( 'seo_push_bing_indexnow_key', '' );
-                $api_key = WPAIP_9XCU::get( 'seo_push_bing_api_key', '' );
+                $indexnow_key = YIMAI_GSO_Settings::get( 'seo_push_bing_indexnow_key', '' );
+                $api_key = YIMAI_GSO_Settings::get( 'seo_push_bing_api_key', '' );
 
                 if ( ! empty( $indexnow_key ) ) {
                     // 测试 IndexNow 连接（推送首页）
@@ -1210,9 +1210,9 @@ class WPAIP_WLDZ {
                 break;
 
             case 'google':
-                $mode = WPAIP_9XCU::get( 'seo_push_google_mode', 'sitemap_ping' );
+                $mode = YIMAI_GSO_Settings::get( 'seo_push_google_mode', 'sitemap_ping' );
                 if ( $mode === 'indexing_api' ) {
-                    $service_json = WPAIP_9XCU::get( 'seo_push_google_service_json', '' );
+                    $service_json = YIMAI_GSO_Settings::get( 'seo_push_google_service_json', '' );
                     if ( empty( $service_json ) ) {
                         $result = array( 'success' => false, 'message' => '未配置Google Service Account JSON密钥' );
                     } else {
@@ -1243,7 +1243,7 @@ class WPAIP_WLDZ {
      * AJAX: 获取文章列表（用于批量推送）
      */
     public function ajax_get_posts() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1252,7 +1252,7 @@ class WPAIP_WLDZ {
         $per_page = isset( $_POST['per_page'] ) ? min( intval( $_POST['per_page'] ), 200 ) : 50;
         
         $args = array(
-            'post_type'      => WPAIP_B7PQ::get_supported(),
+            'post_type'      => YIMAI_GSO_Post_Type_Helper::get_supported(),
             'post_status'    => 'publish',
             'posts_per_page' => $per_page,
             'orderby'        => 'date',
@@ -1267,7 +1267,7 @@ class WPAIP_WLDZ {
         $query = new WP_Query( $args );
         $posts = array();
         
-        // 批量预加载 post meta（用于 _wpaip_seo_pushed 字段）
+        // 批量预加载 post meta（用于 _yimai_gso_seo_pushed 字段）
         $push_post_ids = wp_list_pluck( $query->posts, 'ID' );
         if ( ! empty( $push_post_ids ) ) {
             update_meta_cache( 'post', $push_post_ids );
@@ -1288,7 +1288,7 @@ class WPAIP_WLDZ {
                 'post_date' => $post->post_date,
                 'permalink' => get_permalink( $post->ID ),
                 'category'  => implode( ', ', $cat_names ),
-                'pushed'    => (bool) get_post_meta( $post->ID, '_wpaip_seo_pushed', true ),
+                'pushed'    => (bool) get_post_meta( $post->ID, '_yimai_gso_seo_pushed', true ),
             );
         }
         
@@ -1303,7 +1303,7 @@ class WPAIP_WLDZ {
      */
     public function register_dashboard_widget() {
         wp_add_dashboard_widget(
-            'wpaip_seo_push_widget',
+            'yimai_gso_seo_push_widget',
             '白雀AI - 搜索引擎推送统计',
             array( $this, 'render_dashboard_widget' )
         );
@@ -1315,8 +1315,8 @@ class WPAIP_WLDZ {
     public function render_dashboard_widget() {
         $stats = $this->get_stats( 7 );
         ?>
-        <div class="wpaip-seo-widget">
-            <div class="wpaip-seo-stats-grid">
+        <div class="yimai-gso-seo-widget">
+            <div class="yimai-gso-seo-stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon baidu"><span class="dashicons dashicons-search"></span></div>
                     <div class="stat-info">
@@ -1346,15 +1346,15 @@ class WPAIP_WLDZ {
                     </div>
                 </div>
             </div>
-            <p class="wpaip-widget-footer">
-                <a href="<?php echo admin_url( 'admin.php?page=wpaip-center&tab=seo-push' ); ?>" class="button button-primary">
+            <p class="yimai-gso-widget-footer">
+                <a href="<?php echo admin_url( 'admin.php?page=yimai-gso-center&tab=seo-push' ); ?>" class="button button-primary">
                     管理推送 <span class="dashicons dashicons-arrow-right-alt" style="margin-top:2px"></span>
                 </a>
             </p>
         </div>
         <style>
-        .wpaip-seo-widget { padding: 0 0 10px; }
-        .wpaip-seo-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 12px; }
+        .yimai-gso-seo-widget { padding: 0 0 10px; }
+        .yimai-gso-seo-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 12px; }
         .stat-card { display: flex; align-items: center; gap: 10px; padding: 12px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 8px; }
         .stat-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
 .stat-icon.baidu { background: linear-gradient(135deg, #4caf50, #2e7d32); }
@@ -1364,7 +1364,7 @@ class WPAIP_WLDZ {
         .stat-info { flex: 1; }
         .stat-value { font-size: 20px; font-weight: 700; color: #1a1a2e; line-height: 1.2; }
         .stat-label { font-size: 12px; color: #6c757d; margin-top: 2px; }
-        .wpaip-widget-footer { text-align: right; margin: 0; }
+        .yimai-gso-widget-footer { text-align: right; margin: 0; }
         </style>
         <?php
     }
@@ -1373,7 +1373,7 @@ class WPAIP_WLDZ {
      * AJAX: 保存 SEO 推送配置（替代内联 POST handler）
      */
     public function ajax_save_settings() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -1384,25 +1384,25 @@ class WPAIP_WLDZ {
 
         $seo_push_available = true;
         if ( $seo_push_available ) {
-            WPAIP_9XCU::set( 'seo_push_baidu_enabled', isset( $fields['wpaip_seo_push_baidu_enabled'] ) ? 1 : 0 );
-            WPAIP_9XCU::set( 'seo_push_baidu_api_address', esc_url_raw( $fields['wpaip_seo_push_baidu_api_address'] ?? '' ) );
-            WPAIP_9XCU::set( 'seo_push_baidu_token', sanitize_text_field( $fields['wpaip_seo_push_baidu_token'] ?? '' ) );
-            WPAIP_9XCU::set( 'seo_push_bing_enabled', isset( $fields['wpaip_seo_push_bing_enabled'] ) ? 1 : 0 );
-            WPAIP_9XCU::set( 'seo_push_bing_indexnow_key', sanitize_text_field( $fields['wpaip_seo_push_bing_indexnow_key'] ?? '' ) );
-            WPAIP_9XCU::set( 'seo_push_bing_api_key', sanitize_text_field( $fields['wpaip_seo_push_bing_api_key'] ?? '' ) );
-            WPAIP_9XCU::set( 'seo_push_google_enabled', isset( $fields['wpaip_seo_push_google_enabled'] ) ? 1 : 0 );
-            WPAIP_9XCU::set( 'seo_push_google_mode', sanitize_text_field( $fields['wpaip_seo_push_google_mode'] ?? 'sitemap_ping' ) );
-            $google_json = isset( $fields['wpaip_seo_push_google_service_json'] ) ? sanitize_textarea_field( wp_unslash( $fields['wpaip_seo_push_google_service_json'] ) ) : '';
-            if ( ! WPAIP_9XCU::is_masked_value( $google_json ) ) {
-                WPAIP_9XCU::set( 'seo_push_google_service_json', $google_json );
+            YIMAI_GSO_Settings::set( 'seo_push_baidu_enabled', isset( $fields['yimai_gso_seo_push_baidu_enabled'] ) ? 1 : 0 );
+            YIMAI_GSO_Settings::set( 'seo_push_baidu_api_address', esc_url_raw( $fields['yimai_gso_seo_push_baidu_api_address'] ?? '' ) );
+            YIMAI_GSO_Settings::set( 'seo_push_baidu_token', sanitize_text_field( $fields['yimai_gso_seo_push_baidu_token'] ?? '' ) );
+            YIMAI_GSO_Settings::set( 'seo_push_bing_enabled', isset( $fields['yimai_gso_seo_push_bing_enabled'] ) ? 1 : 0 );
+            YIMAI_GSO_Settings::set( 'seo_push_bing_indexnow_key', sanitize_text_field( $fields['yimai_gso_seo_push_bing_indexnow_key'] ?? '' ) );
+            YIMAI_GSO_Settings::set( 'seo_push_bing_api_key', sanitize_text_field( $fields['yimai_gso_seo_push_bing_api_key'] ?? '' ) );
+            YIMAI_GSO_Settings::set( 'seo_push_google_enabled', isset( $fields['yimai_gso_seo_push_google_enabled'] ) ? 1 : 0 );
+            YIMAI_GSO_Settings::set( 'seo_push_google_mode', sanitize_text_field( $fields['yimai_gso_seo_push_google_mode'] ?? 'sitemap_ping' ) );
+            $google_json = isset( $fields['yimai_gso_seo_push_google_service_json'] ) ? sanitize_textarea_field( wp_unslash( $fields['yimai_gso_seo_push_google_service_json'] ) ) : '';
+            if ( ! YIMAI_GSO_Settings::is_masked_value( $google_json ) ) {
+                YIMAI_GSO_Settings::set( 'seo_push_google_service_json', $google_json );
             }
-            WPAIP_9XCU::set( 'seo_push_auto_enabled', isset( $fields['wpaip_seo_push_auto_enabled'] ) ? 1 : 0 );
-            WPAIP_9XCU::set( 'seo_push_on_update', isset( $fields['wpaip_seo_push_on_update'] ) ? 1 : 0 );
-            WPAIP_9XCU::set( 'seo_push_baidu_verify_code', sanitize_text_field( wp_unslash( $fields['wpaip_seo_push_baidu_verify_code'] ?? '' ) ) );
+            YIMAI_GSO_Settings::set( 'seo_push_auto_enabled', isset( $fields['yimai_gso_seo_push_auto_enabled'] ) ? 1 : 0 );
+            YIMAI_GSO_Settings::set( 'seo_push_on_update', isset( $fields['yimai_gso_seo_push_on_update'] ) ? 1 : 0 );
+            YIMAI_GSO_Settings::set( 'seo_push_baidu_verify_code', sanitize_text_field( wp_unslash( $fields['yimai_gso_seo_push_baidu_verify_code'] ?? '' ) ) );
             $tongji_allowed = array( 'script' => array( 'src' => array(), 'type' => array(), 'async' => array(), 'defer' => array() ) );
-            WPAIP_9XCU::set( 'seo_push_baidu_tongji_code', wp_kses( wp_unslash( $fields['wpaip_seo_push_baidu_tongji_code'] ?? '' ), $tongji_allowed ) );
+            YIMAI_GSO_Settings::set( 'seo_push_baidu_tongji_code', wp_kses( wp_unslash( $fields['yimai_gso_seo_push_baidu_tongji_code'] ?? '' ), $tongji_allowed ) );
         }
-        WPAIP_9XCU::set( 'wpaip_robots_content', sanitize_textarea_field( wp_unslash( $fields['wpaip_robots_content'] ?? '' ) ) );
+        YIMAI_GSO_Settings::set( 'yimai_gso_robots_content', sanitize_textarea_field( wp_unslash( $fields['yimai_gso_robots_content'] ?? '' ) ) );
 
         wp_send_json_success( array( 'message' => '已保存' ) );
     }

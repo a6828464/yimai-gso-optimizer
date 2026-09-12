@@ -17,7 +17,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_6G4F {
+class YIMAI_GSO_Crawler_Diagnosis {
 
     private static $instance = null;
 
@@ -37,8 +37,8 @@ class WPAIP_6G4F {
     }
 
     private function __construct() {
-        add_action( 'wp_ajax_wpaip_l5_diagnosis_run',           array( $this, 'ajax_run' ) );
-        add_action( 'wp_ajax_wpaip_l5_diagnosis_robots_preview', array( $this, 'ajax_robots_preview' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_diagnosis_run',           array( $this, 'ajax_run' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_diagnosis_robots_preview', array( $this, 'ajax_robots_preview' ) );
     }
 
     // ==================== 全量诊断 ====================
@@ -50,7 +50,7 @@ class WPAIP_6G4F {
      * @return array
      */
     public function get_diagnosis_result( $skip_cache = false ) {
-        $cache_key = 'wpaip_l5_diagnosis_result';
+        $cache_key = 'yimai_gso_l5_diagnosis_result';
         if ( ! $skip_cache ) {
             $cached = get_transient( $cache_key );
             if ( false !== $cached ) {
@@ -108,8 +108,8 @@ class WPAIP_6G4F {
 
         // 被封锁的爬虫列表
         $blocked_crawlers = array();
-        if ( class_exists( 'WPAIP_9IIH' ) ) {
-            $rules = WPAIP_9IIH::get_rules();
+        if ( class_exists( 'YIMAI_GSO_Crawler_Editor' ) ) {
+            $rules = YIMAI_GSO_Crawler_Editor::get_rules();
             foreach ( self::KEY_AI_CRAWLERS as $bot ) {
                 if ( isset( $rules[ $bot ] ) && 'disallow' === $rules[ $bot ] ) {
                     $blocked_crawlers[] = array(
@@ -135,11 +135,11 @@ class WPAIP_6G4F {
     }
 
     /**
-     * AJAX: wpaip_l5_diagnosis_run
+     * AJAX: yimai_gso_l5_diagnosis_run
      * 执行完整诊断
      */
     public function ajax_run() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -160,7 +160,7 @@ class WPAIP_6G4F {
         $issues    = array();
         $blocked   = array();
 
-        if ( ! class_exists( 'WPAIP_9IIH' ) ) {
+        if ( ! class_exists( 'YIMAI_GSO_Crawler_Editor' ) ) {
             return array(
                 'name'      => '核心AI爬虫开放度',
                 'weight'    => 30,
@@ -172,7 +172,7 @@ class WPAIP_6G4F {
             );
         }
 
-        $rules = WPAIP_9IIH::get_rules();
+        $rules = YIMAI_GSO_Crawler_Editor::get_rules();
 
         $per_crawler_deduct = 100 / count( self::KEY_AI_CRAWLERS );
 
@@ -259,8 +259,8 @@ class WPAIP_6G4F {
 
         // 获取插件配置中 AI 爬虫的 Allow/Disallow 状态
         $plugin_rules = array();
-        if ( class_exists( 'WPAIP_9IIH' ) ) {
-            $plugin_rules = WPAIP_9IIH::get_rules();
+        if ( class_exists( 'YIMAI_GSO_Crawler_Editor' ) ) {
+            $plugin_rules = YIMAI_GSO_Crawler_Editor::get_rules();
         }
 
         // 对比：统计实际 robots.txt 中被 Disallow 的 AI 爬虫
@@ -330,7 +330,7 @@ class WPAIP_6G4F {
 
         // 检查首页 meta robots
         if ( $front_page_id ) {
-            $front_noindex = get_post_meta( $front_page_id, 'wpaip_noindex', true );
+            $front_noindex = get_post_meta( $front_page_id, 'yimai_gso_noindex', true );
             if ( '1' === $front_noindex ) {
                 $score -= 30;
                 $noindex_pages[] = '首页（已设置 noindex）';
@@ -339,7 +339,7 @@ class WPAIP_6G4F {
 
         // 抽样检查最近文章
         $sample_posts = get_posts( array(
-            'post_type'      => WPAIP_B7PQ::get_supported(),
+            'post_type'      => YIMAI_GSO_Post_Type_Helper::get_supported(),
             'post_status'    => 'publish',
             'posts_per_page' => 10,
             'orderby'        => 'date',
@@ -348,7 +348,7 @@ class WPAIP_6G4F {
 
         $noindex_post_count = 0;
         foreach ( $sample_posts as $post ) {
-            $noindex = get_post_meta( $post->ID, 'wpaip_noindex', true );
+            $noindex = get_post_meta( $post->ID, 'yimai_gso_noindex', true );
             if ( '1' === $noindex ) {
                 $noindex_post_count++;
                 $noindex_pages[] = sprintf( '「%s」(#%d)', $post->post_title, $post->ID );
@@ -392,19 +392,19 @@ class WPAIP_6G4F {
         $timeout   = 5;
 
         // 先检查 transient 缓存
-        $llms_ok  = get_transient( 'wpaip_l5_llms_available' );
-        $full_ok  = get_transient( 'wpaip_l5_llms_full_available' );
+        $llms_ok  = get_transient( 'yimai_gso_l5_llms_available' );
+        $full_ok  = get_transient( 'yimai_gso_l5_llms_full_available' );
 
         if ( false === $llms_ok ) {
             $response = wp_remote_head( $llms_url, array( 'timeout' => $timeout, 'sslverify' => false ) );
             $llms_ok  = ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) );
-            set_transient( 'wpaip_l5_llms_available', $llms_ok, HOUR_IN_SECONDS );
+            set_transient( 'yimai_gso_l5_llms_available', $llms_ok, HOUR_IN_SECONDS );
         }
 
         if ( false === $full_ok ) {
             $response = wp_remote_head( $full_url, array( 'timeout' => $timeout, 'sslverify' => false ) );
             $full_ok  = ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) );
-            set_transient( 'wpaip_l5_llms_full_available', $full_ok, HOUR_IN_SECONDS );
+            set_transient( 'yimai_gso_l5_llms_full_available', $full_ok, HOUR_IN_SECONDS );
         }
 
         $parts = array();
@@ -442,8 +442,8 @@ class WPAIP_6G4F {
      * 检查 5: AI 元标签覆盖率
      * 抽样检查最近文章是否有 AI 可用的描述/关键词
      * 与 output_ai_meta() 使用相同的字段优先级：
-     *   描述: wpaip_excerpt → description → Yoast → RankMath
-     *   关键词: wpaip_keywords → Yoast → RankMath
+     *   描述: yimai_gso_excerpt → description → Yoast → RankMath
+     *   关键词: yimai_gso_keywords → Yoast → RankMath
      */
     private function check_ai_meta_coverage() {
         $score  = 100;
@@ -459,7 +459,7 @@ class WPAIP_6G4F {
         }
 
         $sample_posts = get_posts( array(
-            'post_type'      => WPAIP_B7PQ::get_supported(),
+            'post_type'      => YIMAI_GSO_Post_Type_Helper::get_supported(),
             'post_status'    => 'publish',
             'posts_per_page' => 5,
             'orderby'        => 'date',
@@ -478,7 +478,7 @@ class WPAIP_6G4F {
             $total_checks++;
 
             // AI 描述：与 output_ai_meta() 同字段优先级
-            $ai_desc = get_post_meta( $pid, 'wpaip_excerpt', true );
+            $ai_desc = get_post_meta( $pid, 'yimai_gso_excerpt', true );
             if ( empty( $ai_desc ) ) $ai_desc = get_post_meta( $pid, 'description', true );
             if ( empty( $ai_desc ) ) $ai_desc = get_post_meta( $pid, '_yoast_wpseo_metadesc', true );
             if ( empty( $ai_desc ) ) $ai_desc = get_post_meta( $pid, 'rank_math_description', true );
@@ -488,7 +488,7 @@ class WPAIP_6G4F {
             }
 
             // AI 关键词：与 output_ai_meta() 同字段优先级
-            $ai_kw = get_post_meta( $pid, 'wpaip_keywords', true );
+            $ai_kw = get_post_meta( $pid, 'yimai_gso_keywords', true );
             if ( empty( $ai_kw ) ) $ai_kw = get_post_meta( $pid, '_yoast_wpseo_focuskw', true );
             if ( empty( $ai_kw ) ) $ai_kw = get_post_meta( $pid, 'rank_math_focus_keyword', true );
 
@@ -506,7 +506,7 @@ class WPAIP_6G4F {
                 $desc_coverage, $kw_coverage, $total_checks );
 
             if ( $score < 50 ) {
-                $issues[] = 'AI 元标签覆盖率偏低，建议在文章编辑时填写 SEO 描述（wpaip_excerpt/description）和关键词（wpaip_keywords）';
+                $issues[] = 'AI 元标签覆盖率偏低，建议在文章编辑时填写 SEO 描述（yimai_gso_excerpt/description）和关键词（yimai_gso_keywords）';
             }
         } else {
             $detail = '无已发布文章可检查';
@@ -549,7 +549,7 @@ class WPAIP_6G4F {
      * AJAX: 预览解析后的 robots.txt AI 爬虫规则
      */
     public function ajax_robots_preview() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );

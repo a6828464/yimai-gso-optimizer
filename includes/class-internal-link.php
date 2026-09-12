@@ -1,12 +1,12 @@
 <?php
 /**
- * 智能内链处理器 - v1.9.0
+ * 智能内链处理器
  * 基于关键词匹配 + AI判断，自动在正文插入站内已有文章链接
- * v1.9.0：改为"发布后自动执行"模式，与内容检测器架构一致
+ * 改为"发布后自动执行"模式，与内容检测器架构一致
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_77I9 {
+class YIMAI_GSO_Internal_Link {
 
     /** @var self|null 单例实例 */
     private static $instance = null;
@@ -15,21 +15,21 @@ class WPAIP_77I9 {
     private static $processing_posts = array();
 
     /** @var string 内链队列 option 键名 */
-    const LINK_QUEUE_OPTION = 'wpaip_internal_link_queue';
+    const LINK_QUEUE_OPTION = 'yimai_gso_internal_link_queue';
     /** @var string 异步处理 cron 钩子名 */
-    const LINK_QUEUE_CRON   = 'wpaip_process_internal_link_queue';
+    const LINK_QUEUE_CRON   = 'yimai_gso_process_internal_link_queue';
 
     /** @var string 批量重建队列 option 键名 */
-    const REBUILD_QUEUE_OPTION = 'wpaip_rebuild_link_queue';
+    const REBUILD_QUEUE_OPTION = 'yimai_gso_rebuild_link_queue';
     /** @var string 批量重建 cron 钩子名 */
-    const REBUILD_QUEUE_CRON   = 'wpaip_process_rebuild_link_queue';
+    const REBUILD_QUEUE_CRON   = 'yimai_gso_process_rebuild_link_queue';
 
     /** @var string 失效链接巡检结果 option 键名 */
-    const BROKEN_LINK_AUDIT_OPTION = 'wpaip_broken_link_audit_result';
+    const BROKEN_LINK_AUDIT_OPTION = 'yimai_gso_broken_link_audit_result';
     /** @var string 失效链接巡检队列 option 键名 */
-    const BROKEN_LINK_AUDIT_QUEUE_OPTION = 'wpaip_broken_link_audit_queue';
+    const BROKEN_LINK_AUDIT_QUEUE_OPTION = 'yimai_gso_broken_link_audit_queue';
     /** @var string 失效链接巡检 cron 钩子名 */
-    const BROKEN_LINK_AUDIT_CRON = 'wpaip_process_broken_link_audit';
+    const BROKEN_LINK_AUDIT_CRON = 'yimai_gso_process_broken_link_audit';
 
     /**
      * 获取单例实例（注册 transition_post_status 钩子）
@@ -69,12 +69,12 @@ class WPAIP_77I9 {
      */
     public function handle_transition_post_status( $new_status, $old_status, $post ) {
         // 预览请求跳过（防止内存溢出）
-        if ( function_exists( 'wpaip_is_preview_request' ) && wpaip_is_preview_request() ) {
+        if ( function_exists( 'yimai_gso_is_preview_request' ) && yimai_gso_is_preview_request() ) {
             return;
         }
 
         // 功能开关检查
-        if ( ! WPAIP_9XCU::get( 'internal_link_enabled', 0 ) ) {
+        if ( ! YIMAI_GSO_Settings::get( 'internal_link_enabled', 0 ) ) {
             return;
         }
 
@@ -88,7 +88,7 @@ class WPAIP_77I9 {
         }
 
         // 仅处理插件支持的内容类型（默认：post + page，可在 Post Type Helper 配置扩展）
-        if ( ! WPAIP_B7PQ::is_supported( $post->post_type ) ) {
+        if ( ! YIMAI_GSO_Post_Type_Helper::is_supported( $post->post_type ) ) {
             return;
         }
 
@@ -137,9 +137,9 @@ class WPAIP_77I9 {
         }
 
         // 主动触发 wp-cron.php 立即处理（防止低流量站点队列堆积）
-        // v2.9.50: 精准模式下改用 HTTP 触发（与 autopilot 修复一致，原逻辑只处理默认模式）
+        // 精准模式下改用 HTTP 触发（与 autopilot 修复一致，原逻辑只处理默认模式）
         $precise_mode = ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON );
-        $last_trigger = get_transient( 'wpaip_last_cron_trigger' );
+        $last_trigger = get_transient( 'yimai_gso_last_cron_trigger' );
         if ( false === $last_trigger ) {
             if ( $precise_mode ) {
                 $trigger_resp = wp_remote_get( site_url( 'wp-cron.php' ), array(
@@ -153,7 +153,7 @@ class WPAIP_77I9 {
             } elseif ( function_exists( 'spawn_cron' ) ) {
                 spawn_cron();
             }
-            set_transient( 'wpaip_last_cron_trigger', time(), 1 );
+            set_transient( 'yimai_gso_last_cron_trigger', time(), 1 );
         }
     }
 
@@ -171,7 +171,7 @@ class WPAIP_77I9 {
         // 每次最多处理3篇
         $batch = array_splice( $queue, 0, 3 );
 
-        // v2.9.50: 先保存队列（移除已取出的 batch），再处理 batch
+        // 先保存队列（移除已取出的 batch），再处理 batch
         // 避免并发 cron 事件同时获取相同文章，导致重复 AI 调用
         if ( ! empty( $queue ) ) {
             update_option( self::LINK_QUEUE_OPTION, $queue, false );
@@ -187,7 +187,7 @@ class WPAIP_77I9 {
             self::process_published_post( $post_id );
         }
 
-        // v2.9.50: 队列已在上方保存，这里只调度续批，不重复写回（避免覆盖并发新增的队列项）
+        // 队列已在上方保存，这里只调度续批，不重复写回（避免覆盖并发新增的队列项）
         if ( ! empty( $queue ) ) {
             if ( ! wp_next_scheduled( self::LINK_QUEUE_CRON ) ) {
                 wp_schedule_single_event( time() + 60, self::LINK_QUEUE_CRON );
@@ -281,13 +281,13 @@ class WPAIP_77I9 {
         );
 
         // 检查是否启用
-        if ( ! WPAIP_9XCU::get( 'internal_link_enabled', 0 ) ) {
+        if ( ! YIMAI_GSO_Settings::get( 'internal_link_enabled', 0 ) ) {
             $log_context['message'] = '总开关未启用';
             self::append_log( $log_context );
             return $content;
         }
 
-        $max_links = absint( WPAIP_9XCU::get( 'internal_link_max', 3 ) );
+        $max_links = absint( YIMAI_GSO_Settings::get( 'internal_link_max', 3 ) );
         if ( $max_links < 1 ) {
             $max_links = 3;
         }
@@ -376,15 +376,15 @@ class WPAIP_77I9 {
         $excluded_tags        = self::normalize_id_list( $context['excluded_tags'] ?? array() );
         $current_category_ids = self::normalize_id_list( $context['category_ids'] ?? array() );
 
-        $cache_key = 'wpaip_candidate_posts_' . md5( wp_json_encode( array(
+        $cache_key = 'yimai_gso_candidate_posts_' . md5( wp_json_encode( array(
             'mode'  => $candidate_mode,
             'limit' => $candidate_limit,
-            'types' => WPAIP_B7PQ::get_supported(),
+            'types' => YIMAI_GSO_Post_Type_Helper::get_supported(),
         ) ) );
         $candidates_pool = get_transient( $cache_key );
 
         if ( false === $candidates_pool ) {
-            $post_type_condition = WPAIP_B7PQ::sql_in_clause( 'p.post_type' );
+            $post_type_condition = YIMAI_GSO_Post_Type_Helper::sql_in_clause( 'p.post_type' );
             $candidates_pool = $wpdb->get_results( $wpdb->prepare(
                 "SELECT p.ID, p.post_title, p.post_date,
                         (SELECT GROUP_CONCAT(t.name SEPARATOR ',')
@@ -507,7 +507,7 @@ class WPAIP_77I9 {
      * @return array 内链计划 [{keyword, url, title}, ...]
      */
     private static function ai_plan_links( $plain_text, $title, $candidates, $max_links, $context = array() ) {
-        $api_key = WPAIP_9XCU::get( 'ai_api_key', '' );
+        $api_key = YIMAI_GSO_Settings::get( 'ai_api_key', '' );
         if ( empty( $api_key ) ) {
             return array();
         }
@@ -552,13 +552,13 @@ class WPAIP_77I9 {
                         "请从候选列表中选择最多{$max_links}篇与正文内容最相关的文章，并指出在正文中哪个关键词处插入链接。";
 
         $candidate_count = count( $candidates );
-        // v3.0.2-fix: 推理模型(deepseek-v4-flash等)将内部 CoT reasoning_tokens
+        // -fix: 推理模型(deepseek-v4-flash等)将内部 CoT reasoning_tokens
         // 计入 max_tokens 预算。20 个候选时 reasoning 可能占用 3000+ tokens，
         // 导致 content 为空。内链 JSON 输出本身很短，因此固定最低 8192，
         // 最高 16384，并增加一次 reasoning 占满预算时的自动扩容重试。
         $dynamic_max_tokens = max( 8192, min( 16384, $candidate_count * 160 + 2048 ) );
 
-        $generator = new WPAIP_CGGE();
+        $generator = new YIMAI_GSO_AI_Generator();
         $max_attempts = 2;
         $attempt      = 0;
         $response     = null;
@@ -599,9 +599,9 @@ class WPAIP_77I9 {
 
         $raw_content = $response['choices'][0]['message']['content'] ?? '';
 
-        // v3.0.1-deepseek-diag: 内链失败时 dump 原始 API 响应关键字段，定位 DeepSeek 特有问题
+        // -deepseek-diag: 内链失败时 dump 原始 API 响应关键字段，定位 DeepSeek 特有问题
         if ( empty( $raw_content ) || $is_truncated ) {
-            $model = WPAIP_9XCU::get( 'ai_model', 'unknown' );
+            $model = YIMAI_GSO_Settings::get( 'ai_model', 'unknown' );
             $usage_info = isset( $response['usage'] ) ? json_encode( $response['usage'] ) : 'N/A';
             $choice_count = count( $response['choices'] ?? array() );
             $msg_keys = isset( $response['choices'][0]['message'] ) && is_array( $response['choices'][0]['message'] )
@@ -613,7 +613,7 @@ class WPAIP_77I9 {
                 . ' | max_tokens_req=' . $dynamic_max_tokens . ' | candidate_cnt=' . $candidate_count );
         }
 
-        // v2.9.49: 多策略 JSON 数组提取（参考 class-ai-generator 的 extract_and_decode_json 思路，但针对 [...] 数组）
+        // 多策略 JSON 数组提取（参考 class-ai-generator 的 extract_and_decode_json 思路，但针对 [...] 数组）
         $links = self::extract_json_array( $raw_content );
 
         if ( ! is_array( $links ) ) {
@@ -753,7 +753,7 @@ class WPAIP_77I9 {
                     if ( $last_lt !== false && $last_gt !== false && $last_lt > $last_gt ) {
                         continue;
                     }
-                    // v2.9.50: 禁止在脚本/样式/代码/标题标签内插入链接（原仅检查 <a>）
+                    // 禁止在脚本/样式/代码/标题标签内插入链接（原仅检查 <a>）
                     if ( self::is_inside_block_tag( $before ) ) {
                         continue;
                     }
@@ -797,7 +797,7 @@ class WPAIP_77I9 {
     }
 
     private static function get_setting( $key, $default = '' ) {
-        return class_exists( 'WPAIP_9XCU' ) ? WPAIP_9XCU::get( $key, $default ) : get_option( 'wpaip_' . $key, $default );
+        return class_exists( 'YIMAI_GSO_Settings' ) ? YIMAI_GSO_Settings::get( $key, $default ) : get_option( 'yimai_gso_' . $key, $default );
     }
 
     private static function normalize_id_list( $items ) {
@@ -855,7 +855,7 @@ class WPAIP_77I9 {
     }
 
     private static function append_log( $entry ) {
-        $logs = get_option( 'wpaip_internal_link_logs', array() );
+        $logs = get_option( 'yimai_gso_internal_link_logs', array() );
         if ( ! is_array( $logs ) ) {
             $logs = array();
         }
@@ -875,11 +875,11 @@ class WPAIP_77I9 {
             'candidate_mode'  => sanitize_text_field( $entry['candidate_mode'] ?? '' ),
         ) );
 
-        update_option( 'wpaip_internal_link_logs', array_slice( $logs, 0, 100 ) );
+        update_option( 'yimai_gso_internal_link_logs', array_slice( $logs, 0, 100 ), false );
     }
 
     public static function get_recent_logs( $limit = 10 ) {
-        $logs = get_option( 'wpaip_internal_link_logs', array() );
+        $logs = get_option( 'yimai_gso_internal_link_logs', array() );
         if ( ! is_array( $logs ) ) {
             return array();
         }
@@ -888,7 +888,7 @@ class WPAIP_77I9 {
     }
 
     public static function get_summary_stats() {
-        $logs = get_option( 'wpaip_internal_link_logs', array() );
+        $logs = get_option( 'yimai_gso_internal_link_logs', array() );
         if ( ! is_array( $logs ) ) {
             $logs = array();
         }
@@ -923,14 +923,14 @@ class WPAIP_77I9 {
      * AJAX: 启动批量重建历史文章内链
      */
     public static function ajax_start_rebuild_links() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
 // 查询所有已发布文章ID
         $post_ids = get_posts( array(
-            'post_type'      => WPAIP_B7PQ::get_supported(),
+            'post_type'      => YIMAI_GSO_Post_Type_Helper::get_supported(),
             'post_status'    => 'publish',
             'fields'         => 'ids',
             'posts_per_page' => -1,
@@ -968,7 +968,7 @@ class WPAIP_77I9 {
      * AJAX: 获取批量重建进度
      */
     public static function ajax_get_rebuild_progress() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1002,8 +1002,8 @@ class WPAIP_77I9 {
      */
     public function process_rebuild_queue() {
         // 系统Cron模式下设置运行时用户上下文
-        if ( class_exists( 'WPAIP_KSQ9' ) ) {
-            WPAIP_KSQ9::bootstrap_runtime_user( 0 );
+        if ( class_exists( 'YIMAI_GSO_Autopilot_Runner' ) ) {
+            YIMAI_GSO_Autopilot_Runner::bootstrap_runtime_user( 0 );
         }
 
         $queue = get_option( self::REBUILD_QUEUE_OPTION, array() );
@@ -1084,7 +1084,7 @@ class WPAIP_77I9 {
      * AJAX: 启动失效链接巡检（异步队列方式）
      */
     public static function ajax_start_broken_link_audit() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1130,7 +1130,7 @@ class WPAIP_77I9 {
      * AJAX: 获取失效链接巡检进度
      */
     public static function ajax_get_broken_link_audit_progress() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1152,7 +1152,7 @@ class WPAIP_77I9 {
      * AJAX: 获取最近一次巡检结果
      */
     public static function ajax_get_broken_link_audit_result() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1167,7 +1167,7 @@ class WPAIP_77I9 {
      * AJAX: 移除失效链接（将 <a> 变为 <span>）
      */
     public static function ajax_remove_broken_links() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1201,9 +1201,9 @@ class WPAIP_77I9 {
             }
 
             $content = $post->post_content;
-            // 将 <a href="url">text</a> 替换为 <span class="wpaip-broken-link">text</span>
+            // 将 <a href="url">text</a> 替换为 <span class="yimai-gso-broken-link">text</span>
             $pattern = '/<a\b[^>]*href=["\']' . preg_quote( $url, '/' ) . '["\'][^>]*>(.*?)<\/a>/is';
-            $new_content = preg_replace( $pattern, '<span class="wpaip-broken-link">$1</span>', $content );
+            $new_content = preg_replace( $pattern, '<span class="yimai-gso-broken-link">$1</span>', $content );
 
             if ( $new_content !== $content ) {
                 wp_update_post( array(
@@ -1230,7 +1230,7 @@ class WPAIP_77I9 {
         global $wpdb;
 
         $site_url = home_url();
-        $post_type_condition = WPAIP_B7PQ::sql_in_clause();
+        $post_type_condition = YIMAI_GSO_Post_Type_Helper::sql_in_clause();
         $sql = "SELECT ID, post_title, post_content FROM {$wpdb->posts}
                 WHERE post_status = 'publish' AND {$post_type_condition}";
         if ( $limit > 0 ) {
@@ -1308,8 +1308,8 @@ class WPAIP_77I9 {
      */
     public function process_broken_link_audit() {
         // 系统Cron模式下设置运行时用户上下文
-        if ( class_exists( 'WPAIP_KSQ9' ) ) {
-            WPAIP_KSQ9::bootstrap_runtime_user( 0 );
+        if ( class_exists( 'YIMAI_GSO_Autopilot_Runner' ) ) {
+            YIMAI_GSO_Autopilot_Runner::bootstrap_runtime_user( 0 );
         }
 
         $queue = get_option( self::BROKEN_LINK_AUDIT_QUEUE_OPTION, array() );

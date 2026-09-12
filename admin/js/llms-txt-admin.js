@@ -27,19 +27,19 @@ jQuery( document ).ready( function( $ ) {
     }
 
     // 实时预览网站简介
-    $( '#wpaip_llms_txt_intro' ).on( 'input', function() {
+    $( '#yimai_gso_llms_txt_intro' ).on( 'input', function() {
         var intro = $( this ).val();
         $( '#llms-txt-preview-intro' ).text( intro ? '> ' + intro : '' );
     } );
 
     // 实时预览详细说明
-    $( '#wpaip_llms_txt_details' ).on( 'input', function() {
+    $( '#yimai_gso_llms_txt_details' ).on( 'input', function() {
         var details = $( this ).val();
         $( '#llms-txt-preview-details' ).text( details ? '## Optional\n\n' + details : '' );
     } );
 
     // 生成并预览 llms.txt
-    $( '#wpaip-generate-preview' ).on( 'click', function( e ) {
+    $( '#yimai-gso-generate-preview' ).on( 'click', function( e ) {
         e.preventDefault();
 
         var $button = $( this );
@@ -51,8 +51,8 @@ jQuery( document ).ready( function( $ ) {
             url: ajaxurl,
             type: 'POST',
             data: {
-                action: 'wpaip_generate_llms_txt_preview',
-                nonce: wpaipData.nonce,
+                action: 'yimai_gso_generate_llms_txt_preview',
+                nonce: yimaiGsoData.nonce,
                 settings: $( 'form' ).serializeArray()
             },
             success: function( response ) {
@@ -73,7 +73,7 @@ jQuery( document ).ready( function( $ ) {
     } );
 
     // 复制 llms.txt 内容
-    $( '#wpaip-copy-llms-txt' ).on( 'click', function( e ) {
+    $( '#yimai-gso-copy-llms-txt' ).on( 'click', function( e ) {
         e.preventDefault();
 
         var content = $( '#llms-txt-preview-content' ).text();
@@ -92,7 +92,7 @@ jQuery( document ).ready( function( $ ) {
     } );
 
     // 测试 llms.txt 访问
-    $( '#wpaip-test-llms-txt' ).on( 'click', function( e ) {
+    $( '#yimai-gso-test-llms-txt' ).on( 'click', function( e ) {
         e.preventDefault();
 
         var $button = $( this );
@@ -101,10 +101,10 @@ jQuery( document ).ready( function( $ ) {
         $button.prop( 'disabled', true ).text( '测试中...' );
 
         $.ajax( {
-            url: wpaipData.ajaxUrl,
+            url: yimaiGsoData.ajaxUrl,
             type: 'HEAD',
             data: {
-                action: 'wpaip_test_llms_txt_access'
+                action: 'yimai_gso_test_llms_txt_access'
             },
             success: function( response ) {
                 if ( response.success ) {
@@ -123,7 +123,7 @@ jQuery( document ).ready( function( $ ) {
     } );
 
     // 刷新固定链接提示（旧版选择器兼容）
-    $( '#wpaip-flush-rewrite-rules' ).on( 'click', function( e ) {
+    $( '#yimai-gso-flush-rewrite-rules' ).on( 'click', function( e ) {
         e.preventDefault();
 
         if ( ! confirm( '确定要刷新固定链接吗？这可能会影响网站访问。' ) ) {
@@ -134,8 +134,8 @@ jQuery( document ).ready( function( $ ) {
             url: ajaxurl,
             type: 'POST',
             data: {
-                action: 'wpaip_flush_rewrite_rules',
-                nonce: wpaipData.nonce
+                action: 'yimai_gso_flush_rewrite_rules',
+                nonce: yimaiGsoData.nonce
             },
             success: function( response ) {
                 if ( response.success ) {
@@ -151,11 +151,11 @@ jQuery( document ).ready( function( $ ) {
     } );
 
     // 刷新固定链接（工作台面板内联按钮）
-    $( '#wpaip-flush-rewrite-rules-btn' ).on( 'click', function( e ) {
+    $( '#yimai-gso-flush-rewrite-rules-btn' ).on( 'click', function( e ) {
         e.preventDefault();
 
         var $button = $( this );
-        var $result = $( '#wpaip-flush-rewrite-result' );
+        var $result = $( '#yimai-gso-flush-rewrite-result' );
         var originalText = $button.text();
 
         $button.prop( 'disabled', true ).text( '刷新中...' );
@@ -165,8 +165,8 @@ jQuery( document ).ready( function( $ ) {
             url: ajaxurl,
             type: 'POST',
             data: {
-                action: 'wpaip_flush_rewrite_rules',
-                nonce: wpaipData.nonce
+                action: 'yimai_gso_flush_rewrite_rules',
+                nonce: yimaiGsoData.nonce
             },
             success: function( response ) {
                 if ( response.success ) {

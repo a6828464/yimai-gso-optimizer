@@ -4,11 +4,11 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_KSQ9 {
+class YIMAI_GSO_Autopilot_Runner {
 
-    const GENERATION_LOCK_OPTION = 'wpaip_generation_lock';
-    const ASYNC_AJAX_ACTION      = 'wpaip_autopilot_process_run';
-    const ASYNC_CRON_HOOK        = 'wpaip_autopilot_process_run_event';
+    const GENERATION_LOCK_OPTION = 'yimai_gso_generation_lock';
+    const ASYNC_AJAX_ACTION      = 'yimai_gso_autopilot_process_run';
+    const ASYNC_CRON_HOOK        = 'yimai_gso_autopilot_process_run_event';
 
     private static $instance = null;
 
@@ -20,8 +20,8 @@ class WPAIP_KSQ9 {
     }
 
     private function __construct() {
-        add_action( 'wp_ajax_wpaip_autopilot_manual_run', array( $this, 'ajax_manual_run' ) );
-        add_action( 'wp_ajax_wpaip_autopilot_cleanup_logs', array( $this, 'ajax_cleanup_logs' ) );
+        add_action( 'wp_ajax_yimai_gso_autopilot_manual_run', array( $this, 'ajax_manual_run' ) );
+        add_action( 'wp_ajax_yimai_gso_autopilot_cleanup_logs', array( $this, 'ajax_cleanup_logs' ) );
         // 仅注册已登录用户的AJAX端点（移除nopriv，减少攻击面）
         // 异步任务通过 WP-Cron + wp_schedule_single_event 触发，不依赖未登录回调
         add_action( 'wp_ajax_' . self::ASYNC_AJAX_ACTION, array( $this, 'ajax_process_run' ) );
@@ -32,17 +32,17 @@ class WPAIP_KSQ9 {
      * 手动清理日志
      */
     public function ajax_cleanup_logs() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ), 403 );
         }
 
-        $settings = WPAIP_HXVV::get_settings();
+        $settings = YIMAI_GSO_Autopilot_Plan::get_settings();
         $days = isset( $settings['log_retention_days'] ) ? absint( $settings['log_retention_days'] ) : 30;
         $days = max( 7, min( 365, $days ) );
 
-        $result = WPAIP_96EY::cleanup_old_logs( $days );
+        $result = YIMAI_GSO_Autopilot_Log::cleanup_old_logs( $days );
 
         // 根据不同状态返回不同消息
         if ( isset( $result['status'] ) && $result['status'] === 'table_not_exists' ) {
@@ -81,18 +81,18 @@ class WPAIP_KSQ9 {
     }
 
     public function ajax_manual_run() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ), 403 );
         }
 
-        if ( ! WPAIP_0P8Z::can_run_feature() ) {
+        if ( ! YIMAI_GSO_Autopilot_Scheduler::can_run_feature() ) {
             wp_send_json_error( array( 'message' => '当前功能未启用永动发布。' ), 403 );
         }
 
         // 创建运行记录（同时会派发 cron 事件做异步备份）
-        $result = WPAIP_0P8Z::get_instance()->dispatch_due_run( 'manual', true, get_current_user_id(), true );
+        $result = YIMAI_GSO_Autopilot_Scheduler::get_instance()->dispatch_due_run( 'manual', true, get_current_user_id(), true );
         if ( is_wp_error( $result ) ) {
             wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
         }
@@ -101,15 +101,15 @@ class WPAIP_KSQ9 {
         $run_id = absint( $result['id'] ?? 0 );
         if ( $run_id > 0 ) {
             ignore_user_abort( true );
-            // v2.9.73: 手动执行每轮只跑 1 篇（后续由 cron 续批），300 秒足够单篇完成
+            // 手动执行每轮只跑 1 篇（后续由 cron 续批），300 秒足够单篇完成
             if ( function_exists( 'set_time_limit' ) ) {
                 @set_time_limit( 300 );
             }
             $run_result = $this->handle_process_run( $run_id );
-            // v2.9.68: 如果同步执行失败（Token 验证失败/AI 异常等），run 状态可能仍是 pending
+            // 如果同步执行失败（Token 验证失败/AI 异常等），run 状态可能仍是 pending
             // 必须把错误信息返回前端，否则用户只看到"任务已派发"但实际从未执行
             if ( is_wp_error( $run_result ) ) {
-                WPAIP_96EY::update_run( $run_id, array(
+                YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
                     'status'       => 'failed',
                     'last_error'   => $run_result->get_error_message(),
                     'last_message' => '永动发布执行失败：' . $run_result->get_error_message(),
@@ -117,12 +117,12 @@ class WPAIP_KSQ9 {
                 ) );
                 wp_send_json_error( array(
                     'message' => $run_result->get_error_message(),
-                    'run'     => WPAIP_96EY::get_run( $run_id ),
+                    'run'     => YIMAI_GSO_Autopilot_Log::get_run( $run_id ),
                 ), 500 );
             }
         }
 
-        $run = WPAIP_96EY::get_run( $run_id );
+        $run = YIMAI_GSO_Autopilot_Log::get_run( $run_id );
         $status = $run['status'] ?? 'pending';
         $processed = absint( $run['success_count'] ?? 0 ) + absint( $run['failed_count'] ?? 0 );
         $total     = absint( $run['daily_count'] ?? 0 );
@@ -142,12 +142,12 @@ class WPAIP_KSQ9 {
             return new WP_Error( 'invalid_run_id', '缺少可执行的永动发布任务。' );
         }
 
-        $run = WPAIP_96EY::get_run( $run_id );
+        $run = YIMAI_GSO_Autopilot_Log::get_run( $run_id );
         if ( empty( $run ) ) {
             return new WP_Error( 'run_not_found', '未找到要执行的永动发布任务。' );
         }
 
-        WPAIP_96EY::update_run( $run_id, array(
+        YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
             'status'       => 'pending',
             'last_error'   => null,
             'last_message' => '任务已派发，等待后台执行。',
@@ -160,10 +160,10 @@ class WPAIP_KSQ9 {
         }
 
         // 主动触发 wp-cron.php 立即处理
-        // v2.9.40 修复：精准模式（DISABLE_WP_CRON=true）改用 HTTP 触发 wp-cron.php，
+        //  修复：精准模式（DISABLE_WP_CRON=true）改用 HTTP 触发 wp-cron.php，
         // 而非跳过所有触发（原逻辑只在非精准模式用 spawn_cron，精准模式无任何触发）
         $precise_mode = ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON );
-        $last_trigger = get_transient( 'wpaip_last_cron_trigger' );
+        $last_trigger = get_transient( 'yimai_gso_last_cron_trigger' );
         if ( false === $last_trigger ) {
             if ( $precise_mode ) {
                 // 精准模式：spawn_cron() 不可用，通过 HTTP GET 触发 wp-cron.php 处理到期事件
@@ -181,10 +181,10 @@ class WPAIP_KSQ9 {
                 spawn_cron();
             }
             // 防抖：1秒内不重复触发
-            set_transient( 'wpaip_last_cron_trigger', time(), 1 );
+            set_transient( 'yimai_gso_last_cron_trigger', time(), 1 );
         }
 
-        WPAIP_96EY::update_run( $run_id, array(
+        YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
             'last_message' => '任务已派发，后台触发执行中。',
         ) );
 
@@ -195,7 +195,7 @@ class WPAIP_KSQ9 {
         $run_id = absint( $_POST['run_id'] ?? 0 );
         $token  = sanitize_text_field( $_POST['token'] ?? '' );
 
-        if ( $run_id <= 0 || ! wp_verify_nonce( $token, 'wpaip_autopilot_process_' . $run_id ) ) {
+        if ( $run_id <= 0 || ! wp_verify_nonce( $token, 'yimai_gso_autopilot_process_' . $run_id ) ) {
             wp_send_json_error( array( 'message' => '后台任务校验失败。' ), 403 );
         }
 
@@ -213,7 +213,7 @@ class WPAIP_KSQ9 {
             return new WP_Error( 'invalid_run_id', '缺少可执行的永动发布任务。' );
         }
 
-        $run = WPAIP_96EY::get_run( $run_id );
+        $run = YIMAI_GSO_Autopilot_Log::get_run( $run_id );
         if ( empty( $run ) ) {
             return new WP_Error( 'run_not_found', '未找到要执行的永动发布任务。' );
         }
@@ -223,13 +223,13 @@ class WPAIP_KSQ9 {
         }
 
         // 超时恢复：如果状态为 running 但已超过 8 分钟未更新，视为异常退出，重置为 pending
-        // v2.9.68: 阈值从 30 分钟缩短为 8 分钟，与 run_single_item 的 $item_max_runtime 对齐
+        // 阈值从 30 分钟缩短为 8 分钟，与 run_single_item 的 $item_max_runtime 对齐
         // 锁 TTL 改为 10 分钟 + run_single_item 内部刷新后，30 分钟窗口明显偏长
         if ( 'running' === ( $run['status'] ?? '' ) ) {
             $started_at = strtotime( $run['started_at'] ?? '' );
             $stuck_timeout = 8 * MINUTE_IN_SECONDS;
             if ( $started_at && ( time() - $started_at ) > $stuck_timeout ) {
-                WPAIP_96EY::update_run( $run_id, array(
+                YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
                     'status'       => 'pending',
                     'last_message' => '检测到上次执行超时（>8分钟），自动恢复重新派发。',
                 ) );
@@ -244,12 +244,12 @@ class WPAIP_KSQ9 {
     }
 
     public function run( $run_id ) {
-        $run = WPAIP_96EY::get_run( $run_id );
+        $run = YIMAI_GSO_Autopilot_Log::get_run( $run_id );
         if ( empty( $run ) ) {
             return new WP_Error( 'run_not_found', '未找到要执行的永动发布任务。' );
         }
 
-        // v2.9.71: 先把恢复卡死 item 的逻辑提前到获取锁之前！
+        // 先把恢复卡死 item 的逻辑提前到获取锁之前！
         // 旧逻辑：recover_stuck_items 在 acquire_generation_lock 之后执行，
         // 若上次执行进程被 nginx 切断导致锁未释放，acquire 直接失败 return，
         // recover_stuck_items 永远执行不到 → 卡死 item 永远恢复不了，run 永久卡死。
@@ -258,13 +258,13 @@ class WPAIP_KSQ9 {
 
         $lock = self::acquire_generation_lock( 'autopilot', 10 * MINUTE_IN_SECONDS );
         if ( is_wp_error( $lock ) ) {
-            // v2.9.71: 锁冲突时，若本 run 存在卡死 item（上次进程被切断），
+            // 锁冲突时，若本 run 存在卡死 item（上次进程被切断），
             // recover_stuck_items 已强制释放 autopilot 锁，这里重试一次
             if ( $failed_count_from_recovery > 0 ) {
                 $lock = self::acquire_generation_lock( 'autopilot', 10 * MINUTE_IN_SECONDS );
             }
             if ( is_wp_error( $lock ) ) {
-                // v2.9.50: 锁冲突不修改 run 状态（避免 rescue 逻辑并发触发时误标 aborted）
+                // 锁冲突不修改 run 状态（避免 rescue 逻辑并发触发时误标 aborted）
                 // 锁冲突是正常的并发保护，不应视为失败。状态保持 pending/running，等下次调度重试。
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
                     error_log( '[一麦GSO Autopilot] 获取生成锁冲突 (run_id=' . $run_id . '): ' . $lock->get_error_message() );
@@ -280,7 +280,7 @@ class WPAIP_KSQ9 {
 
         self::bootstrap_runtime_user( absint( $run['manual_requested_by'] ?? 0 ) );
 
-        WPAIP_96EY::update_run( $run_id, array(
+        YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
             'status'      => 'running',
             'started_at'  => current_time( 'mysql' ),
             'last_error'  => null,
@@ -293,7 +293,7 @@ class WPAIP_KSQ9 {
         $trigger_source = sanitize_text_field( $run['trigger_source'] ?? $snapshot['trigger_source'] ?? 'cron' );
 
         // 分批执行：无论手动还是 cron，每轮都只处理 1 篇！
-        // v2.9.73: 彻底统一手动/cron 行为。v2.9.72 的手动 batch_size=$count（一次跑完）
+        // 彻底统一手动/cron 行为。 的手动 batch_size=$count（一次跑完）
         // 经测试在多数服务器上不稳定——同一个 PHP 进程连续跑多篇 AI+发布+钩子，
         // 累计资源开销（锁刷新/Token验证/WordPress钩子/对象缓存）容易触发隐性瓶颈，
         // 导致 #2 在 AJAX 请求中卡死且无法恢复。
@@ -301,7 +301,7 @@ class WPAIP_KSQ9 {
         $batch_size = 1;
 
         try {
-            $generator = new WPAIP_CGGE();
+            $generator = new YIMAI_GSO_AI_Generator();
 
             // 首次执行时生成全部标题，存入 settings_snapshot 供后续批次复用
             $saved_titles = $snapshot['generated_titles'] ?? null;
@@ -314,14 +314,14 @@ class WPAIP_KSQ9 {
                     throw new Exception( 'AI 没有返回可用标题。' );
                 }
                 $snapshot['generated_titles'] = $titles;
-                WPAIP_96EY::update_run( $run_id, array(
+                YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
                     'settings_snapshot' => $snapshot,
                 ) );
             } else {
                 $titles = $saved_titles;
             }
 
-            // v2.9.71: recover_stuck_items 已提前到 acquire 锁之前执行（见 run() 开头），
+            // recover_stuck_items 已提前到 acquire 锁之前执行（见 run() 开头），
             // 这里不再重复调用，避免重复释放锁
 
             $success_count   = (int) ( $run['success_count'] ?? 0 );
@@ -341,11 +341,11 @@ class WPAIP_KSQ9 {
                     break;
                 }
 
-                $item = WPAIP_96EY::create_item(
+                $item = YIMAI_GSO_Autopilot_Log::create_item(
                     $run_id,
                     $i + 1,
                     $title,
-                    WPAIP_HXVV::build_article_prompt( $title, $snapshot )
+                    YIMAI_GSO_Autopilot_Plan::build_article_prompt( $title, $snapshot )
                 );
 
                 if ( is_wp_error( $item ) ) {
@@ -369,7 +369,7 @@ class WPAIP_KSQ9 {
                 unset( $item, $result );
 
                 // 每处理完一篇立即保存进度，防止进程中断导致统计丢失
-                WPAIP_96EY::update_run( $run_id, array(
+                YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
                     'success_count'   => $success_count,
                     'failed_count'    => $failed_count,
                     'published_count' => $published_count,
@@ -381,7 +381,7 @@ class WPAIP_KSQ9 {
 
             if ( $total_processed < count( $titles ) ) {
             // 还有剩余文章，续派下一个批次，并将状态重置为 pending
-            WPAIP_96EY::update_run( $run_id, array(
+            YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
                 'success_count'   => $success_count,
                 'failed_count'    => $failed_count,
                 'published_count' => $published_count,
@@ -392,7 +392,7 @@ class WPAIP_KSQ9 {
                 $this->schedule_next_batch( $run_id );
 
                 self::release_generation_lock( 'autopilot' );
-                return WPAIP_96EY::get_run( $run_id );
+                return YIMAI_GSO_Autopilot_Log::get_run( $run_id );
             }
 
             // 全部完成
@@ -405,7 +405,7 @@ class WPAIP_KSQ9 {
 
             // 清理 saved titles
             unset( $snapshot['generated_titles'] );
-            WPAIP_96EY::update_run( $run_id, array(
+            YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
                 'status'          => $final_status,
                 'success_count'   => $success_count,
                 'failed_count'    => $failed_count,
@@ -415,7 +415,7 @@ class WPAIP_KSQ9 {
                 'settings_snapshot' => $snapshot,
             ) );
         } catch ( Exception $e ) {
-            WPAIP_96EY::update_run( $run_id, array(
+            YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
                 'status'       => 'failed',
                 'last_error'   => $e->getMessage(),
                 'last_message' => '永动发布执行失败。',
@@ -425,7 +425,7 @@ class WPAIP_KSQ9 {
 
         self::release_generation_lock( 'autopilot' );
 
-        return WPAIP_96EY::get_run( $run_id );
+        return YIMAI_GSO_Autopilot_Log::get_run( $run_id );
     }
 
     /**
@@ -443,9 +443,9 @@ class WPAIP_KSQ9 {
         }
 
         // 主动触发 wp-cron.php 立即处理续批事件
-        // v2.9.40 修复：精准模式下使用 HTTP 触发 wp-cron.php（与 queue_run 保持一致）
+        //  修复：精准模式下使用 HTTP 触发 wp-cron.php（与 queue_run 保持一致）
         $precise_mode = ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON );
-        $last_trigger = get_transient( 'wpaip_last_cron_trigger' );
+        $last_trigger = get_transient( 'yimai_gso_last_cron_trigger' );
         if ( false === $last_trigger ) {
             if ( $precise_mode ) {
                 $wp_cron_url = site_url( 'wp-cron.php' );
@@ -461,7 +461,7 @@ class WPAIP_KSQ9 {
                 spawn_cron();
             }
             // 防抖：1秒内不重复触发
-            set_transient( 'wpaip_last_cron_trigger', time(), 1 );
+            set_transient( 'yimai_gso_last_cron_trigger', time(), 1 );
         }
     }
 
@@ -470,20 +470,20 @@ class WPAIP_KSQ9 {
         $existing_status = $item['status'] ?? 'pending';
         if ( in_array( $existing_status, array( 'success', 'failed' ), true ) ) {
             // 已完成的 item 不再重复处理，防止中断恢复后重复发布
-            return WPAIP_96EY::get_item( $item_id );
+            return YIMAI_GSO_Autopilot_Log::get_item( $item_id );
         }
 
         $title     = sanitize_text_field( $item['title'] ?? '' );
-        $prompt    = WPAIP_HXVV::build_article_prompt( $title, $snapshot );
+        $prompt    = YIMAI_GSO_Autopilot_Plan::build_article_prompt( $title, $snapshot );
         $word_count= max( 300, absint( $snapshot['word_count'] ?? 1000 ) );
         $language  = sanitize_text_field( $snapshot['language'] ?? 'zh_CN' );
 
-        // v2.9.68: 记录单篇开始时间，用于硬性超时保护（默认 8 分钟上限，
+        // 记录单篇开始时间，用于硬性超时保护（默认 8 分钟上限，
         // 防止 AI 接口永久卡住时整篇永远卡在 running；锁和 item 必须能最终释放）
         $item_started_at = time();
         $item_max_runtime = 8 * MINUTE_IN_SECONDS;
 
-        WPAIP_96EY::update_item( $item_id, array(
+        YIMAI_GSO_Autopilot_Log::update_item( $item_id, array(
             'status'        => 'running',
             'stage'         => 'article_generating',
             'prompt'        => $prompt,
@@ -491,19 +491,19 @@ class WPAIP_KSQ9 {
             'error_message' => null,
         ) );
 
-        // v2.9.68: 进入子任务时主动刷新一次锁，避免被父级 run() 的锁 TTL 边界卡住
+        // 进入子任务时主动刷新一次锁，避免被父级 run() 的锁 TTL 边界卡住
         self::refresh_generation_lock( 'autopilot', 10 * MINUTE_IN_SECONDS );
 
         try {
-            $generator = new WPAIP_CGGE();
-            // v2.9.68: AI 调用前刷锁 + 检查单篇总执行时间
+            $generator = new YIMAI_GSO_AI_Generator();
+            // AI 调用前刷锁 + 检查单篇总执行时间
             self::refresh_generation_lock( 'autopilot', 10 * MINUTE_IN_SECONDS );
             if ( ( time() - $item_started_at ) > $item_max_runtime ) {
                 throw new \RuntimeException( '单篇执行总时间超过 ' . ( $item_max_runtime / MINUTE_IN_SECONDS ) . ' 分钟（AI 接口可能永久卡住），已强制中止。' );
             }
             $article   = $generator->generate_article( $prompt, $word_count, $language, $title );
             if ( is_wp_error( $article ) ) {
-                WPAIP_96EY::update_item( $item_id, array(
+                YIMAI_GSO_Autopilot_Log::update_item( $item_id, array(
                     'status'        => 'failed',
                     'stage'         => 'article_failed',
                     'error_message' => $article->get_error_message(),
@@ -514,12 +514,12 @@ class WPAIP_KSQ9 {
 
             $content = (string) ( $article['content'] ?? '' );
 
-            WPAIP_96EY::update_item( $item_id, array(
+            YIMAI_GSO_Autopilot_Log::update_item( $item_id, array(
                 'stage'         => 'assets_processing',
                 'stage_message' => '正在处理配图与标签。',
             ) );
 
-            // v2.9.68: 配图阶段前刷锁 + 检查总时间
+            // 配图阶段前刷锁 + 检查总时间
             self::refresh_generation_lock( 'autopilot', 10 * MINUTE_IN_SECONDS );
             if ( ( time() - $item_started_at ) > $item_max_runtime ) {
                 throw new \RuntimeException( '单篇执行总时间超过 ' . ( $item_max_runtime / MINUTE_IN_SECONDS ) . ' 分钟，已强制中止。' );
@@ -537,13 +537,13 @@ class WPAIP_KSQ9 {
                 ) );
             }
 
-            // v2.9.68: 发布阶段前刷锁 + 检查总时间
+            // 发布阶段前刷锁 + 检查总时间
             self::refresh_generation_lock( 'autopilot', 10 * MINUTE_IN_SECONDS );
             if ( ( time() - $item_started_at ) > $item_max_runtime ) {
                 throw new \RuntimeException( '单篇执行总时间超过 ' . ( $item_max_runtime / MINUTE_IN_SECONDS ) . ' 分钟，已强制中止。' );
             }
 
-            $publisher = new WPAIP_2I0E();
+            $publisher = new YIMAI_GSO_Publisher();
             $tags      = $this->build_tags( $snapshot, $article );
             $status    = sanitize_text_field( $snapshot['post_status'] ?? 'publish' );
 
@@ -568,14 +568,14 @@ class WPAIP_KSQ9 {
                 'prompt'       => $prompt,
                 'word_count'   => $word_count,
                 'image_count'  => $image_count,
-                'ai_model'     => WPAIP_9XCU::get( 'ai_model', 'gpt-4o' ),
+                'ai_model'     => YIMAI_GSO_Settings::get( 'ai_model', 'gpt-4o' ),
                 'language'     => $language,
                 'source'       => 'autopilot',
                 'article_index' => absint( $article_index ),
             ) );
 
             if ( is_wp_error( $result ) ) {
-                WPAIP_96EY::update_item( $item_id, array(
+                YIMAI_GSO_Autopilot_Log::update_item( $item_id, array(
                     'status'        => 'failed',
                     'stage'         => 'publish_failed',
                     'error_message' => $result->get_error_message(),
@@ -584,7 +584,7 @@ class WPAIP_KSQ9 {
                 return $result;
             }
 
-            WPAIP_96EY::update_item( $item_id, array(
+            YIMAI_GSO_Autopilot_Log::update_item( $item_id, array(
                 'status'        => 'success',
                 'stage'         => 'published',
                 'title'         => $result['title'] ?? $title,
@@ -596,12 +596,12 @@ class WPAIP_KSQ9 {
             return $result;
 
         } catch ( \Throwable $e ) {
-            // v2.9.64: 兜底保护 — 无论是 PHP 致命错误还是异常，item 必须脱离 running 状态
+            // 兜底保护 — 无论是 PHP 致命错误还是异常，item 必须脱离 running 状态
             error_log( sprintf(
                 '[一麦GSO Autopilot] Item %d (%s) crashed: %s in %s:%d',
                 $item_id, $title, $e->getMessage(), $e->getFile(), $e->getLine()
             ) );
-            WPAIP_96EY::update_item( $item_id, array(
+            YIMAI_GSO_Autopilot_Log::update_item( $item_id, array(
                 'status'        => 'failed',
                 'stage'         => 'exception',
                 'error_message' => mb_substr( $e->getMessage(), 0, 500 ),
@@ -645,7 +645,7 @@ class WPAIP_KSQ9 {
 
         if ( $use_ai_tags ) {
             foreach ( array_map( 'trim', explode( ',', (string) ( $article['tags'] ?? '' ) ) ) as $tag ) {
-                // v2.9.73: 强化过滤 — 不仅精确匹配标题，还要排除含标题关键词的、过长/过短的标签
+                // 强化过滤 — 不仅精确匹配标题，还要排除含标题关键词的、过长/过短的标签
                 $article_title = (string) ( $article['title'] ?? '' );
                 $tag_len = mb_strlen( $tag );
                 // 标签长度限制：2~15 字（1字太泛，15+大概率是句子/标题泄漏）
@@ -687,7 +687,7 @@ class WPAIP_KSQ9 {
     }
 
     private function attach_images_to_content( $content, $keyword, $image_count, $context = array() ) {
-        $handler = new WPAIP_OQ4C();
+        $handler = new YIMAI_GSO_Image_Handler();
         $images  = $handler->fetch_images( $keyword, $image_count );
         if ( is_wp_error( $images ) || empty( $images ) ) {
             return $content;
@@ -739,11 +739,11 @@ class WPAIP_KSQ9 {
         }
 
         // 兼容 Redis 对象缓存：flush 后再查询，避免缓存返回空数组
-        // v2.9.28: 增加 filter 允许高级用户禁用全局刷新（改用精准 delete），并记录 WP_DEBUG 日志
-        $should_flush = apply_filters( 'wpaip_bootstrap_user_cache_flush', false );
+        // 增加 filter 允许高级用户禁用全局刷新（改用精准 delete），并记录 WP_DEBUG 日志
+        $should_flush = apply_filters( 'yimai_gso_bootstrap_user_cache_flush', false );
         if ( $should_flush && function_exists( 'wp_cache_flush' ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[一麦GSO Perf] bootstrap_runtime_user triggered wp_cache_flush() — consider using wpaip_bootstrap_user_cache_flush filter to disable' );
+                error_log( '[一麦GSO Perf] bootstrap_runtime_user triggered wp_cache_flush() — consider using yimai_gso_bootstrap_user_cache_flush filter to disable' );
             }
             wp_cache_flush();
         }
@@ -823,7 +823,7 @@ class WPAIP_KSQ9 {
             // 批量 vs 非批量 互斥
             $expires = absint( $lock['expires_at'] ?? 0 );
             if ( $expires > $now ) {
-                return new WP_Error( 'wpaip_generation_locked', '当前有其他生成任务正在执行，请稍后再试。' );
+                return new WP_Error( 'yimai_gso_generation_locked', '当前有其他生成任务正在执行，请稍后再试。' );
             }
         }
 
@@ -896,12 +896,12 @@ class WPAIP_KSQ9 {
     }
 
     /**
-     * v2.9.64: 恢复卡死的 item（status='running' 超过 10 分钟 → 标记 failed）
+     * 恢复卡死的 item（status='running' 超过 10 分钟 → 标记 failed）
      *
      * PHP 进程被 web server kill/AI 超时/OOM 等情况会导致 item 永久卡在 running 状态。
      * 每次 run() 开始时扫描本 run_id 下的卡死 item，自动标记 failed 以解除阻塞。
      *
-     * v2.9.68: 同时强制释放 autopilot 锁。如果当前 run 的所有卡死 item 都已被恢复，
+     * 同时强制释放 autopilot 锁。如果当前 run 的所有卡死 item 都已被恢复，
      * 说明上次执行的 PHP 进程已被切断，锁必须立即释放，否则后续 cron 触发会全部因
      * 锁冲突而被挡在外面，导致 run 永远卡在 running 状态。
      *
@@ -919,7 +919,7 @@ class WPAIP_KSQ9 {
         $cutoff_time     = date( 'Y-m-d H:i:s', time() - $stuck_threshold );
 
         $stuck_items = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, title, updated_at FROM {$wpdb->prefix}wpaip_autopilot_items
+            "SELECT id, title, updated_at FROM {$wpdb->prefix}yimai_gso_autopilot_items
              WHERE run_id = %d AND status = 'running'
              AND (updated_at < %s OR updated_at IS NULL)
              ORDER BY id ASC",
@@ -928,7 +928,7 @@ class WPAIP_KSQ9 {
 
         $recovered = 0;
         foreach ( $stuck_items as $stuck ) {
-            WPAIP_96EY::update_item( $stuck->id, array(
+            YIMAI_GSO_Autopilot_Log::update_item( $stuck->id, array(
                 'status'        => 'failed',
                 'stage'         => 'timeout',
                 'error_message' => '上次执行卡死（>5分钟无响应），已自动标记为失败。',
@@ -948,7 +948,7 @@ class WPAIP_KSQ9 {
             ) );
         }
 
-        // v2.9.68: 如果本次恢复了任何卡死 item，强制释放 autopilot 锁。
+        // 如果本次恢复了任何卡死 item，强制释放 autopilot 锁。
         // 理由：卡死说明 PHP 进程已被切断（被 nginx kill / AI 永久挂起 / OOM），
         // 该进程已不会再调用 release_generation_lock，锁必须由本次执行的 recover 阶段主动释放。
         if ( $recovered > 0 ) {

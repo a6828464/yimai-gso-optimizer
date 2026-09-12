@@ -17,16 +17,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-class WPAIP_Updater {
+class YIMAI_GSO_Updater {
 
 	const GITEE_REPO    = 'meng-taoo/yimai-gso-optimizer';
 	const GITHUB_REPO   = 'a6828464/yimai-gso-optimizer';
 	const MANIFEST_NAME = 'yimai-gso-optimizer-manifest.json';
 	const PACKAGE_NAME  = 'yimai-gso-optimizer-latest.zip';
+	const LOCK_TRANSIENT = 'yimai_gso_update_lock';
 
 	public static function init() {
-		add_action( 'wp_ajax_wpaip_gso_update_check', array( __CLASS__, 'ajax_check' ) );
-		add_action( 'wp_ajax_wpaip_gso_update_run', array( __CLASS__, 'ajax_run' ) );
+		add_action( 'wp_ajax_yimai_gso_update_check', array( __CLASS__, 'ajax_check' ) );
+		add_action( 'wp_ajax_yimai_gso_update_run', array( __CLASS__, 'ajax_run' ) );
 	}
 
 	/** 各发布渠道的清单与包地址 */
@@ -44,7 +45,7 @@ class WPAIP_Updater {
 	}
 
 	public static function state() {
-		$file = WPAIP_PLUGIN_DIR . '.update-state.json';
+		$file = YIMAI_GSO_PLUGIN_DIR . '.update-state.json';
 		if ( is_file( $file ) ) {
 			$json = json_decode( (string) file_get_contents( $file ), true );
 			if ( is_array( $json ) ) {
@@ -54,9 +55,8 @@ class WPAIP_Updater {
 		return array();
 	}
 
-	/** 后台「检查更新」：拉远端清单，与当前 WPAIP_VERSION 比较 */
-	public static function check( &$source_used = null ) {
-		$remote = array();
+	/** 拉取远端更新清单（时间戳破 CDN 缓存），成功返回清单数组，失败返回 null */
+	private static function fetch_manifest( &$source_used = null ) {
 		foreach ( self::sources() as $source => $urls ) {
 			// 时间戳破缓存：GitHub/Gitee 对同名 Release 资产有 CDN 缓存，重建同名 Release 后可能仍吐旧文件
 			$url = $urls['manifest'] . ( strpos( $urls['manifest'], '?' ) === false ? '?' : '&' ) . 't=' . time();
@@ -66,26 +66,31 @@ class WPAIP_Updater {
 			}
 			$json = json_decode( wp_remote_retrieve_body( $resp ), true );
 			if ( is_array( $json ) && ! empty( $json['version'] ) ) {
-				$remote       = $json;
-				$source_used  = $source;
-				break;
+				$source_used = $source;
+				return $json;
 			}
 		}
+		return null;
+	}
+
+	/** 后台「检查更新」：拉远端清单，与当前 YIMAI_GSO_VERSION 比较 */
+	public static function check( &$source_used = null ) {
+		$remote = self::fetch_manifest( $source_used );
 
 		if ( empty( $remote ) ) {
 			return array(
 				'ok'      => false,
 				'message' => '无法获取远端版本信息（Gitee / GitHub 均不可达），请稍后重试。',
-				'local'   => array( 'version' => WPAIP_VERSION ),
+				'local'   => array( 'version' => YIMAI_GSO_VERSION ),
 			);
 		}
 
 		return array(
 			'ok'         => true,
-			'local'      => array( 'version' => WPAIP_VERSION ),
+			'local'      => array( 'version' => YIMAI_GSO_VERSION ),
 			'remote'     => $remote,
 			'source'     => $source_used,
-			'up_to_date' => version_compare( (string) $remote['version'], (string) WPAIP_VERSION, '<=' ),
+			'up_to_date' => version_compare( (string) $remote['version'], (string) YIMAI_GSO_VERSION, '<=' ),
 		);
 	}
 
@@ -163,7 +168,7 @@ class WPAIP_Updater {
 
 	/** 更新前备份当前插件代码（跳过备份目录），保留最近 2 份 */
 	private static function backup( array &$log ) {
-		$plugin_dir = WPAIP_PLUGIN_DIR;
+		$plugin_dir = YIMAI_GSO_PLUGIN_DIR;
 		$backup_dir = $plugin_dir . '.backups';
 		self::ensure_dir( $backup_dir );
 		$dest = $backup_dir . '/pre-' . gmdate( 'Ymd-His' ) . '-' . bin2hex( random_bytes( 3 ) ) . '.zip';
@@ -209,7 +214,7 @@ class WPAIP_Updater {
 
 	/** 递归覆盖：包内文件 → 插件目录。不删除服务器上的多余文件，路径含 .. 直接拒绝 */
 	private static function apply( $root, array &$log ) {
-		$plugin_dir = str_replace( '\\', '/', WPAIP_PLUGIN_DIR );
+		$plugin_dir = str_replace( '\\', '/', YIMAI_GSO_PLUGIN_DIR );
 		$root       = str_replace( '\\', '/', $root );
 		$count      = 0;
 		$iterator   = new RecursiveIteratorIterator(
@@ -244,7 +249,7 @@ class WPAIP_Updater {
 		@rmdir( $dir );
 	}
 
-	/** 后台「立即更新」：下载 → 解压校验 → 备份 → 覆盖 → 记录状态 */
+	/** 后台「立即更新」：下载 → 完整性校验 → 解压校验 → 备份 → 覆盖 → 记录状态 */
 	public static function run() {
 		$log   = array();
 		$start = microtime( true );
@@ -253,13 +258,40 @@ class WPAIP_Updater {
 				throw new RuntimeException( '无权限执行更新' );
 			}
 
+			// 并发锁：防止重复点击同时跑两份更新互相覆盖
+			if ( get_transient( self::LOCK_TRANSIENT ) ) {
+				throw new RuntimeException( '已有一次更新在进行中，请稍候再试。' );
+			}
+			set_transient( self::LOCK_TRANSIENT, 1, 5 * MINUTE_IN_SECONDS );
+
+			// 远端清单：用于包完整性校验
+			$manifest_source = null;
+			$manifest        = self::fetch_manifest( $manifest_source );
+
 			list( $zipfile, $source ) = self::download_package( get_temp_dir() . 'yimai-gso-' . bin2hex( random_bytes( 4 ) ) . '.zip' );
 			$log[] = '更新包下载完成（来源：' . $source . '，' . round( filesize( $zipfile ) / 1024 ) . ' KB）';
+
+			// 包完整性：清单提供 sha256 且包来自同一静态附件渠道（Gitee Release）时强制比对。
+			// GitHub codeload 归档由平台实时生成、分支推进后字节会变，无法预发布哈希，跳过比对。
+			if ( is_array( $manifest ) && ! empty( $manifest['sha256'] ) && 'gitee' === $source && 'gitee' === $manifest_source ) {
+				$actual = hash_file( 'sha256', $zipfile );
+				if ( ! hash_equals( (string) $manifest['sha256'], (string) $actual ) ) {
+					throw new RuntimeException( '更新包 sha256 校验失败，已中止安装（包可能被篡改或下载不完整）。' );
+				}
+				$log[] = '更新包 sha256 校验通过。';
+			} else {
+				$log[] = '提示：本次更新未做 sha256 校验（需发布清单写入 Gitee 包的 sha256 字段）。';
+			}
 
 			$work   = get_temp_dir() . 'yimai-gso-extract-' . bin2hex( random_bytes( 4 ) );
 			$root   = self::extract( $zipfile, $work );
 			$remote_version = self::read_package_version( $root . '/yimai-gso-optimizer.php' );
-			$log[] = '包内版本：v' . ( $remote_version ?: '?' ) . '（当前 v' . WPAIP_VERSION . '）';
+			$log[] = '包内版本：v' . ( $remote_version ?: '?' ) . '（当前 v' . YIMAI_GSO_VERSION . '）';
+
+			// 降级保护：包版本低于当前版本时拒绝安装
+			if ( '' !== $remote_version && version_compare( $remote_version, YIMAI_GSO_VERSION, '<' ) ) {
+				throw new RuntimeException( '远端包版本 v' . $remote_version . ' 低于当前版本 v' . YIMAI_GSO_VERSION . '，已阻止降级安装。' );
+			}
 
 			self::backup( $log );
 			self::apply( $root, $log );
@@ -269,7 +301,7 @@ class WPAIP_Updater {
 				'time'    => current_time( 'mysql' ),
 				'source'  => $source,
 			);
-			file_put_contents( WPAIP_PLUGIN_DIR . '.update-state.json', wp_json_encode( $state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) );
+			file_put_contents( YIMAI_GSO_PLUGIN_DIR . '.update-state.json', wp_json_encode( $state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) );
 
 			@unlink( $zipfile );
 			self::cleanup_dir( $work );
@@ -279,10 +311,12 @@ class WPAIP_Updater {
 		} catch ( Throwable $error ) {
 			$log[] = '更新失败：' . $error->getMessage();
 			return array( 'ok' => false, 'message' => $error->getMessage(), 'log' => $log );
+		} finally {
+			delete_transient( self::LOCK_TRANSIENT );
 		}
 	}
 
-	/** 从包内插件主文件头解析 Version（更新运行期间 WPAIP_VERSION 仍是旧值） */
+	/** 从包内插件主文件头解析 Version（更新运行期间 YIMAI_GSO_VERSION 仍是旧值） */
 	private static function read_package_version( $main_file ) {
 		$head = (string) file_get_contents( $main_file, false, null, 0, 2048 );
 		if ( preg_match( '/^[ \t\*]*Version:[ \t]*(.+)$/mi', $head, $m ) ) {
@@ -292,7 +326,7 @@ class WPAIP_Updater {
 	}
 
 	public static function ajax_check() {
-		check_ajax_referer( 'wpaip_nonce', 'nonce' );
+		check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => '无权限' ), 403 );
 		}
@@ -300,7 +334,7 @@ class WPAIP_Updater {
 	}
 
 	public static function ajax_run() {
-		check_ajax_referer( 'wpaip_nonce', 'nonce' );
+		check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => '无权限' ), 403 );
 		}

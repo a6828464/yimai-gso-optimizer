@@ -36,7 +36,7 @@ class YIMAI_GSO_Knowledge_Center {
 
     public function register_menu() {
         add_submenu_page(
-            'wpaip-center',
+            'yimai-gso-center',
             '一麦品牌资料',
             '品牌资料',
             'manage_options',
@@ -45,19 +45,19 @@ class YIMAI_GSO_Knowledge_Center {
         );
     }
 
-    /** Rendered inside the unified GSO settings screen in v2.2.0. */
+    /** Rendered inside the unified GSO settings screen in . */
     public function render_embedded_panel() {
         $this->render_page();
     }
 
     private static function documents_table() {
         global $wpdb;
-        return $wpdb->prefix . 'wpaip_knowledge_documents';
+        return $wpdb->prefix . 'yimai_gso_knowledge_documents';
     }
 
     private static function chunks_table() {
         global $wpdb;
-        return $wpdb->prefix . 'wpaip_knowledge_chunks';
+        return $wpdb->prefix . 'yimai_gso_knowledge_chunks';
     }
 
     public static function create_tables() {
@@ -421,7 +421,7 @@ class YIMAI_GSO_Knowledge_Center {
     }
 
     public function process_ai_classification_queue() {
-        if ( ! class_exists( 'WPAIP_CGGE' ) || ! WPAIP_9XCU::get( 'ai_api_key', '' ) ) {
+        if ( ! class_exists( 'YIMAI_GSO_AI_Generator' ) || ! YIMAI_GSO_Settings::get( 'ai_api_key', '' ) ) {
             return;
         }
 
@@ -647,7 +647,7 @@ class YIMAI_GSO_Knowledge_Center {
     }
 
     private function ai_classification( $source_name, $text ) {
-        if ( self::string_len( $text ) < 40 || ! class_exists( 'WPAIP_CGGE' ) || ! WPAIP_9XCU::get( 'ai_api_key', '' ) ) {
+        if ( self::string_len( $text ) < 40 || ! class_exists( 'YIMAI_GSO_AI_Generator' ) || ! YIMAI_GSO_Settings::get( 'ai_api_key', '' ) ) {
             return new WP_Error( 'ai_unavailable', 'AI 未配置或文本不足。' );
         }
 
@@ -658,7 +658,7 @@ class YIMAI_GSO_Knowledge_Center {
             "返回格式：{\"title\":\"\",\"summary\":\"\",\"visibility\":\"internal\",\"risk_level\":\"medium\",\"tags\":[\"\"]}\n\n" .
             "文件：{$source_name}\n内容：\n{$sample}";
 
-        $response = ( new WPAIP_CGGE() )->call_api(
+        $response = ( new YIMAI_GSO_AI_Generator() )->call_api(
             array(
                 array( 'role' => 'system', 'content' => '你负责知识资料隐私分级。宁可提高限制等级，不得泄露个人信息。' ),
                 array( 'role' => 'user', 'content' => $prompt ),
@@ -819,8 +819,8 @@ class YIMAI_GSO_Knowledge_Center {
             '以下内容来自管理员维护的一麦瑜伽品牌事实。只能使用资料中明确存在的事实，不得补造地址、价格、资质、人物、案例或效果数据。内部参考资料只能用于理解，不得逐字公开。健康内容不得诊断、治疗或保证效果。',
             '品牌边界：本文默认服务一麦瑜伽官网。除非用户明确要求做竞品对比，否则不得把其他瑜伽、健身或培训品牌写成推荐对象，不得用其他品牌替换一麦瑜伽。',
         );
-        if ( class_exists( 'WPAIP_PY7N' ) ) {
-            $entity = WPAIP_PY7N::get_entity_data();
+        if ( class_exists( 'YIMAI_GSO_GEO_Entity' ) ) {
+            $entity = YIMAI_GSO_GEO_Entity::get_entity_data();
             if ( ! empty( $entity['entity_name'] ) ) {
                 $lines[] = '<yimai_canonical_entity>';
                 $lines[] = '以下是双擎工作台中维护的 canonical 实体信息。品牌名称、实体类型和品牌描述可直接作为事实使用；联系方式和地址仅在问题明确询问时使用。';
@@ -866,7 +866,7 @@ class YIMAI_GSO_Knowledge_Center {
             $analysis = array( 'visibility' => $visibility, 'tags' => array_filter( array_map( 'trim', explode( ',', (string) $row['tags'] ) ) ) );
             $this->replace_chunks( $document_id, (string) $row['content'], $analysis );
         }
-        wp_safe_redirect( admin_url( 'admin.php?page=wpaip-center&tab=settings&subtab=knowledge&yimai_message=' . rawurlencode( '资料范围已更新。' ) ) );
+        wp_safe_redirect( admin_url( 'admin.php?page=yimai-gso-center&tab=settings&subtab=knowledge&yimai_message=' . rawurlencode( '资料范围已更新。' ) ) );
         exit;
     }
 
@@ -879,12 +879,12 @@ class YIMAI_GSO_Knowledge_Center {
         global $wpdb;
         $wpdb->delete( self::chunks_table(), array( 'document_id' => $document_id ), array( '%d' ) );
         $wpdb->delete( self::documents_table(), array( 'id' => $document_id ), array( '%d' ) );
-        wp_safe_redirect( admin_url( 'admin.php?page=wpaip-center&tab=settings&subtab=knowledge&yimai_message=' . rawurlencode( '资料及其索引已删除。' ) ) );
+        wp_safe_redirect( admin_url( 'admin.php?page=yimai-gso-center&tab=settings&subtab=knowledge&yimai_message=' . rawurlencode( '资料及其索引已删除。' ) ) );
         exit;
     }
 
     private function redirect_with_result( $imported, $errors ) {
-        $args = array( 'page' => 'wpaip-center', 'tab' => 'settings', 'subtab' => 'knowledge' );
+        $args = array( 'page' => 'yimai-gso-center', 'tab' => 'settings', 'subtab' => 'knowledge' );
         if ( $imported > 0 ) {
             $args['yimai_message'] = sprintf( '已识别并写入 %d 条资料。', $imported );
         }

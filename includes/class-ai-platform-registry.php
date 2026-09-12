@@ -3,7 +3,7 @@
  * AI 平台注册表 — 12 个主流 AI 平台的元数据配置
  *
  * 纯数据常量类，零依赖、零副作用，无条件加载。
- * WPAIP_P40M 从本注册表读取平台配置后按需调度适配逻辑。
+ * YIMAI_GSO_AI_Platform_Adapter 从本注册表读取平台配置后按需调度适配逻辑。
  *
  * 新增/修改平台配置只需改本文件中的 PLATFORMS 常量数组。
  *
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_H402 {
+class YIMAI_GSO_AI_Platform_Registry {
 
     /**
      * 12 个 AI 平台完整配置

@@ -5,7 +5,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_T6G5 {
+class YIMAI_GSO_Schema_Generator {
 
     private static $instance = null;
 
@@ -48,7 +48,7 @@ class WPAIP_T6G5 {
      */
     private function get_enabled_types() {
         $defaults = array_keys( self::get_schema_types() );
-        $saved    = WPAIP_9XCU::get( 'schema_enabled_types', array() );
+        $saved    = YIMAI_GSO_Settings::get( 'schema_enabled_types', array() );
 
         if ( empty( $saved ) || ! is_array( $saved ) ) {
             return $defaults;
@@ -78,7 +78,7 @@ class WPAIP_T6G5 {
 
     public function output_json_ld() {
         // 预览请求跳过（防止内存溢出）
-        if ( function_exists( 'wpaip_is_preview_request' ) && wpaip_is_preview_request() ) {
+        if ( function_exists( 'yimai_gso_is_preview_request' ) && yimai_gso_is_preview_request() ) {
             return;
         }
 
@@ -100,7 +100,7 @@ class WPAIP_T6G5 {
         }
 
         $current_post_type = get_post_type();
-        if ( ! WPAIP_B7PQ::is_supported( $current_post_type ) ) {
+        if ( ! YIMAI_GSO_Post_Type_Helper::is_supported( $current_post_type ) ) {
             return;
         }
 
@@ -134,10 +134,10 @@ class WPAIP_T6G5 {
         }
 
         // 获取文章存储的 schema_type（AI 生成时自动判断）
-        $schema_type = get_post_meta( $post_id, 'wpaip_schema_type', true );
+        $schema_type = get_post_meta( $post_id, 'yimai_gso_schema_type', true );
         if ( empty( $schema_type ) ) {
             $schema_type = $this->auto_detect_type( $post_id );
-            update_post_meta( $post_id, 'wpaip_schema_type', $schema_type );
+            update_post_meta( $post_id, 'yimai_gso_schema_type', $schema_type );
         }
 
         // 根据检测类型生成对应 Schema
@@ -193,9 +193,9 @@ class WPAIP_T6G5 {
             }
         }
 
-        // Citation Schema — 检测到引用时追加（v2.8.1 第3层新增）
-        if ( class_exists( 'WPAIP_NADX' ) ) {
-            $citation_helper = WPAIP_NADX::get_instance();
+        // Citation Schema — 检测到引用时追加（第3层新增）
+        if ( class_exists( 'YIMAI_GSO_Citation_Helper' ) ) {
+            $citation_helper = YIMAI_GSO_Citation_Helper::get_instance();
             $citation_data   = $citation_helper->get_citations( $post_id );
             if ( ! empty( $citation_data['count'] ) && $citation_data['count'] > 0 ) {
                 $citation_schema = $citation_helper->generate_schema_json_ld( $citation_data );
@@ -292,14 +292,14 @@ class WPAIP_T6G5 {
         }
 
         // 获取关键词作为 keywords
-        $kw_meta = get_post_meta( $post_id, 'wpaip_keywords', true );
+        $kw_meta = get_post_meta( $post_id, 'yimai_gso_keywords', true );
         $keywords = '';
         if ( ! empty( $kw_meta ) ) {
             $keywords = is_array( $kw_meta ) ? implode( ', ', $kw_meta ) : $kw_meta;
         }
 
         // 获取摘要
-        $excerpt = get_post_meta( $post_id, 'wpaip_excerpt', true );
+        $excerpt = get_post_meta( $post_id, 'yimai_gso_excerpt', true );
         if ( empty( $excerpt ) ) {
             // 不用 get_the_excerpt()，避免触发 wp_trim_excerpt() 的 preg_match_all 灾难性回溯
             $excerpt = $post->post_excerpt;
@@ -372,7 +372,7 @@ class WPAIP_T6G5 {
         }
 
         // 获取摘要
-        $excerpt = get_post_meta( $post_id, 'wpaip_excerpt', true );
+        $excerpt = get_post_meta( $post_id, 'yimai_gso_excerpt', true );
         if ( empty( $excerpt ) ) {
             $excerpt = $post->post_excerpt;
         }
@@ -459,8 +459,8 @@ class WPAIP_T6G5 {
         }
 
         // 如果 HTML 模式未检测到，回退到纯文本模式（使用 FAQ_Detector）
-        if ( empty( $questions ) && class_exists( 'WPAIP_LZDO' ) ) {
-            $detector = WPAIP_LZDO::get_instance();
+        if ( empty( $questions ) && class_exists( 'YIMAI_GSO_FAQ_Detector' ) ) {
+            $detector = YIMAI_GSO_FAQ_Detector::get_instance();
             $qa_pairs = $detector->detect_faq( $content, 'plain' );
 
             foreach ( $qa_pairs as $pair ) {
@@ -543,7 +543,7 @@ class WPAIP_T6G5 {
             'step'     => array_slice( $steps, 0, 20 ),
         );
 
-        $excerpt = get_post_meta( $post_id, 'wpaip_excerpt', true );
+        $excerpt = get_post_meta( $post_id, 'yimai_gso_excerpt', true );
         if ( empty( $excerpt ) ) {
             // 不用 get_the_excerpt()，避免触发 wp_trim_excerpt() 的 preg_match_all 灾难性回溯
             $post = get_post( $post_id );
@@ -574,7 +574,7 @@ class WPAIP_T6G5 {
         }
 
         $title   = get_the_title( $post_id );
-        $excerpt = get_post_meta( $post_id, 'wpaip_excerpt', true );
+        $excerpt = get_post_meta( $post_id, 'yimai_gso_excerpt', true );
         if ( empty( $excerpt ) ) {
             $excerpt = get_the_excerpt( $post_id );
         }
@@ -642,9 +642,9 @@ class WPAIP_T6G5 {
             'name'     => get_the_author_meta( 'display_name', $author_id ),
             'url'      => get_author_posts_url( $author_id ),
         );
-        $title = get_user_meta( $author_id, 'wpaip_author_title', true );
+        $title = get_user_meta( $author_id, 'yimai_gso_author_title', true );
         if ( ! empty( $title ) ) $schema['jobTitle'] = $title;
-        $sameas = get_user_meta( $author_id, 'wpaip_author_sameas', true );
+        $sameas = get_user_meta( $author_id, 'yimai_gso_author_sameas', true );
         if ( ! empty( $sameas ) ) $schema['sameAs'] = array_filter( array_map( 'trim', explode( "\n", $sameas ) ) );
         return $schema;
     }
@@ -746,7 +746,7 @@ class WPAIP_T6G5 {
      * 构建 LocalBusiness Schema（依赖 GEO 实体为 LocalBusiness 类型）
      */
     private function build_local_business( $post_id ) {
-        $entity = class_exists( 'WPAIP_PY7N' ) ? WPAIP_PY7N::get_entity_data() : array();
+        $entity = class_exists( 'YIMAI_GSO_GEO_Entity' ) ? YIMAI_GSO_GEO_Entity::get_entity_data() : array();
         $schema = array(
             '@context' => 'https://schema.org',
             '@type'    => 'LocalBusiness',
@@ -1008,7 +1008,7 @@ class WPAIP_T6G5 {
         }
 
         // 社交媒体链接（sameAs）
-        $social = WPAIP_9XCU::get( 'schema_social_profiles', '' );
+        $social = YIMAI_GSO_Settings::get( 'schema_social_profiles', '' );
         if ( ! empty( $social ) ) {
             $profiles = array_filter( array_map( 'trim', explode( "\n", $social ) ) );
             if ( ! empty( $profiles ) ) {
@@ -1023,7 +1023,7 @@ class WPAIP_T6G5 {
      * 获取文章的 Schema 摘要信息（供管理面板显示）
      */
     public static function get_post_schema_info( $post_id ) {
-        $schema_type = get_post_meta( $post_id, 'wpaip_schema_type', true );
+        $schema_type = get_post_meta( $post_id, 'yimai_gso_schema_type', true );
         if ( empty( $schema_type ) ) {
             return array( 'type' => 'auto', 'label' => '待生成' );
         }
@@ -1042,7 +1042,7 @@ class WPAIP_T6G5 {
         if ( ! in_array( $type, $valid, true ) ) {
             return false;
         }
-        return update_post_meta( $post_id, 'wpaip_schema_type', $type );
+        return update_post_meta( $post_id, 'yimai_gso_schema_type', $type );
     }
 
     /**
@@ -1058,7 +1058,7 @@ class WPAIP_T6G5 {
             'product'     => 0,
         );
 
-        $post_type_condition = WPAIP_B7PQ::sql_in_clause( 'p.post_type' );
+        $post_type_condition = YIMAI_GSO_Post_Type_Helper::sql_in_clause( 'p.post_type' );
 
         $row = $wpdb->get_row(
             "SELECT COUNT(*) AS total,
@@ -1067,7 +1067,7 @@ class WPAIP_T6G5 {
                     SUM(CASE WHEN pm.meta_value = 'HowTo' THEN 1 ELSE 0 END) AS howto,
                     SUM(CASE WHEN pm.meta_value = 'Product' THEN 1 ELSE 0 END) AS product
              FROM {$wpdb->posts} p
-             LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = 'wpaip_schema_type'
+             LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = 'yimai_gso_schema_type'
              WHERE {$post_type_condition} AND p.post_status = 'publish'",
             ARRAY_A
         );
@@ -1087,14 +1087,14 @@ class WPAIP_T6G5 {
      * AJAX: 批量重建文章 Schema 类型检测
      */
     public static function ajax_rebuild_schemas() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( '权限不足' );
         }
 
         global $wpdb;
-        $post_type_condition = WPAIP_B7PQ::sql_in_clause( 'p.post_type' );
+        $post_type_condition = YIMAI_GSO_Post_Type_Helper::sql_in_clause( 'p.post_type' );
         $post_ids = $wpdb->get_col(
             "SELECT p.ID FROM {$wpdb->posts} p
              WHERE {$post_type_condition} AND p.post_status = 'publish'
@@ -1107,7 +1107,7 @@ class WPAIP_T6G5 {
 
         foreach ( $post_ids as $id ) {
             $type = $instance->auto_detect_type( $id );
-            update_post_meta( $id, 'wpaip_schema_type', $type );
+            update_post_meta( $id, 'yimai_gso_schema_type', $type );
             $results['updated']++;
             $results[ $type === 'FAQPage' ? 'faq' : ( $type === 'HowTo' ? 'howto' : 'article' ) ]++;
         }
@@ -1119,7 +1119,7 @@ class WPAIP_T6G5 {
      * AJAX: 保存 Schema 类型开关设置
      */
     public static function ajax_save_settings() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1133,7 +1133,7 @@ class WPAIP_T6G5 {
         $valid_types = array_keys( self::get_schema_types() );
         $types = array_intersect( $types, $valid_types );
 
-        WPAIP_9XCU::set( 'schema_enabled_types', $types );
+        YIMAI_GSO_Settings::set( 'schema_enabled_types', $types );
 
         wp_send_json_success( array( 'message' => '设置已保存' ) );
     }
@@ -1142,7 +1142,7 @@ class WPAIP_T6G5 {
      * AJAX: 获取 Schema 统计数据
      */
     public static function ajax_get_stats() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );

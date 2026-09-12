@@ -3,12 +3,12 @@
  * 自动图片 ALT 生成器
  * 规则 + AI 双模式；AI 失败时自动回退到规则模式
  *
- * v1.42.0：ALT 生成改为 transition_post_status 钩子（优先级10），
+ * ALT 生成改为 transition_post_status 钩子（优先级10），
  * 与智能内链(25)、内容检测(20) 架构统一，不再在发布流程中阻塞生成。
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_JJXL {
+class YIMAI_GSO_Image_Alt_Generator {
 
     const MODE_RULE = 'rule';
     const MODE_AI   = 'ai';
@@ -33,9 +33,9 @@ class WPAIP_JJXL {
     }
 
     public function __construct() {
-        $this->enabled = (int) WPAIP_9XCU::get( 'auto_image_alt_enabled', 1 ) === 1;
+        $this->enabled = (int) YIMAI_GSO_Settings::get( 'auto_image_alt_enabled', 1 ) === 1;
 
-        $mode = WPAIP_9XCU::get( 'auto_image_alt_mode', self::MODE_RULE );
+        $mode = YIMAI_GSO_Settings::get( 'auto_image_alt_mode', self::MODE_RULE );
         if ( ! in_array( $mode, array( self::MODE_RULE, self::MODE_AI ), true ) ) {
             $mode = self::MODE_RULE;
         }
@@ -45,7 +45,7 @@ class WPAIP_JJXL {
         add_action( 'transition_post_status', array( $this, 'handle_transition_post_status' ), 10, 3 );
 
         // 注册 ALT 异步处理队列的 WP-Cron 钩子
-        add_action( 'wpaip_process_alt_queue', array( $this, 'process_alt_queue' ) );
+        add_action( 'yimai_gso_process_alt_queue', array( $this, 'process_alt_queue' ) );
 
         // 前端渲染时自动补全缺失的 ALT（已发布但未处理的文章）
         if ( ! is_admin() ) {
@@ -62,7 +62,7 @@ class WPAIP_JJXL {
      */
     public function handle_transition_post_status( $new_status, $old_status, $post ) {
         // 预览请求跳过（防止内存溢出）
-        if ( function_exists( 'wpaip_is_preview_request' ) && wpaip_is_preview_request() ) {
+        if ( function_exists( 'yimai_gso_is_preview_request' ) && yimai_gso_is_preview_request() ) {
             return;
         }
 
@@ -77,7 +77,7 @@ class WPAIP_JJXL {
         }
 
         // 仅处理插件支持的内容类型
-        if ( ! $post || ! WPAIP_B7PQ::is_supported( $post->post_type ) ) {
+        if ( ! $post || ! YIMAI_GSO_Post_Type_Helper::is_supported( $post->post_type ) ) {
             return;
         }
 
@@ -127,7 +127,7 @@ class WPAIP_JJXL {
      * 将文章ID加入ALT生成队列，并安排异步处理任务
      */
     private function add_to_alt_queue( $post_id ) {
-        $queue = get_option( 'wpaip_alt_queue', array() );
+        $queue = get_option( 'yimai_gso_alt_queue', array() );
 
         // 去重：避免同一篇文章重复入队
         if ( in_array( $post_id, $queue, true ) ) {
@@ -135,19 +135,19 @@ class WPAIP_JJXL {
         }
 
         $queue[] = $post_id;
-        update_option( 'wpaip_alt_queue', $queue );
+        update_option( 'yimai_gso_alt_queue', $queue, false );
 
         // 如果处理任务尚未安排，则安排一个（60秒后执行，避免发布流程阻塞）
-        if ( ! wp_next_scheduled( 'wpaip_process_alt_queue' ) ) {
-            wp_schedule_single_event( time() + 60, 'wpaip_process_alt_queue' );
+        if ( ! wp_next_scheduled( 'yimai_gso_process_alt_queue' ) ) {
+            wp_schedule_single_event( time() + 60, 'yimai_gso_process_alt_queue' );
         }
 
         // 主动触发 wp-cron.php 立即处理（防止低流量站点队列堆积）
         if ( ! ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) && function_exists( 'spawn_cron' ) ) {
-            $last_trigger = get_transient( 'wpaip_last_cron_trigger' );
+            $last_trigger = get_transient( 'yimai_gso_last_cron_trigger' );
             if ( false === $last_trigger ) {
                 spawn_cron();
-                set_transient( 'wpaip_last_cron_trigger', time(), 1 );
+                set_transient( 'yimai_gso_last_cron_trigger', time(), 1 );
             }
         }
     }
@@ -156,7 +156,7 @@ class WPAIP_JJXL {
      * WP-Cron 回调：处理ALT生成队列（每次最多处理5篇，避免超时）
      */
     public function process_alt_queue() {
-        $queue = get_option( 'wpaip_alt_queue', array() );
+        $queue = get_option( 'yimai_gso_alt_queue', array() );
         if ( empty( $queue ) ) {
             return;
         }
@@ -172,13 +172,13 @@ class WPAIP_JJXL {
 
         // 更新剩余队列
         if ( ! empty( $queue ) ) {
-            update_option( 'wpaip_alt_queue', $queue );
+            update_option( 'yimai_gso_alt_queue', $queue, false );
             // 队列还有剩余，30秒后继续处理
-            if ( ! wp_next_scheduled( 'wpaip_process_alt_queue' ) ) {
-                wp_schedule_single_event( time() + 30, 'wpaip_process_alt_queue' );
+            if ( ! wp_next_scheduled( 'yimai_gso_process_alt_queue' ) ) {
+                wp_schedule_single_event( time() + 30, 'yimai_gso_process_alt_queue' );
             }
         } else {
-            delete_option( 'wpaip_alt_queue' );
+            delete_option( 'yimai_gso_alt_queue' );
         }
     }
 
@@ -217,9 +217,9 @@ class WPAIP_JJXL {
 
         $context = array(
             'title'    => $post->post_title,
-            'keyword'  => get_post_meta( $post_id, 'wpaip_keywords', true ),
+            'keyword'  => get_post_meta( $post_id, 'yimai_gso_keywords', true ),
             'excerpt'  => $post->post_excerpt,
-            'language' => WPAIP_9XCU::get( 'article_language', 'zh_CN' ),
+            'language' => YIMAI_GSO_Settings::get( 'article_language', 'zh_CN' ),
         );
 
         // 产品图片：添加产品上下文数据（#45 产品图片SEO）
@@ -319,8 +319,8 @@ class WPAIP_JJXL {
         $context = array();
         if ( $post ) {
             $context['title']    = $post->post_title;
-            $context['keyword']  = get_post_meta( $post->ID, 'wpaip_keywords', true );
-            $context['language'] = WPAIP_9XCU::get( 'article_language', 'zh_CN' );
+            $context['keyword']  = get_post_meta( $post->ID, 'yimai_gso_keywords', true );
+            $context['language'] = YIMAI_GSO_Settings::get( 'article_language', 'zh_CN' );
         }
 
         return $this->process_html_content( $content, $context );
@@ -485,11 +485,11 @@ class WPAIP_JJXL {
     }
 
     private function generate_ai_alt_map( $slots, $article_context ) {
-        if ( empty( $slots ) || ! class_exists( 'WPAIP_CGGE' ) ) {
-            return new WP_Error( 'wpaip_alt_ai_unavailable', 'AI ALT 生成器不可用' );
+        if ( empty( $slots ) || ! class_exists( 'YIMAI_GSO_AI_Generator' ) ) {
+            return new WP_Error( 'yimai_gso_alt_ai_unavailable', 'AI ALT 生成器不可用' );
         }
 
-        $generator = new WPAIP_CGGE();
+        $generator = new YIMAI_GSO_AI_Generator();
         $result    = $generator->generate_image_alt( $article_context, array_values( $slots ) );
 
         if ( is_wp_error( $result ) ) {

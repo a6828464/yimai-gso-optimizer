@@ -4,13 +4,13 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_0P8Z {
+class YIMAI_GSO_Autopilot_Scheduler {
 
-    const CRON_HOOK           = 'wpaip_autopilot_tick';
-    const CRON_INTERVAL       = 'wpaip_every_five_minutes';
-    const CLEANUP_HOOK        = 'wpaip_autopilot_cleanup';
-    const CLEANUP_INTERVAL    = 'wpaip_daily_cleanup';
-    const DAILY_RUN_PREFIX     = 'wpaip_autopilot_run_date_';
+    const CRON_HOOK           = 'yimai_gso_autopilot_tick';
+    const CRON_INTERVAL       = 'yimai_gso_every_five_minutes';
+    const CLEANUP_HOOK        = 'yimai_gso_autopilot_cleanup';
+    const CLEANUP_INTERVAL    = 'yimai_gso_daily_cleanup';
+    const DAILY_RUN_PREFIX     = 'yimai_gso_autopilot_run_date_';
 
     // 时间常量（秒）
     const TIMEOUT_STATS_CACHE  = 300;      // 统计数据缓存时间：5分钟
@@ -60,7 +60,7 @@ class WPAIP_0P8Z {
     }
 
     public static function sync_schedule() {
-        $settings = WPAIP_HXVV::get_settings();
+        $settings = YIMAI_GSO_Autopilot_Plan::get_settings();
         $enabled  = ! empty( $settings['enabled'] ) && self::can_run_feature();
         $next     = wp_next_scheduled( self::CRON_HOOK );
 
@@ -111,13 +111,13 @@ class WPAIP_0P8Z {
      */
     public function handle_cleanup() {
         // 获取设置中的保留天数，默认30天
-        $settings = WPAIP_HXVV::get_settings();
+        $settings = YIMAI_GSO_Autopilot_Plan::get_settings();
         $days = isset( $settings['log_retention_days'] ) ? absint( $settings['log_retention_days'] ) : 30;
 
         // 最小保留7天，最大365天
         $days = max( 7, min( 365, $days ) );
 
-        $result = WPAIP_96EY::cleanup_old_logs( $days );
+        $result = YIMAI_GSO_Autopilot_Log::cleanup_old_logs( $days );
 
         // 记录清理日志（使用 WordPress 调试日志）
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
@@ -134,17 +134,17 @@ class WPAIP_0P8Z {
         global $wpdb;
 
         // 快速检查：永动发布是否启用（带 transient 缓存，5 分钟有效）
-        $autopilot_enabled = get_transient( 'wpaip_autopilot_enabled_check' );
+        $autopilot_enabled = get_transient( 'yimai_gso_autopilot_enabled_check' );
         if ( false === $autopilot_enabled ) {
-            $settings = WPAIP_HXVV::get_settings();
+            $settings = YIMAI_GSO_Autopilot_Plan::get_settings();
             $autopilot_enabled = ! empty( $settings['enabled'] ) ? '1' : '0';
-            set_transient( 'wpaip_autopilot_enabled_check', $autopilot_enabled, 5 * MINUTE_IN_SECONDS );
+            set_transient( 'yimai_gso_autopilot_enabled_check', $autopilot_enabled, 5 * MINUTE_IN_SECONDS );
         }
         if ( '0' === $autopilot_enabled ) {
             return;
         }
 
-        $settings = WPAIP_HXVV::get_settings();
+        $settings = YIMAI_GSO_Autopilot_Plan::get_settings();
         if ( empty( $settings['enabled'] ) ) {
             return;
         }
@@ -153,19 +153,19 @@ class WPAIP_0P8Z {
             return;
         }
 
-        if ( ! WPAIP_HXVV::has_topic_keywords( $settings ) ) {
+        if ( ! YIMAI_GSO_Autopilot_Plan::has_topic_keywords( $settings ) ) {
             return;
         }
 
-        if ( ! WPAIP_HXVV::is_due_now( $settings ) ) {
+        if ( ! YIMAI_GSO_Autopilot_Plan::is_due_now( $settings ) ) {
             return;
         }
 
-        $date_key  = WPAIP_HXVV::get_local_date_key();
+        $date_key  = YIMAI_GSO_Autopilot_Plan::get_local_date_key();
         $dedupe_id = self::DAILY_RUN_PREFIX . $date_key;
 
         // 使用 MySQL GET_LOCK 防止并发的 WP-Cron 进程同时通过去重检查
-        $lock_name = 'wpaip_autopilot_dispatch_' . $date_key;
+        $lock_name = 'yimai_gso_autopilot_dispatch_' . $date_key;
         $got_lock  = $wpdb->get_var( $wpdb->prepare( "SELECT GET_LOCK(%s, 10)", $lock_name ) );
         if ( ! $got_lock ) {
             return; // 获取锁失败，说明其他进程正在处理
@@ -177,15 +177,15 @@ class WPAIP_0P8Z {
             return;
         }
 
-        $daily_run_key = WPAIP_HXVV::build_daily_run_key( $date_key );
-        $existing_daily = WPAIP_96EY::get_run_by_key( $daily_run_key );
+        $daily_run_key = YIMAI_GSO_Autopilot_Plan::build_daily_run_key( $date_key );
+        $existing_daily = YIMAI_GSO_Autopilot_Log::get_run_by_key( $daily_run_key );
         if ( ! empty( $existing_daily ) ) {
             set_transient( $dedupe_id, 1, 2 * DAY_IN_SECONDS );
             $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
             return;
         }
 
-        if ( WPAIP_96EY::has_run_today( $date_key ) ) {
+        if ( YIMAI_GSO_Autopilot_Log::has_run_today( $date_key ) ) {
             set_transient( $dedupe_id, 1, 2 * DAY_IN_SECONDS );
             $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
             return;
@@ -198,33 +198,33 @@ class WPAIP_0P8Z {
 
     public function dispatch_due_run( $trigger_source = 'cron', $force = false, $requested_by = 0, $async = false ) {
         $trigger_source = 'manual' === $trigger_source ? 'manual' : 'cron';
-        $settings       = WPAIP_HXVV::get_settings();
+        $settings       = YIMAI_GSO_Autopilot_Plan::get_settings();
 
         if ( ! $force && empty( $settings['enabled'] ) ) {
             return new WP_Error( 'autopilot_disabled', '永动发布当前未启用。' );
         }
 
         if ( ! self::can_run_feature() ) {
-            return new WP_Error( 'wpaip_feature_locked', '当前功能未启用永动发布。' );
+            return new WP_Error( 'yimai_gso_feature_locked', '当前功能未启用永动发布。' );
         }
 
-        if ( ! WPAIP_HXVV::has_topic_keywords( $settings ) ) {
+        if ( ! YIMAI_GSO_Autopilot_Plan::has_topic_keywords( $settings ) ) {
             return new WP_Error( 'missing_topics', '请先在永动发布设置里至少填写 1 个主题词。' );
         }
 
-        if ( ! $force && ! WPAIP_HXVV::is_due_now( $settings ) ) {
+        if ( ! $force && ! YIMAI_GSO_Autopilot_Plan::is_due_now( $settings ) ) {
             return new WP_Error( 'not_due', '当前还没到永动发布时间。' );
         }
 
-        $date_key  = WPAIP_HXVV::get_local_date_key();
-        $run_key   = $force ? WPAIP_HXVV::build_manual_run_key() : WPAIP_HXVV::build_daily_run_key( $date_key );
+        $date_key  = YIMAI_GSO_Autopilot_Plan::get_local_date_key();
+        $run_key   = $force ? YIMAI_GSO_Autopilot_Plan::build_manual_run_key() : YIMAI_GSO_Autopilot_Plan::build_daily_run_key( $date_key );
         $dedupe_id = self::DAILY_RUN_PREFIX . $date_key;
 
         if ( ! $force && get_transient( $dedupe_id ) ) {
             return new WP_Error( 'already_dispatched', '今日永动发布已派发。' );
         }
 
-        $existing = WPAIP_96EY::get_run_by_key( $run_key );
+        $existing = YIMAI_GSO_Autopilot_Log::get_run_by_key( $run_key );
         if ( ! empty( $existing ) ) {
             if ( ! $force ) {
                 set_transient( $dedupe_id, 1, 2 * DAY_IN_SECONDS );
@@ -232,8 +232,8 @@ class WPAIP_0P8Z {
             return $existing;
         }
 
-        $snapshot = WPAIP_HXVV::build_run_snapshot( $settings, $run_key, $trigger_source );
-        $run      = WPAIP_96EY::create_run( array(
+        $snapshot = YIMAI_GSO_Autopilot_Plan::build_run_snapshot( $settings, $run_key, $trigger_source );
+        $run      = YIMAI_GSO_Autopilot_Log::create_run( array(
             'run_key'             => $run_key,
             'trigger_source'      => $trigger_source,
             'status'              => 'pending',
@@ -255,15 +255,15 @@ class WPAIP_0P8Z {
 
         $run_id = absint( $run['id'] ?? 0 );
         if ( $async ) {
-            $queued = WPAIP_KSQ9::get_instance()->queue_run( $run_id );
+            $queued = YIMAI_GSO_Autopilot_Runner::get_instance()->queue_run( $run_id );
             if ( is_wp_error( $queued ) ) {
                 return $queued;
             }
 
-            return WPAIP_96EY::get_run( $run_id );
+            return YIMAI_GSO_Autopilot_Log::get_run( $run_id );
         }
 
-        $result = WPAIP_KSQ9::get_instance()->run( $run_id );
+        $result = YIMAI_GSO_Autopilot_Runner::get_instance()->run( $run_id );
         if ( is_wp_error( $result ) ) {
             return $result;
         }

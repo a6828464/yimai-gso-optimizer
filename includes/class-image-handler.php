@@ -4,41 +4,41 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_OQ4C {
+class YIMAI_GSO_Image_Handler {
 
     private $provider;
     private $api_key;
 
     public function __construct( $api_key = null, $provider = null ) {
         // 测试连接时使用传入的provider，否则使用设置中的provider
-        $this->provider = $provider ?: WPAIP_9XCU::get( 'image_provider', 'pexels' );
+        $this->provider = $provider ?: YIMAI_GSO_Settings::get( 'image_provider', 'pexels' );
         $this->api_key  = $api_key;
 
         if ( ! $this->api_key ) {
             switch ( $this->provider ) {
                 case 'pexels':
-                    $this->api_key = WPAIP_9XCU::get( 'pexels_api_key', '' );
+                    $this->api_key = YIMAI_GSO_Settings::get( 'pexels_api_key', '' );
                     break;
                 case 'unsplash':
-                    $this->api_key = WPAIP_9XCU::get( 'unsplash_api_key', '' );
+                    $this->api_key = YIMAI_GSO_Settings::get( 'unsplash_api_key', '' );
                     break;
                 case 'pixabay':
-                    $this->api_key = WPAIP_9XCU::get( 'image_api_key', '' );
+                    $this->api_key = YIMAI_GSO_Settings::get( 'image_api_key', '' );
                     break;
                 case 'flickr':
-                    $this->api_key = WPAIP_9XCU::get( 'flickr_api_key', '' );
+                    $this->api_key = YIMAI_GSO_Settings::get( 'flickr_api_key', '' );
                     break;
                 case 'stockapi':
-                    $this->api_key = WPAIP_9XCU::get( 'stockapi_api_key', '' );
+                    $this->api_key = YIMAI_GSO_Settings::get( 'stockapi_api_key', '' );
                     break;
                 case 'custom':
-                    $this->api_key = WPAIP_9XCU::get( 'custom_img_api_key', '' );
+                    $this->api_key = YIMAI_GSO_Settings::get( 'custom_img_api_key', '' );
                     break;
                 case 'dalle':
-                    $this->api_key = WPAIP_9XCU::get( 'ai_api_key', '' );
+                    $this->api_key = YIMAI_GSO_Settings::get( 'ai_api_key', '' );
                     break;
                 case 'ai':
-                    // AI 生图模式下，API Key 和 provider 由 WPAIP_6DVW 内部管理
+                    // AI 生图模式下，API Key 和 provider 由 YIMAI_GSO_AI_Image_Generator 内部管理
                     $this->api_key = 'delegated';
                     break;
                 case 'local':
@@ -53,7 +53,7 @@ class WPAIP_OQ4C {
      * 获取图片列表（返回图片URL数组）
      */
     public function fetch_images( $keyword, $count = 3 ) {
-        $log_prefix = '[WPAIP_IMG] ' . date( 'H:i:s' ) . ' ';
+        $log_prefix = '[YIMAI_GSO_IMG] ' . date( 'H:i:s' ) . ' ';
         $wp_debug = defined( 'WP_DEBUG' ) && WP_DEBUG;
 
         if ( $wp_debug ) {
@@ -136,15 +136,15 @@ class WPAIP_OQ4C {
      * 从本地图片库选取图片（权重+使用次数均衡算法）
      */
     private function fetch_from_local_library( $keyword, $count ) {
-        $log_prefix = '[WPAIP_IMG] ' . date( 'H:i:s' ) . ' ';
+        $log_prefix = '[YIMAI_GSO_IMG] ' . date( 'H:i:s' ) . ' ';
 
-        if ( ! class_exists( 'WPAIP_UY9D' ) ) {
-            error_log( $log_prefix . 'fetch_from_local_library: WPAIP_UY9D 类不存在！' );
+        if ( ! class_exists( 'YIMAI_GSO_Image_Library' ) ) {
+            error_log( $log_prefix . 'fetch_from_local_library: YIMAI_GSO_Image_Library 类不存在！' );
             return new WP_Error( 'no_library', '图片库模块未加载' );
         }
 
         // 读取图片库配置
-        $config = WPAIP_9XCU::get( 'local_image_config', '' );
+        $config = YIMAI_GSO_Settings::get( 'local_image_config', '' );
         if ( is_string( $config ) && ! empty( $config ) ) {
             $config = json_decode( $config, true );
         }
@@ -158,7 +158,7 @@ class WPAIP_OQ4C {
         error_log( $log_prefix . "fetch_from_local_library: keyword=" . substr( $keyword, 0, 80 ) . " | count={$count} | group_id={$group_id} | min_weight={$min_weight}" );
 
         // 从图片库选图
-        $images = WPAIP_UY9D::select_images( $keyword, $count, $group_id );
+        $images = YIMAI_GSO_Image_Library::select_images( $keyword, $count, $group_id );
 
         if ( is_wp_error( $images ) ) {
             error_log( $log_prefix . 'fetch_from_local_library: select_images 返回 WP_Error: ' . $images->get_error_message() );
@@ -314,7 +314,7 @@ class WPAIP_OQ4C {
             return new WP_Error( 'no_key', '请在设置中填写 OpenAI API Key' );
         }
 
-        $dalle_model = WPAIP_9XCU::get( 'dalle_model', 'dall-e-3' );
+        $dalle_model = YIMAI_GSO_Settings::get( 'dalle_model', 'dall-e-3' );
         $images      = array();
         $gen_count   = min( $count, 3 ); // DALL-E 3 每次最多1张，这里循环
 
@@ -358,18 +358,18 @@ class WPAIP_OQ4C {
     }
 
     /**
-     * AI 生成图片（委托给 WPAIP_6DVW）
+     * AI 生成图片（委托给 YIMAI_GSO_AI_Image_Generator）
      *
      * @param string $keyword 图片关键词/提示词
      * @param int    $count   生成数量
      * @return array|WP_Error
      */
     private function generate_with_ai( $keyword, $count ) {
-        if ( ! class_exists( 'WPAIP_6DVW' ) ) {
+        if ( ! class_exists( 'YIMAI_GSO_AI_Image_Generator' ) ) {
             return new WP_Error( 'no_class', 'AI 图片生成器未加载' );
         }
 
-        $generator = new WPAIP_6DVW();
+        $generator = new YIMAI_GSO_AI_Image_Generator();
         $result = $generator->generate( $keyword, $count );
 
         return $result;
@@ -393,7 +393,7 @@ class WPAIP_OQ4C {
         $tmp = download_url( $image_url, $timeout );
         if ( is_wp_error( $tmp ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPAIP_IMG] download failed for: ' . $image_url . ' → ' . $tmp->get_error_message() );
+                error_log( '[YIMAI_GSO_IMG] download failed for: ' . $image_url . ' → ' . $tmp->get_error_message() );
             }
             return $tmp;
         }
@@ -508,7 +508,7 @@ class WPAIP_OQ4C {
                 $alt = $alt_match[1];
             }
 
-            // 下载并上传到媒体库（v2.9.71: 30s→20s，避免多图累计拖垮发布流程）
+            // 下载并上传到媒体库（30s→20s，避免多图累计拖垮发布流程）
             $attach_id = $this->upload_image_to_media( $img_url, '', $alt, 20 );
 
             if ( ! is_wp_error( $attach_id ) ) {
@@ -526,7 +526,7 @@ class WPAIP_OQ4C {
                 }
             } else {
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( '[WPAIP_IMG] 下载图片失败: ' . $img_url . ' → ' . $attach_id->get_error_message() );
+                    error_log( '[YIMAI_GSO_IMG] 下载图片失败: ' . $img_url . ' → ' . $attach_id->get_error_message() );
                 }
             }
         }

@@ -3,11 +3,11 @@
  * 后台管理类 - 菜单注册、页面渲染、资源加载
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
-// WPAIP_VERSION 防御性定义：防止部署异常或 opcache 导致常量未定义 Fatal Error
-defined( 'WPAIP_VERSION' ) || define( 'WPAIP_VERSION', '2.2.1' );
+// YIMAI_GSO_VERSION 防御性定义：防止部署异常或 opcache 导致常量未定义 Fatal Error
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.0' );
 
 
-class WPAIP_NC8O {
+class YIMAI_GSO_Admin {
 
     private static $instance = null;
 
@@ -20,7 +20,7 @@ class WPAIP_NC8O {
 
     private function __construct() {
         // 预览请求跳过管理后台初始化（防止内存溢出）
-        if ( function_exists( 'wpaip_is_preview_request' ) && wpaip_is_preview_request() ) {
+        if ( function_exists( 'yimai_gso_is_preview_request' ) && yimai_gso_is_preview_request() ) {
             return;
         }
 
@@ -29,26 +29,26 @@ class WPAIP_NC8O {
         add_action( 'admin_notices', array( $this, 'autopilot_cron_system_notice' ) );
 
         // 图片库 AJAX
-        add_action( 'wp_ajax_wpaip_image_library_list', array( $this, 'ajax_image_library_list' ) );
-        add_action( 'wp_ajax_wpaip_image_library_upload', array( $this, 'ajax_image_library_upload' ) );
-        add_action( 'wp_ajax_wpaip_image_library_update', array( $this, 'ajax_image_library_update' ) );
-        add_action( 'wp_ajax_wpaip_image_library_batch_update', array( $this, 'ajax_image_library_batch_update' ) );
-        add_action( 'wp_ajax_wpaip_image_library_delete', array( $this, 'ajax_image_library_delete' ) );
-        add_action( 'wp_ajax_wpaip_image_library_stats', array( $this, 'ajax_image_library_stats' ) );
-        add_action( 'wp_ajax_wpaip_image_library_groups', array( $this, 'ajax_image_library_groups' ) );
-        add_action( 'wp_ajax_wpaip_image_library_group_create', array( $this, 'ajax_image_library_group_create' ) );
-        add_action( 'wp_ajax_wpaip_image_library_group_rename', array( $this, 'ajax_image_library_group_rename' ) );
-        add_action( 'wp_ajax_wpaip_image_library_group_delete', array( $this, 'ajax_image_library_group_delete' ) );
-        add_action( 'wp_ajax_wpaip_dismiss_cron_notice', array( $this, 'ajax_dismiss_cron_notice' ) );
-        add_action( 'wp_ajax_wpaip_toggle_internal_link', array( $this, 'ajax_toggle_internal_link' ) );
-        add_action( 'wp_ajax_wpaip_save_seo_meta_settings', array( $this, 'ajax_save_seo_meta_settings' ) );
+        add_action( 'wp_ajax_yimai_gso_image_library_list', array( $this, 'ajax_image_library_list' ) );
+        add_action( 'wp_ajax_yimai_gso_image_library_upload', array( $this, 'ajax_image_library_upload' ) );
+        add_action( 'wp_ajax_yimai_gso_image_library_update', array( $this, 'ajax_image_library_update' ) );
+        add_action( 'wp_ajax_yimai_gso_image_library_batch_update', array( $this, 'ajax_image_library_batch_update' ) );
+        add_action( 'wp_ajax_yimai_gso_image_library_delete', array( $this, 'ajax_image_library_delete' ) );
+        add_action( 'wp_ajax_yimai_gso_image_library_stats', array( $this, 'ajax_image_library_stats' ) );
+        add_action( 'wp_ajax_yimai_gso_image_library_groups', array( $this, 'ajax_image_library_groups' ) );
+        add_action( 'wp_ajax_yimai_gso_image_library_group_create', array( $this, 'ajax_image_library_group_create' ) );
+        add_action( 'wp_ajax_yimai_gso_image_library_group_rename', array( $this, 'ajax_image_library_group_rename' ) );
+        add_action( 'wp_ajax_yimai_gso_image_library_group_delete', array( $this, 'ajax_image_library_group_delete' ) );
+        add_action( 'wp_ajax_yimai_gso_dismiss_cron_notice', array( $this, 'ajax_dismiss_cron_notice' ) );
+        add_action( 'wp_ajax_yimai_gso_toggle_internal_link', array( $this, 'ajax_toggle_internal_link' ) );
+        add_action( 'wp_ajax_yimai_gso_save_seo_meta_settings', array( $this, 'ajax_save_seo_meta_settings' ) );
 
         // L3 内容分析层 - 新鲜度列 + 仪表盘
         add_action( 'admin_init', array( $this, 'add_freshness_columns' ) );
         add_action( 'wp_dashboard_setup', array( $this, 'add_freshness_dashboard_widget' ) );
 
-        // v2.9.17 仪表盘改版 - 数据端点
-        add_action( 'wp_ajax_wpaip_dashboard_data', array( $this, 'ajax_dashboard_data' ) );
+        //  仪表盘改版 - 数据端点
+        add_action( 'wp_ajax_yimai_gso_dashboard_data', array( $this, 'ajax_dashboard_data' ) );
     }
 
     /**
@@ -66,7 +66,7 @@ class WPAIP_NC8O {
      * 新鲜度列头
      */
     public function freshness_column_header( $columns ) {
-        $columns['wpaip_freshness'] = '新鲜度';
+        $columns['yimai_gso_freshness'] = '新鲜度';
         return $columns;
     }
 
@@ -74,14 +74,14 @@ class WPAIP_NC8O {
      * 新鲜度列内容
      */
     public function freshness_column_content( $column, $post_id ) {
-        if ( 'wpaip_freshness' !== $column ) return;
+        if ( 'yimai_gso_freshness' !== $column ) return;
 
-        if ( ! class_exists( 'WPAIP_SDZH' ) ) {
+        if ( ! class_exists( 'YIMAI_GSO_Content_Freshness' ) ) {
             echo '<span style="color:#94a3b8;">—</span>';
             return;
         }
 
-        $freshness = WPAIP_SDZH::get_instance();
+        $freshness = YIMAI_GSO_Content_Freshness::get_instance();
         $data      = $freshness->get_freshness( $post_id );
 
         $color  = isset( $data['color'] ) ? $data['color'] : '#94a3b8';
@@ -100,21 +100,21 @@ class WPAIP_NC8O {
      * 仪表盘新鲜度小组件
      */
     public function add_freshness_dashboard_widget() {
-        if ( ! class_exists( 'WPAIP_SDZH' ) ) return;
+        if ( ! class_exists( 'YIMAI_GSO_Content_Freshness' ) ) return;
         wp_add_dashboard_widget(
-            'wpaip_freshness_dashboard',
+            'yimai_gso_freshness_dashboard',
             '内容新鲜度概览 — 一麦GSO GEO',
             array( $this, 'render_freshness_dashboard_widget' )
         );
     }
 
     public function render_freshness_dashboard_widget() {
-        if ( ! class_exists( 'WPAIP_SDZH' ) ) {
+        if ( ! class_exists( 'YIMAI_GSO_Content_Freshness' ) ) {
             echo '<p>新鲜度模块未启用</p>';
             return;
         }
 
-        $freshness = WPAIP_SDZH::get_instance();
+        $freshness = YIMAI_GSO_Content_Freshness::get_instance();
         $stats     = $freshness->get_summary_stats();
 
         $total  = (int) ( $stats['total'] ?? 0 );
@@ -151,13 +151,13 @@ class WPAIP_NC8O {
     }
 
     private function get_asset_version( $relative_path ) {
-        $asset_file = WPAIP_PLUGIN_DIR . ltrim( $relative_path, '/\\' );
+        $asset_file = YIMAI_GSO_PLUGIN_DIR . ltrim( $relative_path, '/\\' );
 
         if ( file_exists( $asset_file ) ) {
-            return ( defined( 'WPAIP_VERSION' ) ? WPAIP_VERSION : '2.2.1' ) . '.' . filemtime( $asset_file );
+            return ( defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '2.4.0' ) . '.' . filemtime( $asset_file );
         }
 
-        return defined( 'WPAIP_VERSION' ) ? WPAIP_VERSION : '2.2.1';
+        return defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '2.4.0';
     }
 
     public function register_menus() {
@@ -166,7 +166,7 @@ class WPAIP_NC8O {
             '一麦GSO双擎优化',
             '一麦GSO双擎优化',
             'edit_posts',
-            'wpaip-center',
+            'yimai-gso-center',
             array( $this, 'render_main_center' ),
             'dashicons-edit-large',
             25
@@ -180,7 +180,7 @@ class WPAIP_NC8O {
     public function autopilot_cron_system_notice() {
         // 只在插件后台页面显示
         $screen = get_current_screen();
-        if ( ! $screen || strpos( $screen->id, 'wpaip' ) === false ) {
+        if ( ! $screen || strpos( $screen->id, 'yimai-gso' ) === false ) {
             return;
         }
 
@@ -195,22 +195,22 @@ class WPAIP_NC8O {
             return;
         }
 
-        if ( ! class_exists( 'WPAIP_HXVV' ) ) {
+        if ( ! class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ) {
             return;
         }
 
-        $settings = WPAIP_HXVV::get_settings();
+        $settings = YIMAI_GSO_Autopilot_Plan::get_settings();
         if ( empty( $settings['enabled'] ) ) {
             return;
         }
 
         // transient限频：每天最多提示一次
-        $dismissed = get_transient( 'wpaip_cron_system_notice_dismissed' );
+        $dismissed = get_transient( 'yimai_gso_cron_system_notice_dismissed' );
         if ( $dismissed ) {
             return;
         }
         ?>
-        <div class="notice notice-warning is-dismissible wpaip-cron-notice">
+        <div class="notice notice-warning is-dismissible yimai-gso-cron-notice">
             <p><strong>⚡ 永动发布建议配置系统级Cron：</strong>
             当前站点使用 WordPress 默认的 <code>WP-Cron</code>，需要用户访问页面才能触发定时任务。
             如果网站流量较低，永动发布可能不会准时执行。建议在服务器上配置系统级Cron定时任务以实现准时触发。
@@ -218,10 +218,10 @@ class WPAIP_NC8O {
             </p>
         </div>
         <?php
-        wp_add_inline_script( 'wpaip-admin', 'jQuery(document).on("click", ".wpaip-cron-notice .notice-dismiss", function() {
+        wp_add_inline_script( 'yimai-gso-admin', 'jQuery(document).on("click", ".yimai-gso-cron-notice .notice-dismiss", function() {
             jQuery.post(ajaxurl, {
-                action: "wpaip_dismiss_cron_notice",
-                nonce: "' . wp_create_nonce( 'wpaip_nonce' ) . '",
+                action: "yimai_gso_dismiss_cron_notice",
+                nonce: "' . wp_create_nonce( 'yimai_gso_nonce' ) . '",
             });
         });' );
     }
@@ -230,22 +230,22 @@ class WPAIP_NC8O {
         // plugins.php 页面：只加载 admin.js 用于"检查更新"按钮
         if ( $hook === 'plugins.php' ) {
             wp_enqueue_script(
-                'wpaip-admin',
-                WPAIP_PLUGIN_URL . 'admin/js/admin.js',
+                'yimai-gso-admin',
+                YIMAI_GSO_PLUGIN_URL . 'admin/js/admin.js',
                 array( 'jquery' ),
-                WPAIP_VERSION,
+                YIMAI_GSO_VERSION,
                 true
             );
-            wp_localize_script( 'wpaip-admin', 'wpaipData', array(
+            wp_localize_script( 'yimai-gso-admin', 'yimaiGsoData', array(
                 'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
-                'nonce'     => wp_create_nonce( 'wpaip_nonce' ),
-                'pluginUrl' => WPAIP_PLUGIN_URL,
-                'version'   => WPAIP_VERSION,
+                'nonce'     => wp_create_nonce( 'yimai_gso_nonce' ),
+                'pluginUrl' => YIMAI_GSO_PLUGIN_URL,
+                'version'   => YIMAI_GSO_VERSION,
             ) );
             return;
         }
 
-        if ( strpos( $hook, 'wpaip' ) === false ) {
+        if ( strpos( $hook, 'yimai-gso' ) === false ) {
             return;
         }
 
@@ -263,15 +263,15 @@ class WPAIP_NC8O {
         wp_enqueue_media();
 
         wp_enqueue_style(
-            'wpaip-admin',
-            WPAIP_PLUGIN_URL . 'admin/css/admin.css',
+            'yimai-gso-admin',
+            YIMAI_GSO_PLUGIN_URL . 'admin/css/admin.css',
             array(),
             $this->get_asset_version( 'admin/css/admin.css' )
         );
 
         // 仪表盘 v5 Chart.js
         wp_enqueue_script(
-            'wpaip-chartjs',
+            'yimai-gso-chartjs',
             'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js',
             array(),
             '4.4.7',
@@ -283,7 +283,7 @@ class WPAIP_NC8O {
 
         // 为 Chart.js CDN 添加 SRI 完整性校验
         add_filter( 'script_loader_tag', function ( $tag, $handle ) {
-            if ( 'wpaip-chartjs' === $handle ) {
+            if ( 'yimai-gso-chartjs' === $handle ) {
                 $tag = str_replace(
                     '></script>',
                     ' integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC=" crossorigin="anonymous"></script>',
@@ -294,29 +294,29 @@ class WPAIP_NC8O {
         }, 10, 2 );
 
         wp_enqueue_script(
-            'wpaip-admin',
-            WPAIP_PLUGIN_URL . 'admin/js/admin.js',
+            'yimai-gso-admin',
+            YIMAI_GSO_PLUGIN_URL . 'admin/js/admin.js',
             array( 'jquery' ),
             $this->get_asset_version( 'admin/js/admin.js' ),
             true
         );
 
         // LLMs.txt 生成器后台交互（兼容中英文 hook 前缀）
-        if ( strpos( $hook, 'wpaip-center' ) !== false || strpos( $hook, 'wpaip-llms-txt' ) !== false ) {
+        if ( strpos( $hook, 'yimai-gso-center' ) !== false || strpos( $hook, 'yimai-gso-llms-txt' ) !== false ) {
             wp_enqueue_script(
-                'wpaip-llms-txt-admin',
-                WPAIP_PLUGIN_URL . 'admin/js/llms-txt-admin.js',
-                array( 'jquery', 'wpaip-admin' ),
-                WPAIP_VERSION,
+                'yimai-gso-llms-txt-admin',
+                YIMAI_GSO_PLUGIN_URL . 'admin/js/llms-txt-admin.js',
+                array( 'jquery', 'yimai-gso-admin' ),
+                YIMAI_GSO_VERSION,
                 true
             );
         }
 
-        // 在线更新面板交互（wpaip-admin 句柄携带 wpaipData）
+        // 在线更新面板交互（yimai-gso-admin 句柄携带 yimaiGsoData）
         wp_enqueue_script(
-            'wpaip-updater',
-            WPAIP_PLUGIN_URL . 'admin/js/updater.js',
-            array( 'jquery', 'wpaip-admin' ),
+            'yimai-gso-updater',
+            YIMAI_GSO_PLUGIN_URL . 'admin/js/updater.js',
+            array( 'jquery', 'yimai-gso-admin' ),
             $this->get_asset_version( 'admin/js/updater.js' ),
             true
         );
@@ -324,15 +324,15 @@ class WPAIP_NC8O {
         // L4 双引擎评分面板 — 已移至插件页弹窗（SEO/GEO独立按钮），编辑页不再加载
 
         // 传递数据给 JS
-        wp_localize_script( 'wpaip-admin', 'wpaipData', array(
+        wp_localize_script( 'yimai-gso-admin', 'yimaiGsoData', array(
             'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
-            'nonce'        => wp_create_nonce( 'wpaip_nonce' ),
-            'seoNonce'     => wp_create_nonce( 'wpaip_seo_nonce' ),
-            'ajaxNonce'    => wp_create_nonce( 'wpaip_ajax_nonce' ), // L4 GEO 弹窗用
-            'pluginUrl'    => WPAIP_PLUGIN_URL,
-            'version'      => WPAIP_VERSION,
-            'providers'    => WPAIP_9XCU::get_ai_providers(),
-            'imgProviders' => WPAIP_9XCU::get_image_providers(),
+            'nonce'        => wp_create_nonce( 'yimai_gso_nonce' ),
+            'seoNonce'     => wp_create_nonce( 'yimai_gso_seo_nonce' ),
+            'ajaxNonce'    => wp_create_nonce( 'yimai_gso_ajax_nonce' ), // L4 GEO 弹窗用
+            'pluginUrl'    => YIMAI_GSO_PLUGIN_URL,
+            'version'      => YIMAI_GSO_VERSION,
+            'providers'    => YIMAI_GSO_Settings::get_ai_providers(),
+            'imgProviders' => YIMAI_GSO_Settings::get_image_providers(),
             'categories'   => $this->get_categories_list(),
             'featureGate'  => array(
                 'plan'             => 'full',
@@ -345,7 +345,7 @@ class WPAIP_NC8O {
                 ), true ),
                 'lockedFeatures'   => array(),
                 'readonlyFeatures' => array(),
-                'paramConfig'      => WPAIP_9IR4::get_client_config(),
+                'paramConfig'      => YIMAI_GSO_Param_Permissions::get_client_config(),
                 'canEditPosts'     => current_user_can( 'edit_posts' ),
                 'canPublishPosts'  => current_user_can( 'publish_posts' ),
             ),
@@ -359,26 +359,26 @@ class WPAIP_NC8O {
      * @param string $format 'raw' 返回原始 WP_Term 对象；'select' 返回 [{id, name}] 数组（用于JS）
      */
     private function get_categories_list( $format = 'select' ) {
-        $cached = get_transient( 'wpaip_categories_raw' );
+        $cached = get_transient( 'yimai_gso_categories_raw' );
         if ( false !== $cached ) {
             return 'select' === $format
                 ? array_map( function( $c ) { return array( 'id' => $c->term_id, 'name' => $c->name ); }, $cached )
                 : $cached;
         }
         $cats = get_categories( array( 'hide_empty' => false, 'number' => 100 ) );
-        set_transient( 'wpaip_categories_raw', $cats, 6 * HOUR_IN_SECONDS );
+        set_transient( 'yimai_gso_categories_raw', $cats, 6 * HOUR_IN_SECONDS );
         return 'select' === $format
             ? array_map( function( $c ) { return array( 'id' => $c->term_id, 'name' => $c->name ); }, $cats )
             : $cats;
     }
 
     private function get_tags_list_raw() {
-        $cached = get_transient( 'wpaip_tags_raw' );
+        $cached = get_transient( 'yimai_gso_tags_raw' );
         if ( false !== $cached ) {
             return $cached;
         }
         $tags = get_tags( array( 'hide_empty' => false, 'number' => 200 ) );
-        set_transient( 'wpaip_tags_raw', $tags, 6 * HOUR_IN_SECONDS );
+        set_transient( 'yimai_gso_tags_raw', $tags, 6 * HOUR_IN_SECONDS );
         return $tags;
     }
 
@@ -400,33 +400,33 @@ class WPAIP_NC8O {
         $can_advanced_publish = $this->can_edit_feature( 'schedule_publish' )
             && current_user_can( 'publish_posts' );
         ?>
-        <div class="wpaip-form-group">
+        <div class="yimai-gso-form-group">
             <label>发布方式</label>
-            <div class="wpaip-radio-group">
-                <label class="wpaip-radio">
-                    <input type="radio" name="wpaip-batch-status" value="draft" checked>
+            <div class="yimai-gso-radio-group">
+                <label class="yimai-gso-radio">
+                    <input type="radio" name="yimai-gso-batch-status" value="draft" checked>
                     <span>📝 存为草稿</span>
                 </label>
-                <label class="wpaip-radio<?php echo $can_advanced_publish ? '' : ' is-disabled'; ?>">
-                    <input type="radio" name="wpaip-batch-status" value="publish"<?php echo disabled( ! $can_advanced_publish, true, false ); ?>>
+                <label class="yimai-gso-radio<?php echo $can_advanced_publish ? '' : ' is-disabled'; ?>">
+                    <input type="radio" name="yimai-gso-batch-status" value="publish"<?php echo disabled( ! $can_advanced_publish, true, false ); ?>>
                     <span>🚀 直接发布</span>
                 </label>
-                <label class="wpaip-radio<?php echo $can_advanced_publish ? '' : ' is-disabled'; ?>">
-                    <input type="radio" name="wpaip-batch-status" value="future"<?php echo disabled( ! $can_advanced_publish, true, false ); ?>>
+                <label class="yimai-gso-radio<?php echo $can_advanced_publish ? '' : ' is-disabled'; ?>">
+                    <input type="radio" name="yimai-gso-batch-status" value="future"<?php echo disabled( ! $can_advanced_publish, true, false ); ?>>
                     <span>⏰ 定时发布</span>
                 </label>
             </div>
         </div>
 
-        <div class="wpaip-form-group wpaip-schedule-group" id="wpaip-batch-schedule-group" style="display:none;">
+        <div class="yimai-gso-form-group yimai-gso-schedule-group" id="yimai-gso-batch-schedule-group" style="display:none;">
             <label>定时发布 - 起始时间</label>
-            <input type="datetime-local" id="wpaip-batch-schedule-start">
+            <input type="datetime-local" id="yimai-gso-batch-schedule-start">
             <small>文章会按此时间开始，每隔指定间隔依次定时发布</small>
         </div>
 
-        <div class="wpaip-form-group wpaip-schedule-group" id="wpaip-batch-schedule-interval-group" style="display:none;">
+        <div class="yimai-gso-form-group yimai-gso-schedule-group" id="yimai-gso-batch-schedule-interval-group" style="display:none;">
             <label>发布间隔</label>
-            <select id="wpaip-batch-schedule-interval">
+            <select id="yimai-gso-batch-schedule-interval">
                 <option value="300">每隔 5 分钟</option>
                 <option value="600">每隔 10 分钟</option>
                 <option value="1800">每隔 30 分钟</option>
@@ -446,10 +446,10 @@ class WPAIP_NC8O {
     }
 
     private function save_detection_settings() {
-        if ( ! check_admin_referer( 'wpaip_detection_nonce', '_wpnonce', false ) ) {
+        if ( ! check_admin_referer( 'yimai_gso_detection_nonce', '_wpnonce', false ) ) {
             wp_die( '安全验证失败，请刷新页面后重试。' );
         }
-        update_option( 'wpaip_detection_enabled', isset( $_POST['wpaip_detection_enabled'] ) ? 1 : 0 );
+        update_option( 'yimai_gso_detection_enabled', isset( $_POST['yimai_gso_detection_enabled'] ) ? 1 : 0 );
     }
 
     private function save_internal_link_settings() {
@@ -458,70 +458,70 @@ class WPAIP_NC8O {
         }
 
         if ( $this->can_edit_feature( 'smart_internal_links_basic' ) ) {
-            update_option( 'wpaip_internal_link_enabled', isset( $_POST['wpaip_internal_link_enabled'] ) ? 1 : 0 );
-            update_option( 'wpaip_internal_link_max', max( 1, min( 10, absint( $_POST['wpaip_internal_link_max'] ?? 3 ) ) ) );
+            update_option( 'yimai_gso_internal_link_enabled', isset( $_POST['yimai_gso_internal_link_enabled'] ) ? 1 : 0 );
+            update_option( 'yimai_gso_internal_link_max', max( 1, min( 10, absint( $_POST['yimai_gso_internal_link_max'] ?? 3 ) ) ) );
         }
 
         if ( $this->can_edit_feature( 'smart_internal_links_scope' ) ) {
-            $candidate_mode = sanitize_text_field( $_POST['wpaip_internal_link_candidate_mode'] ?? 'recent' );
+            $candidate_mode = sanitize_text_field( $_POST['yimai_gso_internal_link_candidate_mode'] ?? 'recent' );
             if ( ! in_array( $candidate_mode, array( 'recent', 'same_category', 'same_category_first' ), true ) ) {
                 $candidate_mode = 'recent';
             }
 
-            update_option( 'wpaip_internal_link_candidate_mode', $candidate_mode );
-            update_option( 'wpaip_internal_link_candidate_limit', max( 20, min( 200, absint( $_POST['wpaip_internal_link_candidate_limit'] ?? 50 ) ) ) );
+            update_option( 'yimai_gso_internal_link_candidate_mode', $candidate_mode );
+            update_option( 'yimai_gso_internal_link_candidate_limit', max( 20, min( 200, absint( $_POST['yimai_gso_internal_link_candidate_limit'] ?? 50 ) ) ) );
         }
 
         if ( $this->can_edit_feature( 'smart_internal_links_exclude' ) ) {
-            $excluded_categories = array_values( array_filter( array_map( 'absint', (array) ( $_POST['wpaip_internal_link_excluded_category_ids'] ?? array() ) ) ) );
-            $excluded_tags       = array_values( array_filter( array_map( 'absint', (array) ( $_POST['wpaip_internal_link_excluded_tag_ids'] ?? array() ) ) ) );
+            $excluded_categories = array_values( array_filter( array_map( 'absint', (array) ( $_POST['yimai_gso_internal_link_excluded_category_ids'] ?? array() ) ) ) );
+            $excluded_tags       = array_values( array_filter( array_map( 'absint', (array) ( $_POST['yimai_gso_internal_link_excluded_tag_ids'] ?? array() ) ) ) );
 
-            update_option( 'wpaip_internal_link_excluded_category_ids', $excluded_categories );
-            update_option( 'wpaip_internal_link_excluded_tag_ids', $excluded_tags );
+            update_option( 'yimai_gso_internal_link_excluded_category_ids', $excluded_categories );
+            update_option( 'yimai_gso_internal_link_excluded_tag_ids', $excluded_tags );
         }
 
         if ( $this->can_edit_feature( 'smart_internal_links_keyword_library' ) ) {
-            update_option( 'wpaip_internal_link_keyword_library', sanitize_textarea_field( $_POST['wpaip_internal_link_keyword_library'] ?? '' ) );
+            update_option( 'yimai_gso_internal_link_keyword_library', sanitize_textarea_field( $_POST['yimai_gso_internal_link_keyword_library'] ?? '' ) );
         }
 
         if ( $this->can_edit_feature( 'smart_internal_links_anchor_strategy' ) ) {
-            $anchor_policy = sanitize_text_field( $_POST['wpaip_internal_link_anchor_policy'] ?? 'natural' );
+            $anchor_policy = sanitize_text_field( $_POST['yimai_gso_internal_link_anchor_policy'] ?? 'natural' );
             if ( ! in_array( $anchor_policy, array( 'natural', 'exact', 'long_tail', 'title_keyword' ), true ) ) {
                 $anchor_policy = 'natural';
             }
 
-            update_option( 'wpaip_internal_link_anchor_policy', $anchor_policy );
+            update_option( 'yimai_gso_internal_link_anchor_policy', $anchor_policy );
         }
     }
 
     private function save_autopilot_settings() {
-        if ( ! $this->can_edit_feature( 'autopilot_publish' ) || ! class_exists( 'WPAIP_HXVV' ) ) {
+        if ( ! $this->can_edit_feature( 'autopilot_publish' ) || ! class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ) {
             return;
         }
 
         // 保留当前 enabled 状态（计划开关由 AJAX 独立控制，不在 form 内提交）
-        $current_settings = WPAIP_HXVV::get_settings();
+        $current_settings = YIMAI_GSO_Autopilot_Plan::get_settings();
 
-        WPAIP_HXVV::save_settings( array(
+        YIMAI_GSO_Autopilot_Plan::save_settings( array(
             'enabled'        => ! empty( $current_settings['enabled'] ) ? 1 : 0,
-            'run_time'       => sanitize_text_field( $_POST['wpaip_autopilot_run_time'] ?? '08:00' ),
-            'daily_count'    => absint( $_POST['wpaip_autopilot_daily_count'] ?? 3 ),
-            'topic_keywords' => wp_unslash( $_POST['wpaip_autopilot_topic_keywords'] ?? '' ),
-            'extra_prompt'   => wp_unslash( $_POST['wpaip_autopilot_extra_prompt'] ?? '' ),
-            'category_id'    => absint( $_POST['wpaip_autopilot_category_id'] ?? 1 ),
-            'word_count'     => absint( $_POST['wpaip_autopilot_word_count'] ?? 1000 ),
-            'image_count'    => absint( $_POST['wpaip_autopilot_image_count'] ?? 1 ),
-            'tags'           => sanitize_text_field( $_POST['wpaip_autopilot_tags'] ?? '' ),
-            'use_ai_tags'    => isset( $_POST['wpaip_autopilot_use_ai_tags'] ) ? 1 : 0,
-            'post_status'    => sanitize_text_field( $_POST['wpaip_autopilot_post_status'] ?? 'publish' ),
-            'future_delay_hours' => absint( $_POST['wpaip_autopilot_future_delay_hours'] ?? 2 ),
-            'log_retention_days' => absint( $_POST['wpaip_autopilot_log_retention_days'] ?? 30 ),
+            'run_time'       => sanitize_text_field( $_POST['yimai_gso_autopilot_run_time'] ?? '08:00' ),
+            'daily_count'    => absint( $_POST['yimai_gso_autopilot_daily_count'] ?? 3 ),
+            'topic_keywords' => wp_unslash( $_POST['yimai_gso_autopilot_topic_keywords'] ?? '' ),
+            'extra_prompt'   => wp_unslash( $_POST['yimai_gso_autopilot_extra_prompt'] ?? '' ),
+            'category_id'    => absint( $_POST['yimai_gso_autopilot_category_id'] ?? 1 ),
+            'word_count'     => absint( $_POST['yimai_gso_autopilot_word_count'] ?? 1000 ),
+            'image_count'    => absint( $_POST['yimai_gso_autopilot_image_count'] ?? 1 ),
+            'tags'           => sanitize_text_field( $_POST['yimai_gso_autopilot_tags'] ?? '' ),
+            'use_ai_tags'    => isset( $_POST['yimai_gso_autopilot_use_ai_tags'] ) ? 1 : 0,
+            'post_status'    => sanitize_text_field( $_POST['yimai_gso_autopilot_post_status'] ?? 'publish' ),
+            'future_delay_hours' => absint( $_POST['yimai_gso_autopilot_future_delay_hours'] ?? 2 ),
+            'log_retention_days' => absint( $_POST['yimai_gso_autopilot_log_retention_days'] ?? 30 ),
         ) );
 
         // 保存设置后同步 cron 调度（永动发布 + 日志清理）
-        if ( class_exists( 'WPAIP_0P8Z' ) ) {
-            WPAIP_0P8Z::sync_schedule();
-            WPAIP_0P8Z::sync_cleanup_schedule();
+        if ( class_exists( 'YIMAI_GSO_Autopilot_Scheduler' ) ) {
+            YIMAI_GSO_Autopilot_Scheduler::sync_schedule();
+            YIMAI_GSO_Autopilot_Scheduler::sync_cleanup_schedule();
         }
     }
 
@@ -532,19 +532,19 @@ class WPAIP_NC8O {
             $subtab = 'settings';
         }
 
-        $stats      = class_exists( 'WPAIP_77I9' ) ? WPAIP_77I9::get_summary_stats() : array();
-        $logs       = class_exists( 'WPAIP_77I9' ) ? WPAIP_77I9::get_recent_logs( 15 ) : array();
+        $stats      = class_exists( 'YIMAI_GSO_Internal_Link' ) ? YIMAI_GSO_Internal_Link::get_summary_stats() : array();
+        $logs       = class_exists( 'YIMAI_GSO_Internal_Link' ) ? YIMAI_GSO_Internal_Link::get_recent_logs( 15 ) : array();
         $categories = $this->get_categories_list('raw');
         $tags       = $this->get_tags_list_raw();
 
-        $enabled             = (bool) WPAIP_9XCU::get( 'internal_link_enabled', 0 );
-        $max_links           = absint( WPAIP_9XCU::get( 'internal_link_max', 3 ) );
-        $candidate_mode      = WPAIP_9XCU::get( 'internal_link_candidate_mode', 'recent' );
-        $candidate_limit     = absint( WPAIP_9XCU::get( 'internal_link_candidate_limit', 50 ) );
-        $excluded_categories = array_map( 'absint', (array) WPAIP_9XCU::get( 'internal_link_excluded_category_ids', array() ) );
-        $excluded_tags       = array_map( 'absint', (array) WPAIP_9XCU::get( 'internal_link_excluded_tag_ids', array() ) );
-        $keyword_library     = (string) WPAIP_9XCU::get( 'internal_link_keyword_library', '' );
-        $anchor_policy       = WPAIP_9XCU::get( 'internal_link_anchor_policy', 'natural' );
+        $enabled             = (bool) YIMAI_GSO_Settings::get( 'internal_link_enabled', 0 );
+        $max_links           = absint( YIMAI_GSO_Settings::get( 'internal_link_max', 3 ) );
+        $candidate_mode      = YIMAI_GSO_Settings::get( 'internal_link_candidate_mode', 'recent' );
+        $candidate_limit     = absint( YIMAI_GSO_Settings::get( 'internal_link_candidate_limit', 50 ) );
+        $excluded_categories = array_map( 'absint', (array) YIMAI_GSO_Settings::get( 'internal_link_excluded_category_ids', array() ) );
+        $excluded_tags       = array_map( 'absint', (array) YIMAI_GSO_Settings::get( 'internal_link_excluded_tag_ids', array() ) );
+        $keyword_library     = (string) YIMAI_GSO_Settings::get( 'internal_link_keyword_library', '' );
+        $anchor_policy       = YIMAI_GSO_Settings::get( 'internal_link_anchor_policy', 'natural' );
 
         $plan_label = '一麦自用版';
 
@@ -586,54 +586,54 @@ class WPAIP_NC8O {
             'skipped' => '#94a3b8',
         );
 
-        $base_url = admin_url( 'admin.php?page=wpaip-center&tab=internal-links' );
+        $base_url = admin_url( 'admin.php?page=yimai-gso-center&tab=internal-links' );
         ?>
-        <div class="wpaip-main-panel <?php echo $active_tab === 'internal-links' ? 'active' : ''; ?>" data-tab="internal-links">
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'internal-links' ? 'active' : ''; ?>" data-tab="internal-links">
 
-            <div class="wpaip-page-card-header">
-                <div class="wpaip-card-icon"><span class="dashicons dashicons-admin-links"></span></div>
-                <div class="wpaip-card-body">
-                    <h2 class="wpaip-card-title">智能内链</h2>
-                    <p class="wpaip-card-desc">自动为关键词建立文章间内链网络，提升网站权重传递和用户体验</p>
+            <div class="yimai-gso-page-card-header">
+                <div class="yimai-gso-card-icon"><span class="dashicons dashicons-admin-links"></span></div>
+                <div class="yimai-gso-card-body">
+                    <h2 class="yimai-gso-card-title">智能内链</h2>
+                    <p class="yimai-gso-card-desc">自动为关键词建立文章间内链网络，提升网站权重传递和用户体验</p>
                 </div>
             </div>
 
             <!-- Header -->
-            <div class="wpaip-link-header">
-                <div class="wpaip-link-header-left">
-                    <h1 class="wpaip-page-title" style="display:none">
+            <div class="yimai-gso-link-header">
+                <div class="yimai-gso-link-header-left">
+                    <h1 class="yimai-gso-page-title" style="display:none">
                         <span class="dashicons dashicons-admin-links"></span>
                         智能内链
                     </h1>
-                    <p class="wpaip-link-header-desc" style="display:none">自动为文章插入相关站内链接，提升SEO权重与用户体验</p>
+                    <p class="yimai-gso-link-header-desc" style="display:none">自动为文章插入相关站内链接，提升SEO权重与用户体验</p>
                 </div>
-                <div class="wpaip-link-header-right">
-                    <span class="wpaip-link-plan-badge"><?php echo esc_html( $plan_label ); ?></span>
-                    <label class="wpaip-link-master-toggle <?php echo $enabled ? 'is-on' : ''; ?><?php echo $parent_locked ? ' is-locked' : ''; ?>">
-                        <input type="checkbox" id="wpaip-internal-link-master-toggle" <?php checked( $enabled ); ?> <?php disabled( $parent_locked ); ?>>
-                        <span class="wpaip-link-toggle-track"></span>
-                        <span class="wpaip-link-toggle-label"><?php echo $enabled ? '已开启' : '已关闭'; ?></span>
+                <div class="yimai-gso-link-header-right">
+                    <span class="yimai-gso-link-plan-badge"><?php echo esc_html( $plan_label ); ?></span>
+                    <label class="yimai-gso-link-master-toggle <?php echo $enabled ? 'is-on' : ''; ?><?php echo $parent_locked ? ' is-locked' : ''; ?>">
+                        <input type="checkbox" id="yimai-gso-internal-link-master-toggle" <?php checked( $enabled ); ?> <?php disabled( $parent_locked ); ?>>
+                        <span class="yimai-gso-link-toggle-track"></span>
+                        <span class="yimai-gso-link-toggle-label"><?php echo $enabled ? '已开启' : '已关闭'; ?></span>
                     </label>
                 </div>
             </div>
             <!-- Sub Tabs -->
-            <div class="wpaip-link-tabs wpaip-tabs-container">
-                <a href="<?php echo esc_url( $base_url . '&subtab=settings' ); ?>" class="wpaip-tab-modern <?php echo $subtab === 'settings' ? 'active' : ''; ?>" data-subtab="settings">
+            <div class="yimai-gso-link-tabs yimai-gso-tabs-container">
+                <a href="<?php echo esc_url( $base_url . '&subtab=settings' ); ?>" class="yimai-gso-tab-modern <?php echo $subtab === 'settings' ? 'active' : ''; ?>" data-subtab="settings">
                     <span class="dashicons dashicons-admin-generic"></span>
                     基础设置
                 </a>
-                <a href="<?php echo esc_url( $base_url . '&subtab=rebuild' ); ?>" class="wpaip-tab-modern <?php echo $subtab === 'rebuild' ? 'active' : ''; ?>" data-subtab="rebuild">
+                <a href="<?php echo esc_url( $base_url . '&subtab=rebuild' ); ?>" class="yimai-gso-tab-modern <?php echo $subtab === 'rebuild' ? 'active' : ''; ?>" data-subtab="rebuild">
                     <span class="dashicons dashicons-update"></span>
                     批量重建
                 </a>
-                <a href="<?php echo esc_url( $base_url . '&subtab=audit' ); ?>" class="wpaip-tab-modern <?php echo $subtab === 'audit' ? 'active' : ''; ?>" data-subtab="audit">
+                <a href="<?php echo esc_url( $base_url . '&subtab=audit' ); ?>" class="yimai-gso-tab-modern <?php echo $subtab === 'audit' ? 'active' : ''; ?>" data-subtab="audit">
                     <span class="dashicons dashicons-search"></span>
                     失效巡检
                 </a>
             </div>
 
             <!-- Tab Content -->
-            <div class="wpaip-link-tab-content">
+            <div class="yimai-gso-link-tab-content">
                 <?php if ( $subtab === 'settings' ) : ?>
                     <?php $this->render_internal_links_settings_tab( $stats, $logs, $categories, $tags, $enabled, $max_links, $candidate_mode, $candidate_limit, $excluded_categories, $excluded_tags, $keyword_library, $anchor_policy, $parent_locked, $parent_meta, $basic_meta, $scope_meta, $exclude_meta, $keyword_meta, $anchor_meta, $logs_meta, $candidate_mode_options, $anchor_policy_options, $source_labels, $status_labels, $status_colors ); ?>
                 <?php elseif ( $subtab === 'rebuild' ) : ?>
@@ -652,130 +652,130 @@ class WPAIP_NC8O {
     private function render_internal_links_settings_tab( $stats, $logs, $categories, $tags, $enabled, $max_links, $candidate_mode, $candidate_limit, $excluded_categories, $excluded_tags, $keyword_library, $anchor_policy, $parent_locked, $parent_meta, $basic_meta, $scope_meta, $exclude_meta, $keyword_meta, $anchor_meta, $logs_meta, $candidate_mode_options, $anchor_policy_options, $source_labels, $status_labels, $status_colors ) {
         ?>
         <!-- Stats Cards -->
-        <div class="wpaip-link-stats-grid">
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#eef2ff;color:#6366f1;">📊</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num"><?php echo esc_html( $stats['total'] ?? 0 ); ?></div>
-                    <div class="wpaip-link-stat-label">最近执行次数</div>
+        <div class="yimai-gso-link-stats-grid">
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#eef2ff;color:#6366f1;">📊</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num"><?php echo esc_html( $stats['total'] ?? 0 ); ?></div>
+                    <div class="yimai-gso-link-stat-label">最近执行次数</div>
                 </div>
             </div>
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#d1fae5;color:#10b981;">✅</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num"><?php echo esc_html( $stats['success'] ?? 0 ); ?></div>
-                    <div class="wpaip-link-stat-label">成功插链</div>
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#d1fae5;color:#10b981;">✅</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num"><?php echo esc_html( $stats['success'] ?? 0 ); ?></div>
+                    <div class="yimai-gso-link-stat-label">成功插链</div>
                 </div>
             </div>
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#dbeafe;color:#3b82f6;">🔢</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num"><?php echo esc_html( $stats['inserted'] ?? 0 ); ?></div>
-                    <div class="wpaip-link-stat-label">累计插入条数</div>
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#dbeafe;color:#3b82f6;">🔢</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num"><?php echo esc_html( $stats['inserted'] ?? 0 ); ?></div>
+                    <div class="yimai-gso-link-stat-label">累计插入条数</div>
                 </div>
             </div>
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#fef3c7;color:#f59e0b;">🕒</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num" style="font-size:15px;"><?php echo esc_html( ! empty( $stats['last_run'] ) ? $stats['last_run'] : '暂无' ); ?></div>
-                    <div class="wpaip-link-stat-label">最近运行时间</div>
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#fef3c7;color:#f59e0b;">🕒</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num" style="font-size:15px;"><?php echo esc_html( ! empty( $stats['last_run'] ) ? $stats['last_run'] : '暂无' ); ?></div>
+                    <div class="yimai-gso-link-stat-label">最近运行时间</div>
                 </div>
             </div>
         </div>
 
-        <div class="wpaip-link-layout">
+        <div class="yimai-gso-link-layout">
             <!-- Left: Settings Form -->
-            <div class="wpaip-link-left">
-                <form method="post" class="wpaip-link-settings-form">
-                    <?php wp_nonce_field( 'wpaip_internal_links_nonce' ); ?>
+            <div class="yimai-gso-link-left">
+                <form method="post" class="yimai-gso-link-settings-form">
+                    <?php wp_nonce_field( 'yimai_gso_internal_links_nonce' ); ?>
 
                     <!-- Basic Settings -->
-                    <div class="wpaip-link-section">
-                        <div class="wpaip-link-section-header">
-                            <div class="wpaip-link-section-icon" style="background:#eff6ff;">⚙️</div>
+                    <div class="yimai-gso-link-section">
+                        <div class="yimai-gso-link-section-header">
+                            <div class="yimai-gso-link-section-icon" style="background:#eff6ff;">⚙️</div>
                             <div>
                                 <h3>基础配置</h3>
                                 <p>控制总开关与每篇最大内链数</p>
                             </div>
                         </div>
-                        <div class="wpaip-link-section-body" <?php echo ( $parent_locked || ! empty( $basic_meta['disabled'] ) ) ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
-                            <div class="wpaip-form-group">
-                                <label class="wpaip-toggle-label">
-                                    <input type="checkbox" name="wpaip_internal_link_enabled" value="1" <?php checked( $enabled ); ?>>
-                                    <span class="wpaip-toggle-switch"></span>
-                                    <span class="wpaip-toggle-text">启用智能内链</span>
+                        <div class="yimai-gso-link-section-body" <?php echo ( $parent_locked || ! empty( $basic_meta['disabled'] ) ) ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
+                            <div class="yimai-gso-form-group">
+                                <label class="yimai-gso-toggle-label">
+                                    <input type="checkbox" name="yimai_gso_internal_link_enabled" value="1" <?php checked( $enabled ); ?>>
+                                    <span class="yimai-gso-toggle-switch"></span>
+                                    <span class="yimai-gso-toggle-text">启用智能内链</span>
                                 </label>
                                 <small>开启后，文章在真正发布或定时写入时会自动尝试插入站内相关链接。</small>
                             </div>
-                            <div class="wpaip-form-group">
+                            <div class="yimai-gso-form-group">
                                 <label>每篇最大内链数</label>
-                                <input type="number" name="wpaip_internal_link_max" min="1" max="10" value="<?php echo esc_attr( $max_links ); ?>">
+                                <input type="number" name="yimai_gso_internal_link_max" min="1" max="10" value="<?php echo esc_attr( $max_links ); ?>">
                                 <small>建议 2-5 条，过高容易影响阅读和自然度。</small>
                             </div>
                         </div>
                     </div>
 
                     <!-- Scope Settings -->
-                    <div class="wpaip-link-section">
-                        <div class="wpaip-link-section-header">
-                            <div class="wpaip-link-section-icon" style="background:#f0fdf4;">🎯</div>
+                    <div class="yimai-gso-link-section">
+                        <div class="yimai-gso-link-section-header">
+                            <div class="yimai-gso-link-section-icon" style="background:#f0fdf4;">🎯</div>
                             <div>
                                 <h3>候选范围控制</h3>
                                 <p>调整候选文章的召回方式与数量</p>
                             </div>
                         </div>
-                        <div class="wpaip-link-section-body" <?php echo ( $parent_locked || ! empty( $scope_meta['disabled'] ) ) ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
-                            <div class="wpaip-form-group">
+                        <div class="yimai-gso-link-section-body" <?php echo ( $parent_locked || ! empty( $scope_meta['disabled'] ) ) ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
+                            <div class="yimai-gso-form-group">
                                 <label>候选文章策略</label>
-                                <select name="wpaip_internal_link_candidate_mode">
+                                <select name="yimai_gso_internal_link_candidate_mode">
                                     <?php foreach ( $candidate_mode_options as $mode_value => $mode_label ) : ?>
                                         <option value="<?php echo esc_attr( $mode_value ); ?>" <?php selected( $candidate_mode, $mode_value ); ?>><?php echo esc_html( $mode_label ); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                                 <small>可选"最近文章优先 / 仅同分类 / 同分类优先"，用于控制 AI 可参考的候选集合。</small>
                             </div>
-                            <div class="wpaip-form-group">
+                            <div class="yimai-gso-form-group">
                                 <label>候选文章上限</label>
-                                <input type="number" name="wpaip_internal_link_candidate_limit" min="20" max="200" value="<?php echo esc_attr( $candidate_limit ); ?>">
+                                <input type="number" name="yimai_gso_internal_link_candidate_limit" min="20" max="200" value="<?php echo esc_attr( $candidate_limit ); ?>">
                                 <small>系统会先从候选池里打分，再挑出最相关的文章交给 AI 决策。</small>
                             </div>
                         </div>
                     </div>
 
                     <!-- Exclude Settings -->
-                    <div class="wpaip-link-section">
-                        <div class="wpaip-link-section-header">
-                            <div class="wpaip-link-section-icon" style="background:#fef2f2;">🚫</div>
+                    <div class="yimai-gso-link-section">
+                        <div class="yimai-gso-link-section-header">
+                            <div class="yimai-gso-link-section-icon" style="background:#fef2f2;">🚫</div>
                             <div>
                                 <h3>排除分类 / 标签</h3>
                                 <p>排除不希望参与候选召回的分类和标签</p>
                             </div>
                         </div>
-                        <div class="wpaip-link-section-body" <?php echo ( $parent_locked || ! empty( $exclude_meta['disabled'] ) ) ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
-                            <div class="wpaip-form-group">
+                        <div class="yimai-gso-link-section-body" <?php echo ( $parent_locked || ! empty( $exclude_meta['disabled'] ) ) ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
+                            <div class="yimai-gso-form-group">
                                 <label>排除分类</label>
-                                <div class="wpaip-link-checkbox-grid">
+                                <div class="yimai-gso-link-checkbox-grid">
                                     <?php if ( empty( $categories ) ) : ?>
                                         <span style="color:#94a3b8;">暂无分类数据</span>
                                     <?php else : ?>
                                         <?php foreach ( $categories as $cat ) : ?>
-                                            <label class="wpaip-link-checkbox-item">
-                                                <input type="checkbox" name="wpaip_internal_link_excluded_category_ids[]" value="<?php echo esc_attr( $cat->term_id ); ?>" <?php checked( in_array( (int) $cat->term_id, $excluded_categories, true ) ); ?>>
+                                            <label class="yimai-gso-link-checkbox-item">
+                                                <input type="checkbox" name="yimai_gso_internal_link_excluded_category_ids[]" value="<?php echo esc_attr( $cat->term_id ); ?>" <?php checked( in_array( (int) $cat->term_id, $excluded_categories, true ) ); ?>>
                                                 <span><?php echo esc_html( $cat->name ); ?></span>
                                             </label>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
                                 </div>
                             </div>
-                            <div class="wpaip-form-group">
+                            <div class="yimai-gso-form-group">
                                 <label>排除标签</label>
-                                <div class="wpaip-link-checkbox-grid">
+                                <div class="yimai-gso-link-checkbox-grid">
                                     <?php if ( empty( $tags ) ) : ?>
                                         <span style="color:#94a3b8;">暂无标签数据</span>
                                     <?php else : ?>
                                         <?php foreach ( $tags as $tag ) : ?>
-                                            <label class="wpaip-link-checkbox-item">
-                                                <input type="checkbox" name="wpaip_internal_link_excluded_tag_ids[]" value="<?php echo esc_attr( $tag->term_id ); ?>" <?php checked( in_array( (int) $tag->term_id, $excluded_tags, true ) ); ?>>
+                                            <label class="yimai-gso-link-checkbox-item">
+                                                <input type="checkbox" name="yimai_gso_internal_link_excluded_tag_ids[]" value="<?php echo esc_attr( $tag->term_id ); ?>" <?php checked( in_array( (int) $tag->term_id, $excluded_tags, true ) ); ?>>
                                                 <span><?php echo esc_html( $tag->name ); ?></span>
                                             </label>
                                         <?php endforeach; ?>
@@ -786,36 +786,36 @@ class WPAIP_NC8O {
                     </div>
 
                     <!-- Keyword Library -->
-                    <div class="wpaip-link-section">
-                        <div class="wpaip-link-section-header">
-                            <div class="wpaip-link-section-icon" style="background:#faf5ff;">🔑</div>
+                    <div class="yimai-gso-link-section">
+                        <div class="yimai-gso-link-section-header">
+                            <div class="yimai-gso-link-section-icon" style="background:#faf5ff;">🔑</div>
                             <div>
                                 <h3>固定关键词库</h3>
                                 <p>维护一组优先参考的锚文本词库</p>
                             </div>
                         </div>
-                        <div class="wpaip-link-section-body" <?php echo ( $parent_locked || ! empty( $keyword_meta['disabled'] ) ) ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
-                            <div class="wpaip-form-group">
+                        <div class="yimai-gso-link-section-body" <?php echo ( $parent_locked || ! empty( $keyword_meta['disabled'] ) ) ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
+                            <div class="yimai-gso-form-group">
                                 <label>关键词库</label>
-                                <textarea name="wpaip_internal_link_keyword_library" rows="6" placeholder="例如：&#10;AI写作&#10;SEO优化&#10;站内链接策略"><?php echo esc_textarea( $keyword_library ); ?></textarea>
+                                <textarea name="yimai_gso_internal_link_keyword_library" rows="6" placeholder="例如：&#10;AI写作&#10;SEO优化&#10;站内链接策略"><?php echo esc_textarea( $keyword_library ); ?></textarea>
                                 <small>这些词会优先提供给 AI 作为锚文本候选，但仍会以正文自然出现为前提。</small>
                             </div>
                         </div>
                     </div>
 
                     <!-- Anchor Policy -->
-                    <div class="wpaip-link-section">
-                        <div class="wpaip-link-section-header">
-                            <div class="wpaip-link-section-icon" style="background:#fff7ed;">🔗</div>
+                    <div class="yimai-gso-link-section">
+                        <div class="yimai-gso-link-section-header">
+                            <div class="yimai-gso-link-section-icon" style="background:#fff7ed;">🔗</div>
                             <div>
                                 <h3>锚文本策略</h3>
                                 <p>调整 AI 选择锚文本时的偏好</p>
                             </div>
                         </div>
-                        <div class="wpaip-link-section-body" <?php echo ( $parent_locked || ! empty( $anchor_meta['disabled'] ) ) ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
-                            <div class="wpaip-form-group">
+                        <div class="yimai-gso-link-section-body" <?php echo ( $parent_locked || ! empty( $anchor_meta['disabled'] ) ) ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
+                            <div class="yimai-gso-form-group">
                                 <label>锚文本策略</label>
-                                <select name="wpaip_internal_link_anchor_policy">
+                                <select name="yimai_gso_internal_link_anchor_policy">
                                     <?php foreach ( $anchor_policy_options as $policy_value => $policy_label ) : ?>
                                         <option value="<?php echo esc_attr( $policy_value ); ?>" <?php selected( $anchor_policy, $policy_value ); ?>><?php echo esc_html( $policy_label ); ?></option>
                                     <?php endforeach; ?>
@@ -825,8 +825,8 @@ class WPAIP_NC8O {
                         </div>
                     </div>
 
-                    <div class="wpaip-link-save-bar">
-                        <button type="submit" name="wpaip_save_internal_link_settings" class="wpaip-save-btn" <?php disabled( $parent_locked ); ?>>
+                    <div class="yimai-gso-link-save-bar">
+                        <button type="submit" name="yimai_gso_save_internal_link_settings" class="yimai-gso-save-btn" <?php disabled( $parent_locked ); ?>>
                             <span class="dashicons dashicons-yes"></span>
                             保存智能内链设置
                         </button>
@@ -835,35 +835,35 @@ class WPAIP_NC8O {
             </div>
 
             <!-- Right: Logs -->
-            <div class="wpaip-link-right">
-                <div class="wpaip-link-panel">
-                    <div class="wpaip-link-panel-header">
+            <div class="yimai-gso-link-right">
+                <div class="yimai-gso-link-panel">
+                    <div class="yimai-gso-link-panel-header">
                         <h2>📋 最近执行日志</h2>
-                        <span class="wpaip-link-badge">保留最近 100 条</span>
+                        <span class="yimai-gso-link-badge">保留最近 100 条</span>
                     </div>
                     <?php if ( empty( $logs ) ) : ?>
-                        <div class="wpaip-link-empty">
-                            <div class="wpaip-link-empty-icon">📭</div>
+                        <div class="yimai-gso-link-empty">
+                            <div class="yimai-gso-link-empty-icon">📭</div>
                             <p>还没有内链执行记录</p>
                             <span>等下一篇文章进入发布流程后，这里会自动出现结果</span>
                         </div>
                     <?php else : ?>
-                        <div class="wpaip-link-log-list">
+                        <div class="yimai-gso-link-log-list">
                             <?php foreach ( $logs as $log ) : ?>
                                 <?php $status = $log['status'] ?? 'skipped'; ?>
-                                <div class="wpaip-link-log-item" style="border-left-color:<?php echo esc_attr( $status_colors[ $status ] ?? '#94a3b8' ); ?>">
-                                    <div class="wpaip-link-log-top">
+                                <div class="yimai-gso-link-log-item" style="border-left-color:<?php echo esc_attr( $status_colors[ $status ] ?? '#94a3b8' ); ?>">
+                                    <div class="yimai-gso-link-log-top">
                                         <strong><?php echo esc_html( $log['post_title'] ?? '未命名文章' ); ?></strong>
-                                        <span class="wpaip-link-log-badge" style="background:<?php echo esc_attr( $status_colors[ $status ] ?? '#94a3b8' ); ?>20;color:<?php echo esc_attr( $status_colors[ $status ] ?? '#94a3b8' ); ?>">
+                                        <span class="yimai-gso-link-log-badge" style="background:<?php echo esc_attr( $status_colors[ $status ] ?? '#94a3b8' ); ?>20;color:<?php echo esc_attr( $status_colors[ $status ] ?? '#94a3b8' ); ?>">
                                             <?php echo esc_html( $status_labels[ $status ] ?? '跳过' ); ?>
                                         </span>
                                     </div>
-                                    <div class="wpaip-link-log-meta">
+                                    <div class="yimai-gso-link-log-meta">
                                         <span><?php echo esc_html( $source_labels[ $log['source'] ?? 'publish' ] ?? '发布流程' ); ?></span>
                                         <span><?php echo esc_html( $log['time'] ?? '' ); ?></span>
                                         <span><?php echo esc_html( $log['inserted_count'] ?? 0 ); ?> 条内链</span>
                                     </div>
-                                    <div class="wpaip-link-log-msg"><?php echo esc_html( $log['message'] ?? '' ); ?></div>
+                                    <div class="yimai-gso-link-log-msg"><?php echo esc_html( $log['message'] ?? '' ); ?></div>
                                 </div>
                             <?php endforeach; ?>
                         </div>
@@ -881,90 +881,90 @@ class WPAIP_NC8O {
         $is_disabled = $parent_locked || ! empty( $rebuild_meta['disabled'] );
         ?>
         <!-- Stats Cards -->
-        <div class="wpaip-link-stats-grid">
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#eef2ff;color:#6366f1;">📄</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num" id="wpaip-rebuild-stat-total">-</div>
-                    <div class="wpaip-link-stat-label">待重建文章</div>
+        <div class="yimai-gso-link-stats-grid">
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#eef2ff;color:#6366f1;">📄</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num" id="yimai-gso-rebuild-stat-total">-</div>
+                    <div class="yimai-gso-link-stat-label">待重建文章</div>
                 </div>
             </div>
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#d1fae5;color:#10b981;">✅</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num" id="wpaip-rebuild-stat-success"><?php echo esc_html( $stats['success'] ?? 0 ); ?></div>
-                    <div class="wpaip-link-stat-label">历史成功</div>
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#d1fae5;color:#10b981;">✅</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num" id="yimai-gso-rebuild-stat-success"><?php echo esc_html( $stats['success'] ?? 0 ); ?></div>
+                    <div class="yimai-gso-link-stat-label">历史成功</div>
                 </div>
             </div>
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#dbeafe;color:#3b82f6;">🔢</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num" id="wpaip-rebuild-stat-inserted"><?php echo esc_html( $stats['inserted'] ?? 0 ); ?></div>
-                    <div class="wpaip-link-stat-label">累计插入</div>
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#dbeafe;color:#3b82f6;">🔢</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num" id="yimai-gso-rebuild-stat-inserted"><?php echo esc_html( $stats['inserted'] ?? 0 ); ?></div>
+                    <div class="yimai-gso-link-stat-label">累计插入</div>
                 </div>
             </div>
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#fef3c7;color:#f59e0b;">🕒</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num" style="font-size:15px;"><?php echo esc_html( ! empty( $stats['last_run'] ) ? $stats['last_run'] : '暂无' ); ?></div>
-                    <div class="wpaip-link-stat-label">最近重建</div>
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#fef3c7;color:#f59e0b;">🕒</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num" style="font-size:15px;"><?php echo esc_html( ! empty( $stats['last_run'] ) ? $stats['last_run'] : '暂无' ); ?></div>
+                    <div class="yimai-gso-link-stat-label">最近重建</div>
                 </div>
             </div>
         </div>
 
-        <div class="wpaip-link-rebuild-layout">
+        <div class="yimai-gso-link-rebuild-layout">
             <!-- Main Operation Card -->
-            <div class="wpaip-link-panel wpaip-link-rebuild-main">
-                <div class="wpaip-link-panel-header">
+            <div class="yimai-gso-link-panel yimai-gso-link-rebuild-main">
+                <div class="yimai-gso-link-panel-header">
                     <h2>🔄 批量重建历史文章内链</h2>
                 </div>
-                <div class="wpaip-link-rebuild-desc">
+                <div class="yimai-gso-link-rebuild-desc">
                     <p>为所有已发布文章自动重建智能内链。每篇文章会根据当前候选池和锚文本策略重新计算并插入内链。</p>
-                    <div class="wpaip-link-rebuild-tips">
-                        <span class="wpaip-link-tip">⚡ 异步队列处理，不影响页面响应</span>
-                        <span class="wpaip-link-tip">🎯 按当前策略重新计算</span>
-                        <span class="wpaip-link-tip">📝 自动跳过已排除的分类/标签</span>
+                    <div class="yimai-gso-link-rebuild-tips">
+                        <span class="yimai-gso-link-tip">⚡ 异步队列处理，不影响页面响应</span>
+                        <span class="yimai-gso-link-tip">🎯 按当前策略重新计算</span>
+                        <span class="yimai-gso-link-tip">📝 自动跳过已排除的分类/标签</span>
                     </div>
                 </div>
 
-                <div class="wpaip-link-rebuild-controls" <?php echo $is_disabled ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
-                    <button type="button" id="wpaip-rebuild-links-start" class="wpaip-link-btn-primary">
+                <div class="yimai-gso-link-rebuild-controls" <?php echo $is_disabled ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
+                    <button type="button" id="yimai-gso-rebuild-links-start" class="yimai-gso-link-btn-primary">
                         <span class="dashicons dashicons-update"></span>
                         开始批量重建
                     </button>
-                    <button type="button" id="wpaip-rebuild-links-stop" class="wpaip-link-btn-danger" style="display:none;">
+                    <button type="button" id="yimai-gso-rebuild-links-stop" class="yimai-gso-link-btn-danger" style="display:none;">
                         <span class="dashicons dashicons-no"></span>
                         停止重建
                     </button>
                 </div>
 
                 <!-- Progress -->
-                <div id="wpaip-rebuild-links-progress" class="wpaip-link-progress-wrap" style="display:none;">
-                    <div class="wpaip-link-progress-header">
-                        <span id="wpaip-rebuild-links-progress-text">准备中...</span>
-                        <span id="wpaip-rebuild-links-progress-percent">0%</span>
+                <div id="yimai-gso-rebuild-links-progress" class="yimai-gso-link-progress-wrap" style="display:none;">
+                    <div class="yimai-gso-link-progress-header">
+                        <span id="yimai-gso-rebuild-links-progress-text">准备中...</span>
+                        <span id="yimai-gso-rebuild-links-progress-percent">0%</span>
                     </div>
-                    <div class="wpaip-link-progress-bar">
-                        <div id="wpaip-rebuild-links-fill" class="wpaip-link-progress-fill"></div>
+                    <div class="yimai-gso-link-progress-bar">
+                        <div id="yimai-gso-rebuild-links-fill" class="yimai-gso-link-progress-fill"></div>
                     </div>
-                    <div id="wpaip-rebuild-links-stats" class="wpaip-link-progress-stats"></div>
+                    <div id="yimai-gso-rebuild-links-stats" class="yimai-gso-link-progress-stats"></div>
                 </div>
 
                 <!-- Real-time Logs -->
-                <div id="wpaip-rebuild-links-logs" class="wpaip-link-logs" style="display:none;"></div>
+                <div id="yimai-gso-rebuild-links-logs" class="yimai-gso-link-logs" style="display:none;"></div>
             </div>
 
             <!-- History Table -->
-            <div class="wpaip-link-panel wpaip-link-rebuild-history">
-                <div class="wpaip-link-panel-header">
+            <div class="yimai-gso-link-panel yimai-gso-link-rebuild-history">
+                <div class="yimai-gso-link-panel-header">
                     <h2>📋 重建历史记录</h2>
                 </div>
-                <div class="wpaip-link-empty" id="wpaip-rebuild-history-empty">
-                    <div class="wpaip-link-empty-icon">📭</div>
+                <div class="yimai-gso-link-empty" id="yimai-gso-rebuild-history-empty">
+                    <div class="yimai-gso-link-empty-icon">📭</div>
                     <p>暂无重建记录</p>
                     <span>开始重建后，这里会显示每篇文章的处理结果</span>
                 </div>
-                <div id="wpaip-rebuild-history-list" class="wpaip-link-history-list" style="display:none;"></div>
+                <div id="yimai-gso-rebuild-history-list" class="yimai-gso-link-history-list" style="display:none;"></div>
             </div>
         </div>
         <?php
@@ -977,7 +977,7 @@ class WPAIP_NC8O {
         $is_disabled = $parent_locked || ! empty( $audit_meta['disabled'] );
 
         // 读取上次巡检结果
-        $last_result   = get_option( 'wpaip_broken_link_audit_result', array() );
+        $last_result   = get_option( 'yimai_gso_broken_link_audit_result', array() );
         $total_links   = $last_result['total_links'] ?? 0;
         $broken_count  = $last_result['broken_count'] ?? 0;
         $ok_count      = max( 0, $total_links - $broken_count );
@@ -985,63 +985,63 @@ class WPAIP_NC8O {
         $has_result    = ! empty( $last_result['audited_at'] );
         ?>
         <!-- Stats Cards -->
-        <div class="wpaip-link-stats-grid">
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#eef2ff;color:#6366f1;">🔍</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num" id="wpaip-audit-stat-total"><?php echo $has_result ? esc_html( $total_links ) : '-'; ?></div>
-                    <div class="wpaip-link-stat-label">站内链接总数</div>
+        <div class="yimai-gso-link-stats-grid">
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#eef2ff;color:#6366f1;">🔍</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num" id="yimai-gso-audit-stat-total"><?php echo $has_result ? esc_html( $total_links ) : '-'; ?></div>
+                    <div class="yimai-gso-link-stat-label">站内链接总数</div>
                 </div>
             </div>
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#d1fae5;color:#10b981;">✅</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num" id="wpaip-audit-stat-ok"><?php echo $has_result ? esc_html( $ok_count ) : '-'; ?></div>
-                    <div class="wpaip-link-stat-label">正常链接</div>
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#d1fae5;color:#10b981;">✅</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num" id="yimai-gso-audit-stat-ok"><?php echo $has_result ? esc_html( $ok_count ) : '-'; ?></div>
+                    <div class="yimai-gso-link-stat-label">正常链接</div>
                 </div>
             </div>
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#fee2e2;color:#ef4444;">⚠️</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num" id="wpaip-audit-stat-broken"><?php echo $has_result ? esc_html( $broken_count ) : '-'; ?></div>
-                    <div class="wpaip-link-stat-label">失效链接</div>
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#fee2e2;color:#ef4444;">⚠️</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num" id="yimai-gso-audit-stat-broken"><?php echo $has_result ? esc_html( $broken_count ) : '-'; ?></div>
+                    <div class="yimai-gso-link-stat-label">失效链接</div>
                 </div>
             </div>
-            <div class="wpaip-link-stat-card">
-                <div class="wpaip-link-stat-icon" style="background:#fef3c7;color:#f59e0b;">📊</div>
-                <div class="wpaip-link-stat-info">
-                    <div class="wpaip-link-stat-num" id="wpaip-audit-stat-rate"><?php echo $has_result ? esc_html( $health_rate ) : '-'; ?></div>
-                    <div class="wpaip-link-stat-label">健康度</div>
+            <div class="yimai-gso-link-stat-card">
+                <div class="yimai-gso-link-stat-icon" style="background:#fef3c7;color:#f59e0b;">📊</div>
+                <div class="yimai-gso-link-stat-info">
+                    <div class="yimai-gso-link-stat-num" id="yimai-gso-audit-stat-rate"><?php echo $has_result ? esc_html( $health_rate ) : '-'; ?></div>
+                    <div class="yimai-gso-link-stat-label">健康度</div>
                 </div>
             </div>
         </div>
 
-        <div class="wpaip-link-audit-layout">
+        <div class="yimai-gso-link-audit-layout">
             <!-- Operation Area -->
-            <div class="wpaip-link-panel wpaip-link-audit-main">
-                <div class="wpaip-link-panel-header">
+            <div class="yimai-gso-link-panel yimai-gso-link-audit-main">
+                <div class="yimai-gso-link-panel-header">
                     <h2>🔍 失效链接巡检</h2>
                 </div>
-                <div class="wpaip-link-audit-desc">
+                <div class="yimai-gso-link-audit-desc">
                     <p>扫描全站文章中的站内链接，检测是否存在 404 或其他失效状态，支持一键移除死链。</p>
                 </div>
 
-                <div class="wpaip-link-audit-config">
-                    <div class="wpaip-link-audit-config-item">
+                <div class="yimai-gso-link-audit-config">
+                    <div class="yimai-gso-link-audit-config-item">
                         <span class="dashicons dashicons-media-document"></span>
                         <div>
                             <strong>扫描范围</strong>
                             <span>全站已发布文章</span>
                         </div>
                     </div>
-                    <div class="wpaip-link-audit-config-item">
+                    <div class="yimai-gso-link-audit-config-item">
                         <span class="dashicons dashicons-admin-links"></span>
                         <div>
                             <strong>检测目标</strong>
                             <span>站内链接（本站域名）</span>
                         </div>
                     </div>
-                    <div class="wpaip-link-audit-config-item">
+                    <div class="yimai-gso-link-audit-config-item">
                         <span class="dashicons dashicons-clock"></span>
                         <div>
                             <strong>超时时间</strong>
@@ -1050,31 +1050,31 @@ class WPAIP_NC8O {
                     </div>
                 </div>
 
-                <div class="wpaip-link-audit-controls" <?php echo $is_disabled ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
-                    <button type="button" id="wpaip-broken-link-start" class="wpaip-link-btn-primary">
+                <div class="yimai-gso-link-audit-controls" <?php echo $is_disabled ? 'style="opacity:0.5;pointer-events:none;"' : ''; ?>>
+                    <button type="button" id="yimai-gso-broken-link-start" class="yimai-gso-link-btn-primary">
                         <span class="dashicons dashicons-search"></span>
                         开始巡检
                     </button>
                 </div>
 
                 <!-- Progress -->
-                <div id="wpaip-broken-link-progress" class="wpaip-link-progress-wrap" style="display:none;">
-                    <div class="wpaip-link-progress-header">
-                        <span id="wpaip-broken-link-progress-text">正在检测链接...</span>
-                        <span id="wpaip-broken-link-progress-percent">0%</span>
+                <div id="yimai-gso-broken-link-progress" class="yimai-gso-link-progress-wrap" style="display:none;">
+                    <div class="yimai-gso-link-progress-header">
+                        <span id="yimai-gso-broken-link-progress-text">正在检测链接...</span>
+                        <span id="yimai-gso-broken-link-progress-percent">0%</span>
                     </div>
-                    <div class="wpaip-link-progress-bar">
-                        <div id="wpaip-broken-link-fill" class="wpaip-link-progress-fill" style="background:linear-gradient(90deg,#f59e0b,#fbbf24);"></div>
+                    <div class="yimai-gso-link-progress-bar">
+                        <div id="yimai-gso-broken-link-fill" class="yimai-gso-link-progress-fill" style="background:linear-gradient(90deg,#f59e0b,#fbbf24);"></div>
                     </div>
                 </div>
 
                 <!-- Quick Actions -->
-                <div id="wpaip-audit-quick-actions" class="wpaip-link-audit-actions" <?php echo $has_result ? '' : 'style="display:none;"'; ?>>
-                    <button type="button" id="wpaip-audit-export" class="wpaip-link-btn-secondary">
+                <div id="yimai-gso-audit-quick-actions" class="yimai-gso-link-audit-actions" <?php echo $has_result ? '' : 'style="display:none;"'; ?>>
+                    <button type="button" id="yimai-gso-audit-export" class="yimai-gso-link-btn-secondary">
                         <span class="dashicons dashicons-download"></span>
                         导出报告
                     </button>
-                    <button type="button" id="wpaip-audit-recheck" class="wpaip-link-btn-secondary">
+                    <button type="button" id="yimai-gso-audit-recheck" class="yimai-gso-link-btn-secondary">
                         <span class="dashicons dashicons-update"></span>
                         重新巡检
                     </button>
@@ -1082,19 +1082,19 @@ class WPAIP_NC8O {
             </div>
 
             <!-- Results Panel -->
-            <div class="wpaip-link-panel wpaip-link-audit-results">
-                <div class="wpaip-link-panel-header">
+            <div class="yimai-gso-link-panel yimai-gso-link-audit-results">
+                <div class="yimai-gso-link-panel-header">
                     <h2>📋 巡检结果</h2>
-                    <span class="wpaip-link-badge" id="wpaip-audit-result-badge" <?php echo $has_result ? '' : 'style="display:none;"'; ?>><?php echo $broken_count > 0 ? esc_html( $broken_count . ' 个失效' ) : '全部正常'; ?></span>
+                    <span class="yimai-gso-link-badge" id="yimai-gso-audit-result-badge" <?php echo $has_result ? '' : 'style="display:none;"'; ?>><?php echo $broken_count > 0 ? esc_html( $broken_count . ' 个失效' ) : '全部正常'; ?></span>
                 </div>
 
-                <div class="wpaip-link-empty" id="wpaip-audit-empty" <?php echo $has_result ? 'style="display:none;"' : ''; ?>>
-                    <div class="wpaip-link-empty-icon">🔍</div>
+                <div class="yimai-gso-link-empty" id="yimai-gso-audit-empty" <?php echo $has_result ? 'style="display:none;"' : ''; ?>>
+                    <div class="yimai-gso-link-empty-icon">🔍</div>
                     <p><?php echo $has_result ? '上次巡检时间：' . esc_html( $last_result['audited_at'] ) : '等待巡检开始'; ?></p>
                     <span><?php echo $has_result ? '点击下方"重新巡检"按钮可再次扫描' : '点击"开始巡检"按钮，系统将自动扫描全站链接'; ?></span>
                 </div>
 
-                <div id="wpaip-broken-link-result" <?php echo $has_result ? '' : 'style="display:none;"'; ?>></div>
+                <div id="yimai-gso-broken-link-result" <?php echo $has_result ? '' : 'style="display:none;"'; ?>></div>
             </div>
         </div>
         <?php
@@ -1104,7 +1104,7 @@ class WPAIP_NC8O {
      * AJAX: 切换智能内链总开关
      */
     public function ajax_toggle_internal_link() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1115,7 +1115,7 @@ class WPAIP_NC8O {
         }
 
         $enabled = ! empty( $_POST['enabled'] ) ? 1 : 0;
-        update_option( 'wpaip_internal_link_enabled', $enabled );
+        update_option( 'yimai_gso_internal_link_enabled', $enabled );
 
         wp_send_json_success( array(
             'message' => $enabled ? '智能内链已开启' : '智能内链已关闭',
@@ -1127,7 +1127,7 @@ class WPAIP_NC8O {
      * AJAX: 保存 SEO 元数据自动设置
      */
     public function ajax_save_seo_meta_settings() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -1137,9 +1137,9 @@ class WPAIP_NC8O {
         $skip_manual = ! empty( $_POST['auto_seo_meta_skip_manual'] ) ? 1 : 0;
         $categories  = sanitize_text_field( wp_unslash( $_POST['auto_seo_meta_categories'] ?? '' ) );
 
-        WPAIP_9XCU::set( 'auto_seo_meta_enabled', $enabled );
-        WPAIP_9XCU::set( 'auto_seo_meta_skip_manual', $skip_manual );
-        WPAIP_9XCU::set( 'auto_seo_meta_categories', $categories );
+        YIMAI_GSO_Settings::set( 'auto_seo_meta_enabled', $enabled );
+        YIMAI_GSO_Settings::set( 'auto_seo_meta_skip_manual', $skip_manual );
+        YIMAI_GSO_Settings::set( 'auto_seo_meta_categories', $categories );
 
         wp_send_json_success( array(
             'message'  => 'SEO元数据自动设置已保存',
@@ -1149,19 +1149,19 @@ class WPAIP_NC8O {
 
     private function render_autopilot_panel( $active_tab ) {
         $feature_meta = $this->get_feature_meta( 'autopilot_publish' );
-        $settings     = class_exists( 'WPAIP_HXVV' ) ? WPAIP_HXVV::get_settings() : array();
-        $stats        = class_exists( 'WPAIP_96EY' ) ? WPAIP_96EY::get_summary_stats( 7 ) : array();
-        $runs         = class_exists( 'WPAIP_96EY' ) ? WPAIP_96EY::get_recent_runs( 8 ) : array();
+        $settings     = class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ? YIMAI_GSO_Autopilot_Plan::get_settings() : array();
+        $stats        = class_exists( 'YIMAI_GSO_Autopilot_Log' ) ? YIMAI_GSO_Autopilot_Log::get_summary_stats( 7 ) : array();
+        $runs         = class_exists( 'YIMAI_GSO_Autopilot_Log' ) ? YIMAI_GSO_Autopilot_Log::get_recent_runs( 8 ) : array();
         $categories   = $this->get_categories_list('raw');
         $plan_label = '一麦自用版';
-        $next_run_label = class_exists( 'WPAIP_HXVV' ) ? WPAIP_HXVV::get_next_run_label( $settings ) : '暂无';
-        $today_topic    = class_exists( 'WPAIP_HXVV' ) ? WPAIP_HXVV::pick_topic_keyword( $settings ) : '';
+        $next_run_label = class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ? YIMAI_GSO_Autopilot_Plan::get_next_run_label( $settings ) : '暂无';
+        $today_topic    = class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ? YIMAI_GSO_Autopilot_Plan::pick_topic_keyword( $settings ) : '';
         $root_disabled  = ! empty( $feature_meta['disabled'] );
-        $log_counts     = class_exists( 'WPAIP_96EY' ) ? WPAIP_96EY::get_log_counts() : array( 'runs' => 0, 'items' => 0 );
+        $log_counts     = class_exists( 'YIMAI_GSO_Autopilot_Log' ) ? YIMAI_GSO_Autopilot_Log::get_log_counts() : array( 'runs' => 0, 'items' => 0 );
         $is_enabled     = ! empty( $settings['enabled'] );
         ?>
-        <div class="wpaip-main-panel <?php echo $active_tab === 'autopilot' ? 'active' : ''; ?>" data-tab="autopilot">
-            <div id="wpaip-autopilot-root"
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'autopilot' ? 'active' : ''; ?>" data-tab="autopilot">
+            <div id="yimai-gso-autopilot-root"
                 data-available="<?php echo ! empty( $feature_meta['available'] ) ? '1' : '0'; ?>"
                 data-readonly="<?php echo ! empty( $feature_meta['readonly'] ) ? '1' : '0'; ?>">
                 <!-- ====== Hero ====== -->
@@ -1174,7 +1174,7 @@ class WPAIP_NC8O {
                         <div class="apv3-hero-toggle">
                             <span class="apv3-hero-toggle-label">计划开关</span>
                             <label class="apv3-toggle-track <?php echo $is_enabled ? 'active' : ''; ?><?php echo $root_disabled ? ' disabled' : ''; ?>">
-                                <input type="checkbox" name="wpaip_autopilot_enabled" value="1" <?php checked( $is_enabled ); ?> <?php disabled( $root_disabled ); ?>>
+                                <input type="checkbox" name="yimai_gso_autopilot_enabled" value="1" <?php checked( $is_enabled ); ?> <?php disabled( $root_disabled ); ?>>
                             </label>
                         </div>
                     </div>
@@ -1206,7 +1206,7 @@ class WPAIP_NC8O {
                     <!-- ====== Left: Settings ====== -->
                     <div class="apv3-settings">
                         <form method="post">
-                            <?php wp_nonce_field( 'wpaip_autopilot_nonce' ); ?>
+                            <?php wp_nonce_field( 'yimai_gso_autopilot_nonce' ); ?>
 
                             <!-- Section: Schedule -->
                             <div class="apv3-section" data-apv3-collapsible>
@@ -1224,12 +1224,12 @@ class WPAIP_NC8O {
                                     <div class="apv3-form-grid">
                                         <div class="apv3-field">
                                             <label>每天执行时间</label>
-                                            <input type="time" name="wpaip_autopilot_run_time" value="<?php echo esc_attr( $settings['run_time'] ?? '08:00' ); ?>" <?php disabled( $root_disabled ); ?>>
+                                            <input type="time" name="yimai_gso_autopilot_run_time" value="<?php echo esc_attr( $settings['run_time'] ?? '08:00' ); ?>" <?php disabled( $root_disabled ); ?>>
                                             <div class="apv3-hint">按站点时区</div>
                                         </div>
                                         <div class="apv3-field">
                                             <label>每次生成篇数</label>
-                                            <input type="number" name="wpaip_autopilot_daily_count" min="1" max="10" value="<?php echo esc_attr( $settings['daily_count'] ?? 3 ); ?>" <?php disabled( $root_disabled ); ?>>
+                                            <input type="number" name="yimai_gso_autopilot_daily_count" min="1" max="10" value="<?php echo esc_attr( $settings['daily_count'] ?? 3 ); ?>" <?php disabled( $root_disabled ); ?>>
                                             <div class="apv3-hint">建议 1-5 篇</div>
                                         </div>
                                     </div>
@@ -1252,12 +1252,12 @@ class WPAIP_NC8O {
                                     <div class="apv3-form-grid">
                                         <div class="apv3-field apv3-full">
                                             <label>主题词列表</label>
-                                            <textarea name="wpaip_autopilot_topic_keywords" rows="5" placeholder="每行一个主题词，例如：&#10;AI写作提效&#10;WordPress SEO优化&#10;自媒体变现技巧" <?php disabled( $root_disabled ); ?>><?php echo esc_textarea( $settings['topic_keywords'] ?? '' ); ?></textarea>
+                                            <textarea name="yimai_gso_autopilot_topic_keywords" rows="5" placeholder="每行一个主题词，例如：&#10;AI写作提效&#10;WordPress SEO优化&#10;自媒体变现技巧" <?php disabled( $root_disabled ); ?>><?php echo esc_textarea( $settings['topic_keywords'] ?? '' ); ?></textarea>
                                             <div class="apv3-hint">系统按日期 hash 稳定轮换，避免内容重复</div>
                                         </div>
                                         <div class="apv3-field apv3-full">
                                             <label>补充要求</label>
-                                            <textarea name="wpaip_autopilot_extra_prompt" rows="3" placeholder="对每篇文章的统一写作要求" <?php disabled( $root_disabled ); ?>><?php echo esc_textarea( $settings['extra_prompt'] ?? '' ); ?></textarea>
+                                            <textarea name="yimai_gso_autopilot_extra_prompt" rows="3" placeholder="对每篇文章的统一写作要求" <?php disabled( $root_disabled ); ?>><?php echo esc_textarea( $settings['extra_prompt'] ?? '' ); ?></textarea>
                                             <div class="apv3-hint">追加到提示词后，统一风格或口径</div>
                                         </div>
                                     </div>
@@ -1280,7 +1280,7 @@ class WPAIP_NC8O {
                                     <div class="apv3-form-grid">
                                         <div class="apv3-field">
                                             <label>文章分类</label>
-                                            <select name="wpaip_autopilot_category_id" <?php disabled( $root_disabled ); ?>>
+                                            <select name="yimai_gso_autopilot_category_id" <?php disabled( $root_disabled ); ?>>
                                                 <?php foreach ( $categories as $cat ) : ?>
                                                     <option value="<?php echo esc_attr( $cat->term_id ); ?>" <?php selected( absint( $settings['category_id'] ?? 1 ), $cat->term_id ); ?>><?php echo esc_html( $cat->name ); ?></option>
                                                 <?php endforeach; ?>
@@ -1288,11 +1288,11 @@ class WPAIP_NC8O {
                                         </div>
                                         <div class="apv3-field">
                                             <label>每篇字数</label>
-                                            <input type="number" name="wpaip_autopilot_word_count" min="300" max="5000" step="100" value="<?php echo esc_attr( $settings['word_count'] ?? 1000 ); ?>" <?php disabled( $root_disabled ); ?>>
+                                            <input type="number" name="yimai_gso_autopilot_word_count" min="300" max="5000" step="100" value="<?php echo esc_attr( $settings['word_count'] ?? 1000 ); ?>" <?php disabled( $root_disabled ); ?>>
                                         </div>
                                         <div class="apv3-field">
                                             <label>每篇配图</label>
-                                            <select name="wpaip_autopilot_image_count" <?php disabled( $root_disabled ); ?>>
+                                            <select name="yimai_gso_autopilot_image_count" <?php disabled( $root_disabled ); ?>>
                                                 <?php foreach ( array( 0, 1, 2, 3, 5 ) as $image_count ) : ?>
                                                     <option value="<?php echo esc_attr( $image_count ); ?>" <?php selected( absint( $settings['image_count'] ?? 1 ), $image_count ); ?>><?php echo esc_html( $image_count ); ?> 张</option>
                                                 <?php endforeach; ?>
@@ -1300,12 +1300,12 @@ class WPAIP_NC8O {
                                         </div>
                                         <div class="apv3-field">
                                             <label>统一标签</label>
-                                            <input type="text" name="wpaip_autopilot_tags" value="<?php echo esc_attr( $settings['tags'] ?? '' ); ?>" placeholder="标签1,标签2" <?php disabled( $root_disabled ); ?>>
+                                            <input type="text" name="yimai_gso_autopilot_tags" value="<?php echo esc_attr( $settings['tags'] ?? '' ); ?>" placeholder="标签1,标签2" <?php disabled( $root_disabled ); ?>>
                                         </div>
                                         <div class="apv3-field apv3-full">
                                             <div class="apv3-inline-toggle">
                                                 <label class="apv3-mini-toggle <?php echo ! empty( $settings['use_ai_tags'] ) ? 'active' : ''; ?><?php echo $root_disabled ? ' disabled' : ''; ?>">
-                                                    <input type="checkbox" name="wpaip_autopilot_use_ai_tags" value="1" <?php checked( ! empty( $settings['use_ai_tags'] ) ); ?> <?php disabled( $root_disabled ); ?>>
+                                                    <input type="checkbox" name="yimai_gso_autopilot_use_ai_tags" value="1" <?php checked( ! empty( $settings['use_ai_tags'] ) ); ?> <?php disabled( $root_disabled ); ?>>
                                                 </label>
                                                 <span>AI 自动标签</span>
                                             </div>
@@ -1315,15 +1315,15 @@ class WPAIP_NC8O {
                                             <label>写入方式</label>
                                             <div class="apv3-radio-pills">
                                                 <label class="apv3-radio-pill <?php echo ( $settings['post_status'] ?? 'publish' ) === 'publish' ? 'active' : ''; ?>">
-                                                    <input type="radio" name="wpaip_autopilot_post_status" value="publish" <?php checked( ( $settings['post_status'] ?? 'publish' ) === 'publish' ); ?> <?php disabled( $root_disabled ); ?>>
+                                                    <input type="radio" name="yimai_gso_autopilot_post_status" value="publish" <?php checked( ( $settings['post_status'] ?? 'publish' ) === 'publish' ); ?> <?php disabled( $root_disabled ); ?>>
                                                     <span>🚀 直接发布</span>
                                                 </label>
                                                 <label class="apv3-radio-pill <?php echo ( $settings['post_status'] ?? 'publish' ) === 'draft' ? 'active' : ''; ?>">
-                                                    <input type="radio" name="wpaip_autopilot_post_status" value="draft" <?php checked( ( $settings['post_status'] ?? 'publish' ) === 'draft' ); ?> <?php disabled( $root_disabled ); ?>>
+                                                    <input type="radio" name="yimai_gso_autopilot_post_status" value="draft" <?php checked( ( $settings['post_status'] ?? 'publish' ) === 'draft' ); ?> <?php disabled( $root_disabled ); ?>>
                                                     <span>📝 存为草稿</span>
                                                 </label>
                                                 <label class="apv3-radio-pill <?php echo ( $settings['post_status'] ?? 'publish' ) === 'future' ? 'active' : ''; ?>">
-                                                    <input type="radio" name="wpaip_autopilot_post_status" value="future" <?php checked( ( $settings['post_status'] ?? 'publish' ) === 'future' ); ?> <?php disabled( $root_disabled ); ?>>
+                                                    <input type="radio" name="yimai_gso_autopilot_post_status" value="future" <?php checked( ( $settings['post_status'] ?? 'publish' ) === 'future' ); ?> <?php disabled( $root_disabled ); ?>>
                                                     <span>⏰ 定时发布</span>
                                                 </label>
                                             </div>
@@ -1335,7 +1335,7 @@ class WPAIP_NC8O {
                                         ?>
                                         <div class="apv3-field apv3-full" id="apv3-future-delay-row" <?php echo $future_display; ?>>
                                             <label>延迟发布</label>
-                                            <select name="wpaip_autopilot_future_delay_hours" class="apv3-select" style="width:200px;" <?php disabled( $root_disabled ); ?>>
+                                            <select name="yimai_gso_autopilot_future_delay_hours" class="apv3-select" style="width:200px;" <?php disabled( $root_disabled ); ?>>
                                                 <option value="1" <?php selected( $future_delay, 1 ); ?>>1 小时后</option>
                                                 <option value="2" <?php selected( $future_delay, 2 ); ?>>2 小时后</option>
                                                 <option value="3" <?php selected( $future_delay, 3 ); ?>>3 小时后</option>
@@ -1363,7 +1363,7 @@ class WPAIP_NC8O {
                                         <div class="apv3-field">
                                             <label>日志保留天数</label>
                                             <div class="apv3-retention-row">
-                                                <input type="number" name="wpaip_autopilot_log_retention_days" min="7" max="365" value="<?php echo esc_attr( $settings['log_retention_days'] ?? 30 ); ?>" <?php disabled( $root_disabled ); ?>>
+                                                <input type="number" name="yimai_gso_autopilot_log_retention_days" min="7" max="365" value="<?php echo esc_attr( $settings['log_retention_days'] ?? 30 ); ?>" <?php disabled( $root_disabled ); ?>>
                                                 <span class="apv3-retention-unit">天</span>
                                             </div>
                                             <div class="apv3-hint">每日凌晨 3:00 自动清理过期日志</div>
@@ -1386,22 +1386,22 @@ class WPAIP_NC8O {
                                     <span class="apv3-footer-stat">运行记录 <?php echo esc_html( $log_counts['runs'] ?? 0 ); ?> 条 · 子任务 <?php echo esc_html( $log_counts['items'] ?? 0 ); ?> 条</span>
                                 </div>
                                 <div class="apv3-footer-right">
-                                    <button type="button" id="wpaip-cleanup-logs-btn" class="apv3-btn apv3-btn-ghost">
+                                    <button type="button" id="yimai-gso-cleanup-logs-btn" class="apv3-btn apv3-btn-ghost">
                                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
                                         清理日志
                                     </button>
-                                    <button type="button" id="wpaip-autopilot-run-btn" class="apv3-btn apv3-btn-secondary" <?php echo ( empty( $feature_meta['available'] ) || ! empty( $feature_meta['readonly'] ) ) ? 'disabled' : ''; ?>>
+                                    <button type="button" id="yimai-gso-autopilot-run-btn" class="apv3-btn apv3-btn-secondary" <?php echo ( empty( $feature_meta['available'] ) || ! empty( $feature_meta['readonly'] ) ) ? 'disabled' : ''; ?>>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                                         立即执行
                                     </button>
-                                    <button type="submit" name="wpaip_save_autopilot_settings" class="apv3-btn apv3-btn-primary" <?php disabled( $root_disabled ); ?>>
+                                    <button type="submit" name="yimai_gso_save_autopilot_settings" class="apv3-btn apv3-btn-primary" <?php disabled( $root_disabled ); ?>>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                                         保存设置
                                     </button>
                                 </div>
                             </div>
-                            <div id="wpaip-autopilot-run-result" style="display:none;"></div>
-                            <div id="wpaip-cleanup-result" style="display:none;"></div>
+                            <div id="yimai-gso-autopilot-run-result" style="display:none;"></div>
+                            <div id="yimai-gso-cleanup-result" style="display:none;"></div>
                         </form>
                     </div>
 
@@ -1515,69 +1515,69 @@ class WPAIP_NC8O {
 
     private function render_seo_meta_panel( $active_tab ) {
         $feature_meta = $this->get_feature_meta( 'seo_enhance' );
-        $stats        = class_exists( 'WPAIP_UZSV' ) ? WPAIP_UZSV::get_summary_stats() : array();
-        $logs         = class_exists( 'WPAIP_UZSV' ) ? WPAIP_UZSV::get_recent_logs( 15 ) : array();
+        $stats        = class_exists( 'YIMAI_GSO_SEO_Meta_Optimizer' ) ? YIMAI_GSO_SEO_Meta_Optimizer::get_summary_stats() : array();
+        $logs         = class_exists( 'YIMAI_GSO_SEO_Meta_Optimizer' ) ? YIMAI_GSO_SEO_Meta_Optimizer::get_recent_logs( 15 ) : array();
         ?>
 
-        <div class="wpaip-main-panel <?php echo $active_tab === 'seo-meta' ? 'active' : ''; ?>" data-tab="seo-meta">
-            <div id="wpaip-seo-meta-root"
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'seo-meta' ? 'active' : ''; ?>" data-tab="seo-meta">
+            <div id="yimai-gso-seo-meta-root"
                 data-available="<?php echo ! empty( $feature_meta['available'] ) ? '1' : '0'; ?>"
                 data-readonly="<?php echo ! empty( $feature_meta['readonly'] ) ? '1' : '0'; ?>">
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-chart-line"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">批量SEO元数据</h2>
-                        <p class="wpaip-card-desc">批量优化文章标题、描述和关键词，兼容子比主题、Yoast SEO、Rank Math 等主流 SEO 插件</p>
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-chart-line"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">批量SEO元数据</h2>
+                        <p class="yimai-gso-card-desc">批量优化文章标题、描述和关键词，兼容子比主题、Yoast SEO、Rank Math 等主流 SEO 插件</p>
                     </div>
                 </div>
-                <div class="wpaip-result-box success" id="wpaip-seo-status-box" style="margin-bottom:18px;">
+                <div class="yimai-gso-result-box success" id="yimai-gso-seo-status-box" style="margin-bottom:18px;">
                     执行链路：先扫描候选文章 → AI 逐篇生成 SEO 标题 / 描述 / 关键词预览 → 人工确认后批量写回子比 / Yoast / Rank Math。
                 </div>
 
-                <div class="wpaip-detect-tips" style="margin-bottom:18px;display:flex;flex-wrap:wrap;gap:8px;">
-                    <span class="wpaip-detect-tip">最近写回：<?php echo esc_html( $stats['total'] ?? 0 ); ?> 次</span>
-                    <span class="wpaip-detect-tip">成功：<?php echo esc_html( $stats['success'] ?? 0 ); ?> 次</span>
-                    <span class="wpaip-detect-tip">失败：<?php echo esc_html( $stats['error'] ?? 0 ); ?> 次</span>
-                    <span class="wpaip-detect-tip">最近执行：<?php echo esc_html( $stats['last_run'] ?? '暂无' ); ?></span>
+                <div class="yimai-gso-detect-tips" style="margin-bottom:18px;display:flex;flex-wrap:wrap;gap:8px;">
+                    <span class="yimai-gso-detect-tip">最近写回：<?php echo esc_html( $stats['total'] ?? 0 ); ?> 次</span>
+                    <span class="yimai-gso-detect-tip">成功：<?php echo esc_html( $stats['success'] ?? 0 ); ?> 次</span>
+                    <span class="yimai-gso-detect-tip">失败：<?php echo esc_html( $stats['error'] ?? 0 ); ?> 次</span>
+                    <span class="yimai-gso-detect-tip">最近执行：<?php echo esc_html( $stats['last_run'] ?? '暂无' ); ?></span>
                 </div>
 
                 <!-- 发布后自动SEO元数据 设置 -->
                 <?php
-                $auto_seo_enabled     = class_exists( 'WPAIP_9XCU' ) ? WPAIP_9XCU::get( 'auto_seo_meta_enabled', 0 ) : 0;
-                $auto_seo_skip_manual = class_exists( 'WPAIP_9XCU' ) ? WPAIP_9XCU::get( 'auto_seo_meta_skip_manual', 1 ) : 1;
-                $auto_seo_cats        = class_exists( 'WPAIP_9XCU' ) ? WPAIP_9XCU::get( 'auto_seo_meta_categories', '' ) : '';
+                $auto_seo_enabled     = class_exists( 'YIMAI_GSO_Settings' ) ? YIMAI_GSO_Settings::get( 'auto_seo_meta_enabled', 0 ) : 0;
+                $auto_seo_skip_manual = class_exists( 'YIMAI_GSO_Settings' ) ? YIMAI_GSO_Settings::get( 'auto_seo_meta_skip_manual', 1 ) : 1;
+                $auto_seo_cats        = class_exists( 'YIMAI_GSO_Settings' ) ? YIMAI_GSO_Settings::get( 'auto_seo_meta_categories', '' ) : '';
                 $selected_cat_ids     = array_filter( array_map( 'absint', explode( ',', $auto_seo_cats ) ) );
                 $all_categories       = $this->get_categories_list( 'select' );
                 ?>
-                <div class="wpaip-panel wpaip-seo-auto-section" style="margin-bottom:18px; padding:16px;">
+                <div class="yimai-gso-panel yimai-gso-seo-auto-section" style="margin-bottom:18px; padding:16px;">
                     <h2 style="margin-top:0;">发布后自动优化</h2>
                     <p style="color:#757575;margin-bottom:14px;">开启后，文章首次发布时自动调用 AI 生成 SEO 标题、描述和关键词，60秒后后台静默写入，不阻塞发布流程。</p>
 
                     <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
                         <!-- 主开关 -->
-                        <div class="wpaip-form-group" style="min-width:280px;">
-                            <label class="wpaip-toggle-label" style="font-weight:600;">
-                                <input type="checkbox" id="wpaip-auto-seo-enabled" <?php checked( $auto_seo_enabled, 1 ); ?>>
-                                <span class="wpaip-toggle-switch"></span>
-                                <span class="wpaip-toggle-text">发布后自动优化SEO元数据</span>
+                        <div class="yimai-gso-form-group" style="min-width:280px;">
+                            <label class="yimai-gso-toggle-label" style="font-weight:600;">
+                                <input type="checkbox" id="yimai-gso-auto-seo-enabled" <?php checked( $auto_seo_enabled, 1 ); ?>>
+                                <span class="yimai-gso-toggle-switch"></span>
+                                <span class="yimai-gso-toggle-text">发布后自动优化SEO元数据</span>
                             </label>
                             <small style="display:block;margin-top:6px;color:#757575;">仅完整版可用，基础版开启后无效果</small>
                         </div>
 
                         <!-- 增强A：跳过手动SEO -->
-                        <div class="wpaip-form-group" style="min-width:280px;">
-                            <label class="wpaip-toggle-label">
-                                <input type="checkbox" id="wpaip-auto-seo-skip-manual" <?php checked( $auto_seo_skip_manual, 1 ); ?>>
-                                <span class="wpaip-toggle-switch"></span>
-                                <span class="wpaip-toggle-text">跳过已有手动SEO的文章</span>
+                        <div class="yimai-gso-form-group" style="min-width:280px;">
+                            <label class="yimai-gso-toggle-label">
+                                <input type="checkbox" id="yimai-gso-auto-seo-skip-manual" <?php checked( $auto_seo_skip_manual, 1 ); ?>>
+                                <span class="yimai-gso-toggle-switch"></span>
+                                <span class="yimai-gso-toggle-text">跳过已有手动SEO的文章</span>
                             </label>
                             <small style="display:block;margin-top:6px;color:#757575;">如果文章已在 Yoast / Rank Math / 子比中手动设置了 SEO 字段，则不自动覆盖</small>
                         </div>
 
                         <!-- 增强B：分类白名单 -->
-                        <div class="wpaip-form-group" style="flex:1;min-width:340px;">
+                        <div class="yimai-gso-form-group" style="flex:1;min-width:340px;">
                             <label style="font-weight:600;">限制分类（可选）</label>
-                            <div id="wpaip-auto-seo-cats" style="
+                            <div id="yimai-gso-auto-seo-cats" style="
                                 display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;
                                 max-height:120px;overflow-y:auto;
                                 border:1px solid #dcdcde;border-radius:4px;padding:8px;
@@ -1607,28 +1607,28 @@ class WPAIP_NC8O {
                     </div>
 
                     <div style="margin-top:12px;">
-                        <button type="button" id="wpaip-auto-seo-save-btn" class="button button-primary wpaip-icon-btn">
+                        <button type="button" id="yimai-gso-auto-seo-save-btn" class="button button-primary yimai-gso-icon-btn">
                             <span class="dashicons dashicons-yes-alt"></span>
                             保存自动设置
                         </button>
-                        <span id="wpaip-auto-seo-save-status" style="margin-left:10px;display:none;color:#46b450;"></span>
+                        <span id="yimai-gso-auto-seo-save-status" style="margin-left:10px;display:none;color:#46b450;"></span>
                     </div>
                 </div>
 
                 <!-- 扫描候选文章（整宽）-->
-                <div class="wpaip-panel wpaip-seo-scan-section" style="margin-bottom:18px;">
+                <div class="yimai-gso-panel yimai-gso-seo-scan-section" style="margin-bottom:18px;">
                     <h2>扫描候选文章</h2>
 
                     <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;">
-                        <div class="wpaip-form-group" style="flex:1;min-width:200px;">
+                        <div class="yimai-gso-form-group" style="flex:1;min-width:200px;">
                             <label>标题关键词</label>
-                            <input type="text" id="wpaip-seo-keyword" class="large-text" placeholder="例如：AI写作、WordPress、SEO优化">
+                            <input type="text" id="yimai-gso-seo-keyword" class="large-text" placeholder="例如：AI写作、WordPress、SEO优化">
                             <small>留空则按最新文章扫描；填写后会按标题关键词筛选。</small>
                         </div>
 
-                        <div class="wpaip-form-group" style="width:150px;">
+                        <div class="yimai-gso-form-group" style="width:150px;">
                             <label>文章状态</label>
-                            <select id="wpaip-seo-post-status">
+                            <select id="yimai-gso-seo-post-status">
                                 <option value="publish" selected>已发布</option>
                                 <option value="draft">草稿</option>
                                 <option value="future">定时发布</option>
@@ -1637,9 +1637,9 @@ class WPAIP_NC8O {
                             </select>
                         </div>
 
-                        <div class="wpaip-form-group" style="width:150px;">
+                        <div class="yimai-gso-form-group" style="width:150px;">
                             <label>扫描数量</label>
-                            <select id="wpaip-seo-limit">
+                            <select id="yimai-gso-seo-limit">
                                 <option value="10">最近 10 篇</option>
                                 <option value="20" selected>最近 20 篇</option>
                                 <option value="30">最近 30 篇</option>
@@ -1648,16 +1648,16 @@ class WPAIP_NC8O {
                             </select>
                         </div>
 
-                        <div class="wpaip-form-group" style="width:180px;">
-                            <label class="wpaip-toggle-label">
-                                <input type="checkbox" id="wpaip-seo-only-missing" checked>
-                                <span class="wpaip-toggle-switch"></span>
-                                <span class="wpaip-toggle-text">只扫描缺少SEO字段</span>
+                        <div class="yimai-gso-form-group" style="width:180px;">
+                            <label class="yimai-gso-toggle-label">
+                                <input type="checkbox" id="yimai-gso-seo-only-missing" checked>
+                                <span class="yimai-gso-toggle-switch"></span>
+                                <span class="yimai-gso-toggle-text">只扫描缺少SEO字段</span>
                             </label>
                         </div>
 
-                        <div class="wpaip-form-group" style="width:auto;align-self:flex-end;margin-bottom:0;">
-                            <button id="wpaip-seo-scan-btn" class="button button-primary wpaip-icon-btn" <?php echo empty( $feature_meta['available'] ) ? 'disabled' : ''; ?>>
+                        <div class="yimai-gso-form-group" style="width:auto;align-self:flex-end;margin-bottom:0;">
+                            <button id="yimai-gso-seo-scan-btn" class="button button-primary yimai-gso-icon-btn" <?php echo empty( $feature_meta['available'] ) ? 'disabled' : ''; ?>>
                                 <span class="dashicons dashicons-search"></span>
                                 扫描候选文章
                             </button>
@@ -1666,47 +1666,47 @@ class WPAIP_NC8O {
                 </div>
 
                 <!-- 双栏：候选文章 | AI预览与确认 -->
-                <div class="wpaip-layout" style="display:flex;gap:18px;margin-bottom:18px;">
-                    <div class="wpaip-panel" style="flex:1;">
-                        <div class="wpaip-titles-toolbar">
-                            <h2>候选文章 <span id="wpaip-seo-scan-count" class="wpaip-batch-counter" style="display:none;">0</span></h2>
-                            <div class="wpaip-titles-actions">
-                                <button id="wpaip-seo-preview-btn" class="button button-primary" <?php echo empty( $feature_meta['available'] ) ? 'disabled' : ''; ?>>
+                <div class="yimai-gso-layout" style="display:flex;gap:18px;margin-bottom:18px;">
+                    <div class="yimai-gso-panel" style="flex:1;">
+                        <div class="yimai-gso-titles-toolbar">
+                            <h2>候选文章 <span id="yimai-gso-seo-scan-count" class="yimai-gso-batch-counter" style="display:none;">0</span></h2>
+                            <div class="yimai-gso-titles-actions">
+                                <button id="yimai-gso-seo-preview-btn" class="button button-primary" <?php echo empty( $feature_meta['available'] ) ? 'disabled' : ''; ?>>
                                     <span class="dashicons dashicons-superhero"></span>
                                     生成AI预览
                                 </button>
-                                <button id="wpaip-seo-select-all" class="button button-small">全选</button>
-                                <button id="wpaip-seo-clear-all" class="button button-small">取消</button>
+                                <button id="yimai-gso-seo-select-all" class="button button-small">全选</button>
+                                <button id="yimai-gso-seo-clear-all" class="button button-small">取消</button>
                             </div>
                         </div>
-                        <div id="wpaip-seo-scan-results" style="max-height:400px;overflow-y:auto;">
-                            <div class="wpaip-empty">
+                        <div id="yimai-gso-seo-scan-results" style="max-height:400px;overflow-y:auto;">
+                            <div class="yimai-gso-empty">
                                 <p>点击上方"扫描候选文章"，系统会把匹配到的文章列在这里。</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="wpaip-panel" style="flex:1;">
-                        <div class="wpaip-titles-toolbar">
-                            <h2>AI预览与确认 <span id="wpaip-seo-preview-count" class="wpaip-batch-counter" style="display:none;">0</span></h2>
-                            <div class="wpaip-titles-actions">
-                                <button id="wpaip-seo-apply-btn" class="button button-primary" <?php echo ( empty( $feature_meta['available'] ) || ! empty( $feature_meta['readonly'] ) ) ? 'disabled' : ''; ?>>
+                    <div class="yimai-gso-panel" style="flex:1;">
+                        <div class="yimai-gso-titles-toolbar">
+                            <h2>AI预览与确认 <span id="yimai-gso-seo-preview-count" class="yimai-gso-batch-counter" style="display:none;">0</span></h2>
+                            <div class="yimai-gso-titles-actions">
+                                <button id="yimai-gso-seo-apply-btn" class="button button-primary" <?php echo ( empty( $feature_meta['available'] ) || ! empty( $feature_meta['readonly'] ) ) ? 'disabled' : ''; ?>>
                                     <span class="dashicons dashicons-saved"></span>
                                     确认批量写回
                                 </button>
-                                <button id="wpaip-seo-preview-select-all" class="button button-small">全选写回</button>
-                                <button id="wpaip-seo-preview-clear-all" class="button button-small">取消写回</button>
+                                <button id="yimai-gso-seo-preview-select-all" class="button button-small">全选写回</button>
+                                <button id="yimai-gso-seo-preview-clear-all" class="button button-small">取消写回</button>
                             </div>
                         </div>
-                        <div id="wpaip-seo-preview-results" style="max-height:400px;overflow-y:auto;">
-                            <div class="wpaip-empty">
+                        <div id="yimai-gso-seo-preview-results" style="max-height:400px;overflow-y:auto;">
+                            <div class="yimai-gso-empty">
                                 <p>勾选候选文章后点击"生成AI预览"，这里会逐篇展示建议。</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="wpaip-seo-column-note" style="margin-bottom:18px;">
+                <div class="yimai-gso-seo-column-note" style="margin-bottom:18px;">
                     <div>• 支持字段：子比关键词 / 描述、Yoast 标题 / 描述 / 关键词、Rank Math 标题 / 描述 / 关键词</div>
                     <div>• 执行策略：前端串行处理，单篇失败不会拖垮整批 | • 日志策略：仅保留最近 100 条写回记录</div>
                     <?php if ( ! empty( $feature_meta['readonly'] ) ) : ?>
@@ -1714,13 +1714,13 @@ class WPAIP_NC8O {
                     <?php endif; ?>
                 </div>
 
-                <div class="wpaip-panel wpaip-seo-log-panel">
-                    <div class="wpaip-titles-toolbar">
+                <div class="yimai-gso-panel yimai-gso-seo-log-panel">
+                    <div class="yimai-gso-titles-toolbar">
                         <h2>📝 最近写回日志</h2>
                     </div>
 
                     <?php if ( empty( $logs ) ) : ?>
-                        <div class="wpaip-empty"><p>还没有批量SEO写回记录。完成首次写回后，这里会显示最近结果。</p></div>
+                        <div class="yimai-gso-empty"><p>还没有批量SEO写回记录。完成首次写回后，这里会显示最近结果。</p></div>
                     <?php else : ?>
                         <table class="widefat striped">
                             <thead>
@@ -1760,10 +1760,10 @@ class WPAIP_NC8O {
 
 
         $feature_meta = $this->get_feature_meta( 'content_check' );
-        $enabled      = class_exists( 'WPAIP_MU1N' ) ? WPAIP_MU1N::is_enabled() : (bool) get_option( 'wpaip_detection_enabled', 0 );
-        $stats        = class_exists( 'WPAIP_MU1N' ) ? WPAIP_MU1N::get_summary_stats() : array();
-        $logs         = class_exists( 'WPAIP_MU1N' ) ? WPAIP_MU1N::get_recent_logs( 15 ) : array();
-        $rules        = class_exists( 'WPAIP_MU1N' ) ? WPAIP_MU1N::get_rules() : array();
+        $enabled      = class_exists( 'YIMAI_GSO_Content_Detector' ) ? YIMAI_GSO_Content_Detector::is_enabled() : (bool) get_option( 'yimai_gso_detection_enabled', 0 );
+        $stats        = class_exists( 'YIMAI_GSO_Content_Detector' ) ? YIMAI_GSO_Content_Detector::get_summary_stats() : array();
+        $logs         = class_exists( 'YIMAI_GSO_Content_Detector' ) ? YIMAI_GSO_Content_Detector::get_recent_logs( 15 ) : array();
+        $rules        = class_exists( 'YIMAI_GSO_Content_Detector' ) ? YIMAI_GSO_Content_Detector::get_rules() : array();
         $rule_desc_map = array(
             'forbidden'   => '重点清理违法、违禁与高风险违规表述。',
             'superlative' => '自动弱化"最佳、第一、100%"等极限承诺。',
@@ -1772,54 +1772,54 @@ class WPAIP_NC8O {
         );
         ?>
         <!-- 图片库面板 -->
-        <div class="wpaip-main-panel <?php echo $active_tab === 'image-library' ? 'active' : ''; ?>" data-tab="image-library">
-            <div id="wpaip-image-library-root">
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-format-gallery"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">图片库</h2>
-                        <p class="wpaip-card-desc">管理自定义配图素材，支持分组、权重优先级和使用次数统计</p>
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'image-library' ? 'active' : ''; ?>" data-tab="image-library">
+            <div id="yimai-gso-image-library-root">
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-format-gallery"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">图片库</h2>
+                        <p class="yimai-gso-card-desc">管理自定义配图素材，支持分组、权重优先级和使用次数统计</p>
                     </div>
                 </div>
 
                 <!-- 统计卡片 -->
-                <div class="wpaip-ilib-stats-row">
-                    <div class="wpaip-ilib-stat-card">
-                        <div class="wpaip-ilib-stat-icon">🖼️</div>
-                        <div class="wpaip-ilib-stat-info">
-                            <div class="wpaip-ilib-stat-value" id="ilib-stat-total">0</div>
-                            <div class="wpaip-ilib-stat-label">图片总数</div>
+                <div class="yimai-gso-ilib-stats-row">
+                    <div class="yimai-gso-ilib-stat-card">
+                        <div class="yimai-gso-ilib-stat-icon">🖼️</div>
+                        <div class="yimai-gso-ilib-stat-info">
+                            <div class="yimai-gso-ilib-stat-value" id="ilib-stat-total">0</div>
+                            <div class="yimai-gso-ilib-stat-label">图片总数</div>
                         </div>
                     </div>
-                    <div class="wpaip-ilib-stat-card">
-                        <div class="wpaip-ilib-stat-icon">📂</div>
-                        <div class="wpaip-ilib-stat-info">
-                            <div class="wpaip-ilib-stat-value" id="ilib-stat-groups">0</div>
-                            <div class="wpaip-ilib-stat-label">分组数</div>
+                    <div class="yimai-gso-ilib-stat-card">
+                        <div class="yimai-gso-ilib-stat-icon">📂</div>
+                        <div class="yimai-gso-ilib-stat-info">
+                            <div class="yimai-gso-ilib-stat-value" id="ilib-stat-groups">0</div>
+                            <div class="yimai-gso-ilib-stat-label">分组数</div>
                         </div>
                     </div>
-                    <div class="wpaip-ilib-stat-card">
-                        <div class="wpaip-ilib-stat-icon">🔄</div>
-                        <div class="wpaip-ilib-stat-info">
-                            <div class="wpaip-ilib-stat-value" id="ilib-stat-used">0</div>
-                            <div class="wpaip-ilib-stat-label">累计使用</div>
+                    <div class="yimai-gso-ilib-stat-card">
+                        <div class="yimai-gso-ilib-stat-icon">🔄</div>
+                        <div class="yimai-gso-ilib-stat-info">
+                            <div class="yimai-gso-ilib-stat-value" id="ilib-stat-used">0</div>
+                            <div class="yimai-gso-ilib-stat-label">累计使用</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 工具栏 -->
-                <div class="wpaip-ilib-toolbar">
-                    <div class="wpaip-ilib-toolbar-left">
-                        <button type="button" class="wpaip-btn-modern-primary" id="ilib-upload-btn">
+                <div class="yimai-gso-ilib-toolbar">
+                    <div class="yimai-gso-ilib-toolbar-left">
+                        <button type="button" class="yimai-gso-btn-modern-primary" id="ilib-upload-btn">
                             <span class="dashicons dashicons-upload" style="vertical-align:middle;margin-top:-2px;"></span>
                             上传图片
                         </button>
-                        <button type="button" class="wpaip-btn-modern-secondary" id="ilib-new-group-btn">
+                        <button type="button" class="yimai-gso-btn-modern-secondary" id="ilib-new-group-btn">
                             <span class="dashicons dashicons-plus-alt" style="vertical-align:middle;margin-top:-2px;"></span>
                             新建分组
                         </button>
                     </div>
-                    <div class="wpaip-ilib-toolbar-right">
+                    <div class="yimai-gso-ilib-toolbar-right">
                         <input type="text" id="ilib-search" class="regular-text" placeholder="搜索图片..." style="width:160px;">
                         <select id="ilib-filter-group" style="width:130px;">
                             <option value="0">全部分组</option>
@@ -1834,9 +1834,9 @@ class WPAIP_NC8O {
                 </div>
 
                 <!-- 批量操作栏 -->
-                <div class="wpaip-ilib-batch-bar" id="ilib-batch-bar" style="display:none;">
+                <div class="yimai-gso-ilib-batch-bar" id="ilib-batch-bar" style="display:none;">
                     <span id="ilib-batch-count">已选 0 张</span>
-                    <div class="wpaip-ilib-batch-actions">
+                    <div class="yimai-gso-ilib-batch-actions">
                         <button type="button" class="button button-small" id="ilib-batch-keywords">设关键词</button>
                         <button type="button" class="button button-small" id="ilib-batch-weight">设权重</button>
                         <button type="button" class="button button-small" id="ilib-batch-group">设分组</button>
@@ -1846,21 +1846,21 @@ class WPAIP_NC8O {
                 </div>
 
                 <!-- 图片网格 -->
-                <div class="wpaip-ilib-grid" id="ilib-grid">
+                <div class="yimai-gso-ilib-grid" id="ilib-grid">
                     <!-- 动态渲染 -->
                 </div>
 
                 <!-- 分页 -->
-                <div class="wpaip-ilib-pagination" id="ilib-pagination"></div>
+                <div class="yimai-gso-ilib-pagination" id="ilib-pagination"></div>
 
                 <!-- 分组管理（折叠） -->
-                <div class="wpaip-ilib-groups-section">
-                    <button type="button" class="wpaip-ilib-groups-toggle" id="ilib-groups-toggle">
+                <div class="yimai-gso-ilib-groups-section">
+                    <button type="button" class="yimai-gso-ilib-groups-toggle" id="ilib-groups-toggle">
                         <span class="dashicons dashicons-category"></span>
                         分组管理
                         <span class="dashicons dashicons-arrow-down-alt2" id="ilib-groups-arrow"></span>
                     </button>
-                    <div class="wpaip-ilib-groups-panel" id="ilib-groups-panel" style="display:none;">
+                    <div class="yimai-gso-ilib-groups-panel" id="ilib-groups-panel" style="display:none;">
                         <div id="ilib-groups-list">
                             <!-- 动态渲染 -->
                         </div>
@@ -1870,117 +1870,117 @@ class WPAIP_NC8O {
         </div>
         <!-- /图片库面板 -->
 
-        <div class="wpaip-main-panel <?php echo $active_tab === 'detection' ? 'active' : ''; ?>" data-tab="detection">
-            <div class="wpaip-page-card-header">
-                <div class="wpaip-card-icon"><span class="dashicons dashicons-shield-alt"></span></div>
-                <div class="wpaip-card-body">
-                    <h2 class="wpaip-card-title">内容检测</h2>
-                    <p class="wpaip-card-desc">检测文章重复率、AI痕迹和敏感词，保障内容质量安全</p>
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'detection' ? 'active' : ''; ?>" data-tab="detection">
+            <div class="yimai-gso-page-card-header">
+                <div class="yimai-gso-card-icon"><span class="dashicons dashicons-shield-alt"></span></div>
+                <div class="yimai-gso-card-body">
+                    <h2 class="yimai-gso-card-title">内容检测</h2>
+                    <p class="yimai-gso-card-desc">检测文章重复率、AI痕迹和敏感词，保障内容质量安全</p>
                 </div>
             </div>
-            <div class="wpaip-history-header" style="display:none">
-                <h1 class="wpaip-page-title">
+            <div class="yimai-gso-history-header" style="display:none">
+                <h1 class="yimai-gso-page-title">
                     <span class="dashicons dashicons-shield-alt"></span>
                     内容检测
                 </h1>
             </div>
-            <div class="wpaip-panel wpaip-detection-hero">
+            <div class="yimai-gso-panel yimai-gso-detection-hero">
                 <div>
-                    <h2 class="wpaip-section-title" style="margin-bottom:10px;">🛡️ 发布后自动巡检 + 自动修正</h2>
-                    <p class="wpaip-detection-hero-desc">只要文章真正进入"已发布"状态，系统就会自动检测禁用词、极限词、敏感词和广告法风险词；先做词级替换，再按需调用 AI 轻改写，让正文尽量保持自然。</p>
+                    <h2 class="yimai-gso-section-title" style="margin-bottom:10px;">🛡️ 发布后自动巡检 + 自动修正</h2>
+                    <p class="yimai-gso-detection-hero-desc">只要文章真正进入"已发布"状态，系统就会自动检测禁用词、极限词、敏感词和广告法风险词；先做词级替换，再按需调用 AI 轻改写，让正文尽量保持自然。</p>
                 </div>
-                <div class="wpaip-detection-mode">当前策略：混合模式</div>
+                <div class="yimai-gso-detection-mode">当前策略：混合模式</div>
             </div>
 
-            <div class="wpaip-dashboard-stats">
-                <div class="wpaip-stat-card wpaip-stat-primary">
-                    <div class="wpaip-stat-icon">📊</div>
-                    <div class="wpaip-stat-content">
-                        <div class="wpaip-stat-num"><?php echo esc_html( $stats['total'] ?? 0 ); ?></div>
-                        <div class="wpaip-stat-label">最近检测次数</div>
+            <div class="yimai-gso-dashboard-stats">
+                <div class="yimai-gso-stat-card yimai-gso-stat-primary">
+                    <div class="yimai-gso-stat-icon">📊</div>
+                    <div class="yimai-gso-stat-content">
+                        <div class="yimai-gso-stat-num"><?php echo esc_html( $stats['total'] ?? 0 ); ?></div>
+                        <div class="yimai-gso-stat-label">最近检测次数</div>
                     </div>
                 </div>
-                <div class="wpaip-stat-card wpaip-stat-success">
-                    <div class="wpaip-stat-icon">✨</div>
-                    <div class="wpaip-stat-content">
-                        <div class="wpaip-stat-num"><?php echo esc_html( $stats['fixed'] ?? 0 ); ?></div>
-                        <div class="wpaip-stat-label">自动修正完成</div>
+                <div class="yimai-gso-stat-card yimai-gso-stat-success">
+                    <div class="yimai-gso-stat-icon">✨</div>
+                    <div class="yimai-gso-stat-content">
+                        <div class="yimai-gso-stat-num"><?php echo esc_html( $stats['fixed'] ?? 0 ); ?></div>
+                        <div class="yimai-gso-stat-label">自动修正完成</div>
                     </div>
                 </div>
-                <div class="wpaip-stat-card wpaip-stat-warning">
-                    <div class="wpaip-stat-icon">⚠️</div>
-                    <div class="wpaip-stat-content">
-                        <div class="wpaip-stat-num"><?php echo esc_html( $stats['warning'] ?? 0 ); ?></div>
-                        <div class="wpaip-stat-label">仍需人工复查</div>
+                <div class="yimai-gso-stat-card yimai-gso-stat-warning">
+                    <div class="yimai-gso-stat-icon">⚠️</div>
+                    <div class="yimai-gso-stat-content">
+                        <div class="yimai-gso-stat-num"><?php echo esc_html( $stats['warning'] ?? 0 ); ?></div>
+                        <div class="yimai-gso-stat-label">仍需人工复查</div>
                     </div>
                 </div>
             </div>
 
-            <div class="wpaip-layout wpaip-detection-layout">
-                <div class="wpaip-panel wpaip-input-panel">
+            <div class="yimai-gso-layout yimai-gso-detection-layout">
+                <div class="yimai-gso-panel yimai-gso-input-panel">
                     <h2>⚙️ 自动检测设置</h2>
                     <form method="post">
-                        <?php wp_nonce_field( 'wpaip_detection_nonce' ); ?>
-                        <div class="wpaip-form-group">
-                            <label class="wpaip-toggle-label">
-                                <input type="checkbox" name="wpaip_detection_enabled" value="1" <?php checked( $enabled ); ?> <?php disabled( ! empty( $feature_meta['disabled'] ), true ); ?>>
-                                <span class="wpaip-toggle-switch"></span>
-                                <span class="wpaip-toggle-text">启用发布后自动检测与自动修正</span>
+                        <?php wp_nonce_field( 'yimai_gso_detection_nonce' ); ?>
+                        <div class="yimai-gso-form-group">
+                            <label class="yimai-gso-toggle-label">
+                                <input type="checkbox" name="yimai_gso_detection_enabled" value="1" <?php checked( $enabled ); ?> <?php disabled( ! empty( $feature_meta['disabled'] ), true ); ?>>
+                                <span class="yimai-gso-toggle-switch"></span>
+                                <span class="yimai-gso-toggle-text">启用发布后自动检测与自动修正</span>
                             </label>
                             <small>覆盖范围：自动发布、定时发布、人工发布；只要文章首次进入"已发布"状态，就会自动巡检并写回修正内容。</small>
                         </div>
 
-                        <div class="wpaip-detect-flow-card" style="margin-bottom:16px;">
-                            <div class="wpaip-detect-flow-title">执行链路</div>
-                            <div class="wpaip-detect-flow-desc">文章发布 → 风险词检测 → 词级替换 → 按需 AI 轻改写 → 回写文章 → 记录检测日志</div>
+                        <div class="yimai-gso-detect-flow-card" style="margin-bottom:16px;">
+                            <div class="yimai-gso-detect-flow-title">执行链路</div>
+                            <div class="yimai-gso-detect-flow-desc">文章发布 → 风险词检测 → 词级替换 → 按需 AI 轻改写 → 回写文章 → 记录检测日志</div>
                         </div>
 
-                        <div class="wpaip-detection-setting-note">
+                        <div class="yimai-gso-detection-setting-note">
                             <strong>说明：</strong> 当前版本固定使用"混合模式"，不再拆成多个复杂开关，优先保证稳定上线与后续复查可追溯。
                         </div>
 
-                        <div class="wpaip-detection-rule-list">
+                        <div class="yimai-gso-detection-rule-list">
                             <?php foreach ( $rules as $rule_key => $terms ) : ?>
-                                <div class="wpaip-detection-rule-row">
-                                    <div class="wpaip-detection-rule-head">
-                                        <span><?php echo esc_html( WPAIP_MU1N::get_category_label( $rule_key ) ); ?></span>
+                                <div class="yimai-gso-detection-rule-row">
+                                    <div class="yimai-gso-detection-rule-head">
+                                        <span><?php echo esc_html( YIMAI_GSO_Content_Detector::get_category_label( $rule_key ) ); ?></span>
                                         <span><?php echo esc_html( count( $terms ) ); ?> 项</span>
                                     </div>
-                                    <div class="wpaip-detection-rule-desc"><?php echo esc_html( $rule_desc_map[ $rule_key ] ?? '' ); ?></div>
+                                    <div class="yimai-gso-detection-rule-desc"><?php echo esc_html( $rule_desc_map[ $rule_key ] ?? '' ); ?></div>
                                 </div>
                             <?php endforeach; ?>
                         </div>
 
-                        <button type="submit" name="wpaip_save_detection_settings" class="button button-primary" <?php disabled( ! empty( $feature_meta['disabled'] ), true ); ?>>保存检测设置</button>
+                        <button type="submit" name="yimai_gso_save_detection_settings" class="button button-primary" <?php disabled( ! empty( $feature_meta['disabled'] ), true ); ?>>保存检测设置</button>
                     </form>
                 </div>
 
-                <div class="wpaip-panel wpaip-batch-results-panel">
+                <div class="yimai-gso-panel yimai-gso-batch-results-panel">
                     <h2>📋 最近检测记录</h2>
-                    <div class="wpaip-detect-tips" style="margin-bottom:16px;">
-                        <span class="wpaip-detect-tip">最近运行：<?php echo esc_html( ! empty( $stats['last_run'] ) ? $stats['last_run'] : '暂无' ); ?></span>
-                        <span class="wpaip-detect-tip">记录保留最近 50 条</span>
-                        <span class="wpaip-detect-tip">可直接跳转查看文章或编辑修正结果</span>
+                    <div class="yimai-gso-detect-tips" style="margin-bottom:16px;">
+                        <span class="yimai-gso-detect-tip">最近运行：<?php echo esc_html( ! empty( $stats['last_run'] ) ? $stats['last_run'] : '暂无' ); ?></span>
+                        <span class="yimai-gso-detect-tip">记录保留最近 50 条</span>
+                        <span class="yimai-gso-detect-tip">可直接跳转查看文章或编辑修正结果</span>
                     </div>
 
                     <?php if ( empty( $logs ) ) : ?>
-                        <div class="wpaip-empty"><p>还没有检测记录。等下一篇文章正式发布后，这里会自动出现巡检结果。</p></div>
+                        <div class="yimai-gso-empty"><p>还没有检测记录。等下一篇文章正式发布后，这里会自动出现巡检结果。</p></div>
                     <?php else : ?>
-                        <div class="wpaip-detection-log-list">
+                        <div class="yimai-gso-detection-log-list">
                             <?php foreach ( $logs as $log ) : ?>
-                                <div class="wpaip-detection-log-item status-<?php echo esc_attr( $log['status'] ?? 'clean' ); ?>">
-                                    <div class="wpaip-detection-log-top">
+                                <div class="yimai-gso-detection-log-item status-<?php echo esc_attr( $log['status'] ?? 'clean' ); ?>">
+                                    <div class="yimai-gso-detection-log-top">
                                         <strong><?php echo esc_html( $log['post_title'] ?? '未命名文章' ); ?></strong>
-                                        <span class="wpaip-detection-log-status"><?php echo esc_html( $log['status_label'] ?? '检测完成' ); ?></span>
+                                        <span class="yimai-gso-detection-log-status"><?php echo esc_html( $log['status_label'] ?? '检测完成' ); ?></span>
                                     </div>
-                                    <div class="wpaip-detection-log-meta">
+                                    <div class="yimai-gso-detection-log-meta">
                                         <span>时间：<?php echo esc_html( $log['time'] ?? '' ); ?></span>
                                         <span>命中：<?php echo esc_html( $log['initial_hits'] ?? 0 ); ?> 项</span>
                                         <span>剩余：<?php echo esc_html( $log['remaining_hits'] ?? 0 ); ?> 项</span>
                                     </div>
-                                    <div class="wpaip-detection-log-summary"><?php echo esc_html( $log['final_summary'] ?? '' ); ?></div>
-                                    <div class="wpaip-detection-log-actions">
-                                        <span class="wpaip-detect-tip">动作：<?php echo esc_html( empty( $log['actions'] ) ? '仅检测' : implode( ' + ', $log['actions'] ) ); ?></span>
+                                    <div class="yimai-gso-detection-log-summary"><?php echo esc_html( $log['final_summary'] ?? '' ); ?></div>
+                                    <div class="yimai-gso-detection-log-actions">
+                                        <span class="yimai-gso-detect-tip">动作：<?php echo esc_html( empty( $log['actions'] ) ? '仅检测' : implode( ' + ', $log['actions'] ) ); ?></span>
                                         <?php if ( ! empty( $log['view_url'] ) ) : ?>
                                             <a href="<?php echo esc_url( $log['view_url'] ); ?>" target="_blank">查看文章</a>
                                         <?php endif; ?>
@@ -2003,137 +2003,137 @@ class WPAIP_NC8O {
      */
     private function render_image_alt_panel( $active_tab ) {
         $feature_meta = $this->get_feature_meta( 'auto_alt' );
-        $stats        = class_exists( 'WPAIP_9KKY' ) ? WPAIP_9KKY::get_stats() : array(
+        $stats        = class_exists( 'YIMAI_GSO_Image_Alt_Admin' ) ? YIMAI_GSO_Image_Alt_Admin::get_stats() : array(
             'total_optimized' => 0,
             'month_new'       => 0,
             'pending'         => 0,
         );
-        $history      = class_exists( 'WPAIP_9KKY' ) ? WPAIP_9KKY::get_history( 15 ) : array();
+        $history      = class_exists( 'YIMAI_GSO_Image_Alt_Admin' ) ? YIMAI_GSO_Image_Alt_Admin::get_history( 15 ) : array();
         $categories   = $this->get_categories_list( 'select' );
         $tags         = get_tags( array( 'hide_empty' => false, 'number' => 100 ) );
         $tags_select  = array_map( function( $t ) { return array( 'id' => $t->term_id, 'name' => $t->name ); }, $tags );
         
-        $enabled       = (int) WPAIP_9XCU::get( 'auto_image_alt_enabled', 1 ) === 1;
-        $mode          = WPAIP_9XCU::get( 'auto_image_alt_mode', 'rule' );
-        $skip_existing = (int) WPAIP_9XCU::get( 'auto_image_alt_skip_existing', 1 );
+        $enabled       = (int) YIMAI_GSO_Settings::get( 'auto_image_alt_enabled', 1 ) === 1;
+        $mode          = YIMAI_GSO_Settings::get( 'auto_image_alt_mode', 'rule' );
+        $skip_existing = (int) YIMAI_GSO_Settings::get( 'auto_image_alt_skip_existing', 1 );
         ?>
 
-        <div class="wpaip-main-panel <?php echo $active_tab === 'auto-alt' ? 'active' : ''; ?>" data-tab="auto-alt">
-            <div class="wpaip-page-card-header">
-                <div class="wpaip-card-icon"><span class="dashicons dashicons-format-image"></span></div>
-                <div class="wpaip-card-body">
-                    <h2 class="wpaip-card-title">图片自动ALT</h2>
-                    <p class="wpaip-card-desc">自动为文章图片生成 SEO 友好的 alt 属性文本，提升图片搜索排名</p>
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'auto-alt' ? 'active' : ''; ?>" data-tab="auto-alt">
+            <div class="yimai-gso-page-card-header">
+                <div class="yimai-gso-card-icon"><span class="dashicons dashicons-format-image"></span></div>
+                <div class="yimai-gso-card-body">
+                    <h2 class="yimai-gso-card-title">图片自动ALT</h2>
+                    <p class="yimai-gso-card-desc">自动为文章图片生成 SEO 友好的 alt 属性文本，提升图片搜索排名</p>
                 </div>
             </div>
             <div style="display:none">
-                <h1 class="wpaip-page-title">
+                <h1 class="yimai-gso-page-title">
                     <span class="dashicons dashicons-format-image"></span>
                     自动图片ALT
                 </h1>
                 <?php if ( empty( $feature_meta['available'] ) ) : ?>
-                    <span class="wpaip-plan-badge wpaip-plan-badge-locked">功能未解锁</span>
+                    <span class="yimai-gso-plan-badge yimai-gso-plan-badge-locked">功能未解锁</span>
                 <?php endif; ?>
             </div>
             <!-- Hero 统计卡片 -->
-            <div class="wpaip-dashboard-stats">
-                <div class="wpaip-stat-card wpaip-stat-primary">
-                    <div class="wpaip-stat-icon">📊</div>
-                    <div class="wpaip-stat-content">
-                        <div class="wpaip-stat-num"><?php echo esc_html( number_format_i18n( $stats['total_optimized'] ?? 0 ) ); ?></div>
-                        <div class="wpaip-stat-label">已优化ALT图片</div>
+            <div class="yimai-gso-dashboard-stats">
+                <div class="yimai-gso-stat-card yimai-gso-stat-primary">
+                    <div class="yimai-gso-stat-icon">📊</div>
+                    <div class="yimai-gso-stat-content">
+                        <div class="yimai-gso-stat-num"><?php echo esc_html( number_format_i18n( $stats['total_optimized'] ?? 0 ) ); ?></div>
+                        <div class="yimai-gso-stat-label">已优化ALT图片</div>
                     </div>
                 </div>
-                <div class="wpaip-stat-card wpaip-stat-success">
-                    <div class="wpaip-stat-icon">✨</div>
-                    <div class="wpaip-stat-content">
-                        <div class="wpaip-stat-num">+<?php echo esc_html( number_format_i18n( $stats['month_new'] ?? 0 ) ); ?></div>
-                        <div class="wpaip-stat-label">本月新增</div>
+                <div class="yimai-gso-stat-card yimai-gso-stat-success">
+                    <div class="yimai-gso-stat-icon">✨</div>
+                    <div class="yimai-gso-stat-content">
+                        <div class="yimai-gso-stat-num">+<?php echo esc_html( number_format_i18n( $stats['month_new'] ?? 0 ) ); ?></div>
+                        <div class="yimai-gso-stat-label">本月新增</div>
                     </div>
                 </div>
-                <div class="wpaip-stat-card wpaip-stat-warning">
-                    <div class="wpaip-stat-icon">⏳</div>
-                    <div class="wpaip-stat-content">
-                        <div class="wpaip-stat-num"><?php echo esc_html( number_format_i18n( $stats['pending'] ?? 0 ) ); ?></div>
-                        <div class="wpaip-stat-label">待处理图片</div>
+                <div class="yimai-gso-stat-card yimai-gso-stat-warning">
+                    <div class="yimai-gso-stat-icon">⏳</div>
+                    <div class="yimai-gso-stat-content">
+                        <div class="yimai-gso-stat-num"><?php echo esc_html( number_format_i18n( $stats['pending'] ?? 0 ) ); ?></div>
+                        <div class="yimai-gso-stat-label">待处理图片</div>
                     </div>
                 </div>
             </div>
 
-            <div class="wpaip-layout">
+            <div class="yimai-gso-layout">
                 <!-- 左侧：设置 + 批量处理 -->
-                <div class="wpaip-panel wpaip-input-panel">
+                <div class="yimai-gso-panel yimai-gso-input-panel">
                     <h2><span class="dashicons dashicons-admin-generic"></span> 模式设置</h2>
                     
-                    <div class="wpaip-form-group">
-                        <label class="wpaip-toggle-label">
-                            <input type="checkbox" name="wpaip_auto_alt_enabled" id="wpaip-auto-alt-enabled" value="1" <?php checked( $enabled ); ?> <?php disabled( ! empty( $feature_meta['disabled'] ) ); ?>>
-                            <span class="wpaip-toggle-switch"></span>
-                            <span class="wpaip-toggle-text">启用自动ALT</span>
+                    <div class="yimai-gso-form-group">
+                        <label class="yimai-gso-toggle-label">
+                            <input type="checkbox" name="yimai_gso_auto_alt_enabled" id="yimai-gso-auto-alt-enabled" value="1" <?php checked( $enabled ); ?> <?php disabled( ! empty( $feature_meta['disabled'] ) ); ?>>
+                            <span class="yimai-gso-toggle-switch"></span>
+                            <span class="yimai-gso-toggle-text">启用自动ALT</span>
                         </label>
                         <small>启用后，新生成的文章会自动为图片添加ALT属性</small>
                     </div>
 
-                    <div class="wpaip-mode-cards" style="margin: 20px 0;">
-                        <div class="wpaip-mode-card <?php echo $mode === 'rule' ? 'active' : ''; ?>">
+                    <div class="yimai-gso-mode-cards" style="margin: 20px 0;">
+                        <div class="yimai-gso-mode-card <?php echo $mode === 'rule' ? 'active' : ''; ?>">
                             <label>
-                                <input type="radio" name="wpaip_auto_alt_mode" value="rule" <?php checked( $mode === 'rule' ); ?> <?php disabled( ! empty( $feature_meta['disabled'] ) ); ?>>
-                                <div class="wpaip-mode-card-inner">
-                                    <div class="wpaip-mode-icon">📋</div>
-                                    <div class="wpaip-mode-info">
-                                        <div class="wpaip-mode-title">规则模式</div>
-                                        <div class="wpaip-mode-desc">基于标题/关键词/H2标题自动生成ALT，完全免费</div>
+                                <input type="radio" name="yimai_gso_auto_alt_mode" value="rule" <?php checked( $mode === 'rule' ); ?> <?php disabled( ! empty( $feature_meta['disabled'] ) ); ?>>
+                                <div class="yimai-gso-mode-card-inner">
+                                    <div class="yimai-gso-mode-icon">📋</div>
+                                    <div class="yimai-gso-mode-info">
+                                        <div class="yimai-gso-mode-title">规则模式</div>
+                                        <div class="yimai-gso-mode-desc">基于标题/关键词/H2标题自动生成ALT，完全免费</div>
                                     </div>
                                 </div>
                             </label>
                         </div>
-                        <div class="wpaip-mode-card <?php echo $mode === 'ai' ? 'active' : ''; ?> <?php echo empty( $feature_meta['available'] ) ? 'disabled' : ''; ?>">
+                        <div class="yimai-gso-mode-card <?php echo $mode === 'ai' ? 'active' : ''; ?> <?php echo empty( $feature_meta['available'] ) ? 'disabled' : ''; ?>">
                             <label>
-                                <input type="radio" name="wpaip_auto_alt_mode" value="ai" <?php checked( $mode === 'ai' ); ?> <?php disabled( ! empty( $feature_meta['disabled'] ) ); ?>>
-                                <div class="wpaip-mode-card-inner">
-                                    <div class="wpaip-mode-icon">🤖</div>
-                                    <div class="wpaip-mode-info">
-                                        <div class="wpaip-mode-title">AI智能模式</div>
-                                        <div class="wpaip-mode-desc">AI深度理解图片内容，生成更精准的ALT（SEO版）</div>
+                                <input type="radio" name="yimai_gso_auto_alt_mode" value="ai" <?php checked( $mode === 'ai' ); ?> <?php disabled( ! empty( $feature_meta['disabled'] ) ); ?>>
+                                <div class="yimai-gso-mode-card-inner">
+                                    <div class="yimai-gso-mode-icon">🤖</div>
+                                    <div class="yimai-gso-mode-info">
+                                        <div class="yimai-gso-mode-title">AI智能模式</div>
+                                        <div class="yimai-gso-mode-desc">AI深度理解图片内容，生成更精准的ALT（SEO版）</div>
                                     </div>
                                 </div>
                             </label>
                         </div>
                     </div>
 
-                    <div class="wpaip-form-group">
+                    <div class="yimai-gso-form-group">
                         <label>
-                            <input type="checkbox" name="wpaip_auto_alt_skip_existing" id="wpaip-auto-alt-skip-existing" value="1" <?php checked( $skip_existing ); ?> <?php disabled( ! empty( $feature_meta['disabled'] ) ); ?>>
+                            <input type="checkbox" name="yimai_gso_auto_alt_skip_existing" id="yimai-gso-auto-alt-skip-existing" value="1" <?php checked( $skip_existing ); ?> <?php disabled( ! empty( $feature_meta['disabled'] ) ); ?>>
                             <span>跳过已有ALT的图片（避免重复处理）</span>
                         </label>
                     </div>
 
-                    <button type="button" class="button button-primary wpaip-save-alt-settings" <?php disabled( ! empty( $feature_meta['disabled'] ) ); ?>>
+                    <button type="button" class="button button-primary yimai-gso-save-alt-settings" <?php disabled( ! empty( $feature_meta['disabled'] ) ); ?>>
                         💾 保存设置
                     </button>
 
                     <hr style="margin: 30px 0;">
 
                     <h2>🚀 批量处理</h2>
-                    <p class="wpaip-detection-hero-desc" style="margin-bottom:15px;">为历史文章批量补充图片ALT属性，支持按分类或标签筛选。</p>
+                    <p class="yimai-gso-detection-hero-desc" style="margin-bottom:15px;">为历史文章批量补充图片ALT属性，支持按分类或标签筛选。</p>
 
-                    <div class="wpaip-form-group">
+                    <div class="yimai-gso-form-group">
                         <label>选择文章范围</label>
-                        <div class="wpaip-radio-pills">
-                            <label class="wpaip-radio-pill <?php echo !isset($_POST['alt_scope']) || $_POST['alt_scope'] === 'all' ? 'active' : ''; ?>">
+                        <div class="yimai-gso-radio-pills">
+                            <label class="yimai-gso-radio-pill <?php echo !isset($_POST['alt_scope']) || $_POST['alt_scope'] === 'all' ? 'active' : ''; ?>">
                                 <input type="radio" name="alt_scope" value="all" checked>
                                 <span>全部文章</span>
                             </label>
-                            <label class="wpaip-radio-pill <?php echo isset($_POST['alt_scope']) && $_POST['alt_scope'] === 'category' ? 'active' : ''; ?>">
+                            <label class="yimai-gso-radio-pill <?php echo isset($_POST['alt_scope']) && $_POST['alt_scope'] === 'category' ? 'active' : ''; ?>">
                                 <input type="radio" name="alt_scope" value="category">
                                 <span>指定分类</span>
                             </label>
                         </div>
                     </div>
 
-                    <div class="wpaip-form-group" id="wpaip-alt-category-wrap" style="display:none;">
+                    <div class="yimai-gso-form-group" id="yimai-gso-alt-category-wrap" style="display:none;">
                         <label>选择分类</label>
-                        <select name="wpaip_alt_category" id="wpaip-alt-category" class="wpaip-select">
+                        <select name="yimai_gso_alt_category" id="yimai-gso-alt-category" class="yimai-gso-select">
                             <option value="">-- 请选择分类 --</option>
                             <?php foreach ( $categories as $cat ) : ?>
                                 <option value="<?php echo esc_attr( $cat['id'] ); ?>"><?php echo esc_html( $cat['name'] ); ?></option>
@@ -2141,9 +2141,9 @@ class WPAIP_NC8O {
                         </select>
                     </div>
 
-                    <div class="wpaip-form-group">
+                    <div class="yimai-gso-form-group">
                         <label>处理数量</label>
-                        <select name="wpaip_alt_limit" id="wpaip-alt-limit" class="wpaip-select">
+                        <select name="yimai_gso_alt_limit" id="yimai-gso-alt-limit" class="yimai-gso-select">
                             <option value="10">10 篇</option>
                             <option value="20" selected>20 篇</option>
                             <option value="50">50 篇</option>
@@ -2151,43 +2151,43 @@ class WPAIP_NC8O {
                         </select>
                     </div>
 
-                    <div class="wpaip-form-group">
+                    <div class="yimai-gso-form-group">
                         <label>
-                            <input type="checkbox" name="wpaip_alt_skip_has_alt_batch" value="1" checked>
+                            <input type="checkbox" name="yimai_gso_alt_skip_has_alt_batch" value="1" checked>
                             <span>仅处理无ALT的图片</span>
                         </label>
                     </div>
 
-                    <div id="wpaip-alt-estimate" class="wpaip-result-box" style="margin-bottom:15px;">
-                        预估待处理：<span id="wpaip-alt-estimate-count">--</span> 篇
+                    <div id="yimai-gso-alt-estimate" class="yimai-gso-result-box" style="margin-bottom:15px;">
+                        预估待处理：<span id="yimai-gso-alt-estimate-count">--</span> 篇
                     </div>
 
-                    <button type="button" class="button button-primary wpaip-batch-alt-btn" id="wpaip-batch-alt-btn">
+                    <button type="button" class="button button-primary yimai-gso-batch-alt-btn" id="yimai-gso-batch-alt-btn">
                         🚀 开始批量处理
                     </button>
 
-                    <div id="wpaip-alt-progress" class="wpaip-progress-wrap" style="display:none; margin-top:15px;">
-                        <div class="wpaip-progress-bar">
-                            <div class="wpaip-progress-fill" style="width:0%"></div>
+                    <div id="yimai-gso-alt-progress" class="yimai-gso-progress-wrap" style="display:none; margin-top:15px;">
+                        <div class="yimai-gso-progress-bar">
+                            <div class="yimai-gso-progress-fill" style="width:0%"></div>
                         </div>
-                        <div class="wpaip-progress-text">处理中...</div>
+                        <div class="yimai-gso-progress-text">处理中...</div>
                     </div>
 
-                    <div id="wpaip-alt-result" class="wpaip-result-box" style="display:none; margin-top:15px;"></div>
+                    <div id="yimai-gso-alt-result" class="yimai-gso-result-box" style="display:none; margin-top:15px;"></div>
                 </div>
 
                 <!-- 右侧：处理历史 -->
-                <div class="wpaip-panel wpaip-history-panel">
+                <div class="yimai-gso-panel yimai-gso-history-panel">
                     <h2>📜 处理历史</h2>
                     
                     <?php if ( empty( $history ) ) : ?>
-                        <div class="wpaip-empty-state">
-                            <div class="wpaip-empty-icon">📷</div>
-                            <div class="wpaip-empty-text">暂无处理记录</div>
-                            <div class="wpaip-empty-hint">批量处理后会在这里显示历史</div>
+                        <div class="yimai-gso-empty-state">
+                            <div class="yimai-gso-empty-icon">📷</div>
+                            <div class="yimai-gso-empty-text">暂无处理记录</div>
+                            <div class="yimai-gso-empty-hint">批量处理后会在这里显示历史</div>
                         </div>
                     <?php else : ?>
-                        <div class="wpaip-history-list">
+                        <div class="yimai-gso-history-list">
                             <?php foreach ( $history as $item ) : 
                                 // 防御：跳过数据不完整的历史记录
                                 $post_id  = isset( $item['post_id'] ) ? absint( $item['post_id'] ) : 0;
@@ -2196,12 +2196,12 @@ class WPAIP_NC8O {
                                 $img_cnt  = isset( $item['image_count'] ) ? absint( $item['image_count'] ) : 0;
                                 if ( $post_id <= 0 ) continue;
                                 ?>
-                                <div class="wpaip-history-item">
-                                    <div class="wpaip-history-meta">
-                                        <span class="wpaip-history-date"><?php echo esc_html( date_i18n( 'm-d H:i', strtotime( $date_raw ) ) ); ?></span>
-                                        <span class="wpaip-history-count"><?php echo (int) $img_cnt; ?> 张图片</span>
+                                <div class="yimai-gso-history-item">
+                                    <div class="yimai-gso-history-meta">
+                                        <span class="yimai-gso-history-date"><?php echo esc_html( date_i18n( 'm-d H:i', strtotime( $date_raw ) ) ); ?></span>
+                                        <span class="yimai-gso-history-count"><?php echo (int) $img_cnt; ?> 张图片</span>
                                     </div>
-                                    <div class="wpaip-history-title">
+                                    <div class="yimai-gso-history-title">
                                         <?php 
                                         $edit_link = get_edit_post_link( $post_id );
                                         if ( $edit_link && ! empty( $title ) ) :
@@ -2215,7 +2215,7 @@ class WPAIP_NC8O {
                                                 <?php echo esc_html( $title_display ); ?>
                                             </a>
                                         <?php else : ?>
-                                            <span class="wpaip-history-deleted">(文章已删除或数据异常)</span>
+                                            <span class="yimai-gso-history-deleted">(文章已删除或数据异常)</span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -2226,11 +2226,11 @@ class WPAIP_NC8O {
             </div>
 
             <style>
-                .wpaip-mode-cards {
+                .yimai-gso-mode-cards {
                     display: flex;
                     gap: 12px;
                 }
-                .wpaip-mode-card {
+                .yimai-gso-mode-card {
                     flex: 1;
                     border: 2px solid #e2e8f0;
                     border-radius: 12px;
@@ -2238,42 +2238,42 @@ class WPAIP_NC8O {
                     cursor: pointer;
                     transition: all 0.2s;
                 }
-                .wpaip-mode-card:hover {
+                .yimai-gso-mode-card:hover {
                     border-color: #cbd5e1;
                 }
-                .wpaip-mode-card.active {
+                .yimai-gso-mode-card.active {
                     border-color: #3b82f6;
                     background: #eff6ff;
                 }
-                .wpaip-mode-card.disabled {
+                .yimai-gso-mode-card.disabled {
                     opacity: 0.5;
                     cursor: not-allowed;
                 }
-                .wpaip-mode-card input {
+                .yimai-gso-mode-card input {
                     display: none;
                 }
-                .wpaip-mode-card-inner {
+                .yimai-gso-mode-card-inner {
                     display: flex;
                     align-items: center;
                     gap: 12px;
                 }
-                .wpaip-mode-icon {
+                .yimai-gso-mode-icon {
                     font-size: 24px;
                 }
-                .wpaip-mode-title {
+                .yimai-gso-mode-title {
                     font-weight: 600;
                     color: #1e293b;
                 }
-                .wpaip-mode-desc {
+                .yimai-gso-mode-desc {
                     font-size: 12px;
                     color: #64748b;
                     margin-top: 4px;
                 }
-                .wpaip-radio-pills {
+                .yimai-gso-radio-pills {
                     display: flex;
                     gap: 8px;
                 }
-                .wpaip-radio-pill {
+                .yimai-gso-radio-pill {
                     display: inline-flex;
                     align-items: center;
                     padding: 8px 16px;
@@ -2282,31 +2282,31 @@ class WPAIP_NC8O {
                     cursor: pointer;
                     transition: all 0.2s;
                 }
-                .wpaip-radio-pill:hover {
+                .yimai-gso-radio-pill:hover {
                     border-color: #cbd5e1;
                 }
-                .wpaip-radio-pill.active {
+                .yimai-gso-radio-pill.active {
                     border-color: #3b82f6;
                     background: #eff6ff;
                 }
-                .wpaip-radio-pill input {
+                .yimai-gso-radio-pill input {
                     display: none;
                 }
-                .wpaip-progress-wrap {
+                .yimai-gso-progress-wrap {
                     margin-top: 15px;
                 }
-                .wpaip-progress-bar {
+                .yimai-gso-progress-bar {
                     height: 8px;
                     background: #e2e8f0;
                     border-radius: 4px;
                     overflow: hidden;
                 }
-                .wpaip-progress-fill {
+                .yimai-gso-progress-fill {
                     height: 100%;
                     background: linear-gradient(90deg, #3b82f6, #10b981);
                     transition: width 0.3s;
                 }
-                .wpaip-progress-text {
+                .yimai-gso-progress-text {
                     text-align: center;
                     margin-top: 8px;
                     font-size: 13px;
@@ -2319,15 +2319,15 @@ class WPAIP_NC8O {
                 // 范围切换
                 document.querySelectorAll('input[name="alt_scope"]').forEach(function(radio) {
                     radio.addEventListener('change', function() {
-                        var categoryWrap = document.getElementById('wpaip-alt-category-wrap');
+                        var categoryWrap = document.getElementById('yimai-gso-alt-category-wrap');
                         categoryWrap.style.display = this.value === 'category' ? 'block' : 'none';
                     });
                 });
 
                 // 模式卡片切换
-                document.querySelectorAll('input[name="wpaip_auto_alt_mode"]').forEach(function(radio) {
-                    radio.closest('.wpaip-mode-card').addEventListener('click', function() {
-                        document.querySelectorAll('.wpaip-mode-card').forEach(function(card) {
+                document.querySelectorAll('input[name="yimai_gso_auto_alt_mode"]').forEach(function(radio) {
+                    radio.closest('.yimai-gso-mode-card').addEventListener('click', function() {
+                        document.querySelectorAll('.yimai-gso-mode-card').forEach(function(card) {
                             card.classList.remove('active');
                         });
                         this.classList.add('active');
@@ -2335,19 +2335,19 @@ class WPAIP_NC8O {
                 });
 
                 // 保存设置
-                document.querySelector('.wpaip-save-alt-settings')?.addEventListener('click', function() {
-                    var enabled = document.getElementById('wpaip-auto-alt-enabled').checked ? 1 : 0;
-                    var mode = document.querySelector('input[name="wpaip_auto_alt_mode"]:checked')?.value || 'rule';
-                    var skipExisting = document.getElementById('wpaip-auto-alt-skip-existing').checked ? 1 : 0;
+                document.querySelector('.yimai-gso-save-alt-settings')?.addEventListener('click', function() {
+                    var enabled = document.getElementById('yimai-gso-auto-alt-enabled').checked ? 1 : 0;
+                    var mode = document.querySelector('input[name="yimai_gso_auto_alt_mode"]:checked')?.value || 'rule';
+                    var skipExisting = document.getElementById('yimai-gso-auto-alt-skip-existing').checked ? 1 : 0;
 
                     var formData = new FormData();
-                    formData.append('action', 'wpaip_save_alt_settings');
-                    formData.append('nonce', wpaipData.nonce);
+                    formData.append('action', 'yimai_gso_save_alt_settings');
+                    formData.append('nonce', yimaiGsoData.nonce);
                     formData.append('enabled', enabled);
                     formData.append('mode', mode);
                     formData.append('skip_existing', skipExisting);
 
-                    fetch(wpaipData.ajaxUrl, {
+                    fetch(yimaiGsoData.ajaxUrl, {
                         method: 'POST',
                         body: formData
                     })
@@ -2362,30 +2362,30 @@ class WPAIP_NC8O {
                 });
 
                 // 批量处理
-                document.getElementById('wpaip-batch-alt-btn')?.addEventListener('click', function() {
+                document.getElementById('yimai-gso-batch-alt-btn')?.addEventListener('click', function() {
                     var btn = this;
                     btn.disabled = true;
                     btn.textContent = '⏳ 处理中...';
 
                     var scope = document.querySelector('input[name="alt_scope"]:checked')?.value || 'all';
-                    var category = document.getElementById('wpaip-alt-category')?.value || 0;
-                    var limit = document.getElementById('wpaip-alt-limit')?.value || 20;
-                    var skipHasAlt = document.querySelector('input[name="wpaip_alt_skip_has_alt_batch"]')?.checked ? 1 : 0;
+                    var category = document.getElementById('yimai-gso-alt-category')?.value || 0;
+                    var limit = document.getElementById('yimai-gso-alt-limit')?.value || 20;
+                    var skipHasAlt = document.querySelector('input[name="yimai_gso_alt_skip_has_alt_batch"]')?.checked ? 1 : 0;
 
-                    var progressDiv = document.getElementById('wpaip-alt-progress');
-                    var resultDiv = document.getElementById('wpaip-alt-result');
+                    var progressDiv = document.getElementById('yimai-gso-alt-progress');
+                    var resultDiv = document.getElementById('yimai-gso-alt-result');
                     progressDiv.style.display = 'block';
                     resultDiv.style.display = 'none';
 
                     var formData = new FormData();
-                    formData.append('action', 'wpaip_batch_alt');
-                    formData.append('nonce', wpaipData.nonce);
+                    formData.append('action', 'yimai_gso_batch_alt');
+                    formData.append('nonce', yimaiGsoData.nonce);
                     formData.append('scope', scope);
                     formData.append('category', category);
                     formData.append('limit', limit);
                     formData.append('skip_has_alt', skipHasAlt);
 
-                    fetch(wpaipData.ajaxUrl, {
+                    fetch(yimaiGsoData.ajaxUrl, {
                         method: 'POST',
                         body: formData
                     })
@@ -2398,10 +2398,10 @@ class WPAIP_NC8O {
 
                         if (data.success) {
                             var d = data.data;
-                            resultDiv.className = 'wpaip-result-box success';
+                            resultDiv.className = 'yimai-gso-result-box success';
                             resultDiv.innerHTML = '✅ 批量处理完成<br>已处理：' + d.processed + ' 篇 | 跳过：' + d.skipped + ' 篇 | 失败：' + d.failed + ' 篇';
                         } else {
-                            resultDiv.className = 'wpaip-result-box error';
+                            resultDiv.className = 'yimai-gso-result-box error';
                             resultDiv.innerHTML = '❌ 处理失败: ' + (data.data?.message || '未知错误');
                         }
                     })
@@ -2410,7 +2410,7 @@ class WPAIP_NC8O {
                         btn.textContent = '🚀 开始批量处理';
                         progressDiv.style.display = 'none';
                         resultDiv.style.display = 'block';
-                        resultDiv.className = 'wpaip-result-box error';
+                        resultDiv.className = 'yimai-gso-result-box error';
                         resultDiv.innerHTML = '❌ 请求失败: ' + err.message;
                     });
                 });
@@ -2428,7 +2428,7 @@ class WPAIP_NC8O {
      * 渲染更新日志面板，直接读取插件包内的 CHANGELOG.md。
      */
     private function render_changelog_panel( $active_tab ) {
-        $path     = WPAIP_PLUGIN_DIR . 'CHANGELOG.md';
+        $path     = YIMAI_GSO_PLUGIN_DIR . 'CHANGELOG.md';
         $contents = file_exists( $path ) ? file( $path, FILE_IGNORE_NEW_LINES ) : array();
         $releases = array();
         $current  = null;
@@ -2454,25 +2454,25 @@ class WPAIP_NC8O {
         }
         if ( empty( $releases ) ) {
             $releases[] = array(
-                'version' => defined( 'WPAIP_VERSION' ) ? WPAIP_VERSION : '2.2.1',
+                'version' => defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '2.4.0',
                 'items'   => array( '当前版本更新日志文件暂不可读，请检查插件包是否完整。' ),
             );
         }
         ?>
-        <div class="wpaip-main-panel <?php echo $active_tab === 'changelog' ? 'active' : ''; ?>" data-tab="changelog">
-            <div class="wpaip-page-card-header">
-                <div class="wpaip-card-icon"><span class="dashicons dashicons-clipboard"></span></div>
-                <div class="wpaip-card-body">
-                    <h2 class="wpaip-card-title">更新日志</h2>
-                    <p class="wpaip-card-desc">查看一麦GSO双擎优化的版本变更、问题修复和兼容性说明</p>
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'changelog' ? 'active' : ''; ?>" data-tab="changelog">
+            <div class="yimai-gso-page-card-header">
+                <div class="yimai-gso-card-icon"><span class="dashicons dashicons-clipboard"></span></div>
+                <div class="yimai-gso-card-body">
+                    <h2 class="yimai-gso-card-title">更新日志</h2>
+                    <p class="yimai-gso-card-desc">查看一麦GSO双擎优化的版本变更、问题修复和兼容性说明</p>
                 </div>
             </div>
-            <div class="wpaip-changelog-list">
+            <div class="yimai-gso-changelog-list">
                 <?php foreach ( $releases as $index => $release ) : ?>
-                    <section class="wpaip-changelog-release <?php echo 0 === $index ? 'is-current' : ''; ?>">
-                        <div class="wpaip-changelog-release-head">
+                    <section class="yimai-gso-changelog-release <?php echo 0 === $index ? 'is-current' : ''; ?>">
+                        <div class="yimai-gso-changelog-release-head">
                             <h3>版本 <?php echo esc_html( $release['version'] ); ?></h3>
-                            <?php if ( 0 === $index ) : ?><span class="wpaip-changelog-current">当前版本</span><?php endif; ?>
+                            <?php if ( 0 === $index ) : ?><span class="yimai-gso-changelog-current">当前版本</span><?php endif; ?>
                         </div>
                         <ul>
                             <?php foreach ( $release['items'] as $item ) : ?>
@@ -2487,34 +2487,34 @@ class WPAIP_NC8O {
     }
 
     /**
-     * 渲染在线更新面板（双平台 auto-latest Release，逻辑在 WPAIP_Updater）
+     * 渲染在线更新面板（双平台 auto-latest Release，逻辑在 YIMAI_GSO_Updater）
      */
     private function render_updater_panel( $active_tab ) {
         $can_update = current_user_can( 'manage_options' );
-        $state      = WPAIP_Updater::state();
+        $state      = YIMAI_GSO_Updater::state();
         ?>
-        <div class="wpaip-main-panel <?php echo $active_tab === 'updater' ? 'active' : ''; ?>" data-tab="updater">
-            <div class="wpaip-page-card-header">
-                <div class="wpaip-card-icon"><span class="dashicons dashicons-update"></span></div>
-                <div class="wpaip-card-body">
-                    <h2 class="wpaip-card-title">在线更新</h2>
-                    <p class="wpaip-card-desc">从 Gitee / GitHub 双平台检查并安装新版本；更新前自动备份当前代码到 .backups 目录（保留最近 2 份）</p>
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'updater' ? 'active' : ''; ?>" data-tab="updater">
+            <div class="yimai-gso-page-card-header">
+                <div class="yimai-gso-card-icon"><span class="dashicons dashicons-update"></span></div>
+                <div class="yimai-gso-card-body">
+                    <h2 class="yimai-gso-card-title">在线更新</h2>
+                    <p class="yimai-gso-card-desc">从 Gitee / GitHub 双平台检查并安装新版本；更新前自动备份当前代码到 .backups 目录（保留最近 2 份）</p>
                 </div>
             </div>
-            <div class="wpaip-changelog-list">
+            <div class="yimai-gso-changelog-list">
                 <p>
-                    当前版本：<strong>v<?php echo esc_html( WPAIP_VERSION ); ?></strong>
-                    <span id="wpaip-updater-status"></span>
+                    当前版本：<strong>v<?php echo esc_html( YIMAI_GSO_VERSION ); ?></strong>
+                    <span id="yimai-gso-updater-status"></span>
                     <?php if ( ! empty( $state['version'] ) ) : ?>
                         <br><span>上次在线更新：v<?php echo esc_html( $state['version'] ); ?>（<?php echo esc_html( $state['time'] ); ?>，来源 <?php echo esc_html( $state['source'] ); ?>）</span>
                     <?php endif; ?>
                 </p>
                 <?php if ( $can_update ) : ?>
                 <p>
-                    <button type="button" class="button" id="wpaip-updater-check">检查更新</button>
-                    <button type="button" class="button button-primary" id="wpaip-updater-run" style="display:none">立即更新</button>
+                    <button type="button" class="button" id="yimai-gso-updater-check">检查更新</button>
+                    <button type="button" class="button button-primary" id="yimai-gso-updater-run" style="display:none">立即更新</button>
                 </p>
-                <pre id="wpaip-updater-log" style="display:none"></pre>
+                <pre id="yimai-gso-updater-log" style="display:none"></pre>
                 <?php else : ?>
                 <p>更新插件需要管理员权限（manage_options）。</p>
                 <?php endif; ?>
@@ -2524,32 +2524,32 @@ class WPAIP_NC8O {
     }
 
     public function render_main_center() {
-        if ( isset( $_POST['wpaip_save_detection_settings'] ) && current_user_can( 'manage_options' ) ) {
-            check_admin_referer( 'wpaip_detection_nonce' );
+        if ( isset( $_POST['yimai_gso_save_detection_settings'] ) && current_user_can( 'manage_options' ) ) {
+            check_admin_referer( 'yimai_gso_detection_nonce' );
             $this->save_detection_settings();
             $redirect_url = add_query_arg( array(
-                'page'  => 'wpaip-center',
+                'page'  => 'yimai-gso-center',
                 'tab'   => 'detection',
             ), admin_url( 'admin.php' ) );
             ?>
             <script type="text/javascript">
-                sessionStorage.setItem('wpaip_save_tab', 'detection');
+                sessionStorage.setItem('yimai_gso_save_tab', 'detection');
                 window.location.href = <?php echo json_encode( $redirect_url ); ?>;
             </script>
             <?php
             return;
         }
 
-        if ( isset( $_POST['wpaip_save_internal_link_settings'] ) && current_user_can( 'manage_options' ) ) {
-            check_admin_referer( 'wpaip_internal_links_nonce' );
+        if ( isset( $_POST['yimai_gso_save_internal_link_settings'] ) && current_user_can( 'manage_options' ) ) {
+            check_admin_referer( 'yimai_gso_internal_links_nonce' );
             $this->save_internal_link_settings();
             $redirect_url = add_query_arg( array(
-                'page'  => 'wpaip-center',
+                'page'  => 'yimai-gso-center',
                 'tab'   => 'internal-links',
             ), admin_url( 'admin.php' ) );
             ?>
             <script type="text/javascript">
-                sessionStorage.setItem('wpaip_save_tab', 'internal-links');
+                sessionStorage.setItem('yimai_gso_save_tab', 'internal-links');
                 window.location.href = <?php echo json_encode( $redirect_url ); ?>;
             </script>
             <?php
@@ -2557,54 +2557,54 @@ class WPAIP_NC8O {
         }
 
         // SEO推送设置保存
-        if ( isset( $_POST['wpaip_seo_push_settings'] ) && current_user_can( 'manage_options' ) ) {
-            check_admin_referer( 'wpaip_seo_push_settings' );
+        if ( isset( $_POST['yimai_gso_seo_push_settings'] ) && current_user_can( 'manage_options' ) ) {
+            check_admin_referer( 'yimai_gso_seo_push_settings' );
             
             // 只有SEO版才能保存SEO推送设置
             $seo_push_meta = $this->get_feature_meta( 'seo_push' );
             if ( ! empty( $seo_push_meta['available'] ) ) {
-                WPAIP_9XCU::set( 'seo_push_baidu_enabled', isset( $_POST['wpaip_seo_push_baidu_enabled'] ) ? 1 : 0 );
-                WPAIP_9XCU::set( 'seo_push_baidu_api_address', esc_url_raw( $_POST['wpaip_seo_push_baidu_api_address'] ?? '' ) );
-                WPAIP_9XCU::set( 'seo_push_baidu_token', sanitize_text_field( $_POST['wpaip_seo_push_baidu_token'] ?? '' ) );
-                WPAIP_9XCU::set( 'seo_push_bing_enabled', isset( $_POST['wpaip_seo_push_bing_enabled'] ) ? 1 : 0 );
-                WPAIP_9XCU::set( 'seo_push_bing_indexnow_key', sanitize_text_field( $_POST['wpaip_seo_push_bing_indexnow_key'] ?? '' ) );
-                WPAIP_9XCU::set( 'seo_push_bing_api_key', sanitize_text_field( $_POST['wpaip_seo_push_bing_api_key'] ?? '' ) );
-                WPAIP_9XCU::set( 'seo_push_google_enabled', isset( $_POST['wpaip_seo_push_google_enabled'] ) ? 1 : 0 );
-                WPAIP_9XCU::set( 'seo_push_google_mode', sanitize_text_field( $_POST['wpaip_seo_push_google_mode'] ?? 'sitemap_ping' ) );
-                $google_json = isset( $_POST['wpaip_seo_push_google_service_json'] ) ? sanitize_textarea_field( wp_unslash( $_POST['wpaip_seo_push_google_service_json'] ) ) : '';
-                if ( ! WPAIP_9XCU::is_masked_value( $google_json ) ) {
-                    WPAIP_9XCU::set( 'seo_push_google_service_json', $google_json );
+                YIMAI_GSO_Settings::set( 'seo_push_baidu_enabled', isset( $_POST['yimai_gso_seo_push_baidu_enabled'] ) ? 1 : 0 );
+                YIMAI_GSO_Settings::set( 'seo_push_baidu_api_address', esc_url_raw( $_POST['yimai_gso_seo_push_baidu_api_address'] ?? '' ) );
+                YIMAI_GSO_Settings::set( 'seo_push_baidu_token', sanitize_text_field( $_POST['yimai_gso_seo_push_baidu_token'] ?? '' ) );
+                YIMAI_GSO_Settings::set( 'seo_push_bing_enabled', isset( $_POST['yimai_gso_seo_push_bing_enabled'] ) ? 1 : 0 );
+                YIMAI_GSO_Settings::set( 'seo_push_bing_indexnow_key', sanitize_text_field( $_POST['yimai_gso_seo_push_bing_indexnow_key'] ?? '' ) );
+                YIMAI_GSO_Settings::set( 'seo_push_bing_api_key', sanitize_text_field( $_POST['yimai_gso_seo_push_bing_api_key'] ?? '' ) );
+                YIMAI_GSO_Settings::set( 'seo_push_google_enabled', isset( $_POST['yimai_gso_seo_push_google_enabled'] ) ? 1 : 0 );
+                YIMAI_GSO_Settings::set( 'seo_push_google_mode', sanitize_text_field( $_POST['yimai_gso_seo_push_google_mode'] ?? 'sitemap_ping' ) );
+                $google_json = isset( $_POST['yimai_gso_seo_push_google_service_json'] ) ? sanitize_textarea_field( wp_unslash( $_POST['yimai_gso_seo_push_google_service_json'] ) ) : '';
+                if ( ! YIMAI_GSO_Settings::is_masked_value( $google_json ) ) {
+                    YIMAI_GSO_Settings::set( 'seo_push_google_service_json', $google_json );
                 }
-                WPAIP_9XCU::set( 'seo_push_auto_enabled', isset( $_POST['wpaip_seo_push_auto_enabled'] ) ? 1 : 0 );
-                WPAIP_9XCU::set( 'seo_push_on_update', isset( $_POST['wpaip_seo_push_on_update'] ) ? 1 : 0 );
-                WPAIP_9XCU::set( 'seo_push_baidu_verify_code', sanitize_text_field( wp_unslash( $_POST['wpaip_seo_push_baidu_verify_code'] ?? '' ) ) );
-                WPAIP_9XCU::set( 'seo_push_baidu_tongji_code', trim( wp_unslash( $_POST['wpaip_seo_push_baidu_tongji_code'] ?? '' ) ) );
+                YIMAI_GSO_Settings::set( 'seo_push_auto_enabled', isset( $_POST['yimai_gso_seo_push_auto_enabled'] ) ? 1 : 0 );
+                YIMAI_GSO_Settings::set( 'seo_push_on_update', isset( $_POST['yimai_gso_seo_push_on_update'] ) ? 1 : 0 );
+                YIMAI_GSO_Settings::set( 'seo_push_baidu_verify_code', sanitize_text_field( wp_unslash( $_POST['yimai_gso_seo_push_baidu_verify_code'] ?? '' ) ) );
+                YIMAI_GSO_Settings::set( 'seo_push_baidu_tongji_code', trim( wp_unslash( $_POST['yimai_gso_seo_push_baidu_tongji_code'] ?? '' ) ) );
             }
-            WPAIP_9XCU::set( 'wpaip_robots_content', sanitize_textarea_field( wp_unslash( $_POST['wpaip_robots_content'] ?? '' ) ) );
+            YIMAI_GSO_Settings::set( 'yimai_gso_robots_content', sanitize_textarea_field( wp_unslash( $_POST['yimai_gso_robots_content'] ?? '' ) ) );
             
             $redirect_url = add_query_arg( array(
-                'page'  => 'wpaip-center',
+                'page'  => 'yimai-gso-center',
                 'tab'   => 'seo-push',
             ), admin_url( 'admin.php' ) );
             ?>
             <script type="text/javascript">
-                sessionStorage.setItem('wpaip_save_tab', 'seo-push');
+                sessionStorage.setItem('yimai_gso_save_tab', 'seo-push');
                 window.location.href = <?php echo json_encode( $redirect_url ); ?>;
             </script>
             <?php
             return;
         }
 
-        if ( isset( $_POST['wpaip_save_autopilot_settings'] ) && current_user_can( 'manage_options' ) ) {
-            check_admin_referer( 'wpaip_autopilot_nonce' );
+        if ( isset( $_POST['yimai_gso_save_autopilot_settings'] ) && current_user_can( 'manage_options' ) ) {
+            check_admin_referer( 'yimai_gso_autopilot_nonce' );
             $this->save_autopilot_settings();
             $redirect_url = add_query_arg( array(
-                'page'  => 'wpaip-center',
+                'page'  => 'yimai-gso-center',
                 'tab'   => 'autopilot',
             ), admin_url( 'admin.php' ) );
             ?>
             <script type="text/javascript">
-                sessionStorage.setItem('wpaip_save_tab', 'autopilot');
+                sessionStorage.setItem('yimai_gso_save_tab', 'autopilot');
                 window.location.href = <?php echo json_encode( $redirect_url ); ?>;
             </script>
             <?php
@@ -2613,19 +2613,19 @@ class WPAIP_NC8O {
 
         // 处理设置保存 - 使用JS跳转避免headers already sent问题
 
-        if ( isset( $_POST['wpaip_save_settings'] ) && current_user_can( 'manage_options' ) ) {
+        if ( isset( $_POST['yimai_gso_save_settings'] ) && current_user_can( 'manage_options' ) ) {
 
-            check_admin_referer( 'wpaip_settings_nonce' );
+            check_admin_referer( 'yimai_gso_settings_nonce' );
             $this->save_settings();
-            $current_subtab = isset( $_POST['wpaip_current_subtab'] ) ? sanitize_text_field( $_POST['wpaip_current_subtab'] ) : 'ai';
+            $current_subtab = isset( $_POST['yimai_gso_current_subtab'] ) ? sanitize_text_field( $_POST['yimai_gso_current_subtab'] ) : 'ai';
             $redirect_url = add_query_arg( array(
-                'page'   => 'wpaip-center',
+                'page'   => 'yimai-gso-center',
                 'tab'    => 'settings',
                 'subtab' => $current_subtab,
             ), admin_url( 'admin.php' ) );
             ?>
             <script type="text/javascript">
-                sessionStorage.setItem('wpaip_save_tab', 'settings');
+                sessionStorage.setItem('yimai_gso_save_tab', 'settings');
                 window.location.href = <?php echo json_encode( $redirect_url ); ?>;
             </script>
             <?php
@@ -2633,27 +2633,27 @@ class WPAIP_NC8O {
         }
 
         // LLMs.txt 设置保存
-        if ( isset( $_POST['wpaip_llms_txt_save'] ) && current_user_can( 'manage_options' ) ) {
-            check_admin_referer( 'wpaip_llms_txt_save_nonce' );
+        if ( isset( $_POST['yimai_gso_llms_txt_save'] ) && current_user_can( 'manage_options' ) ) {
+            check_admin_referer( 'yimai_gso_llms_txt_save_nonce' );
             $llms_save_meta = $this->get_feature_meta( 'llms_txt' );
             if ( ! empty( $llms_save_meta['available'] ) ) {
                 $new_settings = array(
-                    'intro'                => isset( $_POST['wpaip_llms_txt_settings']['intro'] ) ? sanitize_textarea_field( $_POST['wpaip_llms_txt_settings']['intro'] ) : '',
-                    'details'              => isset( $_POST['wpaip_llms_txt_settings']['details'] ) ? sanitize_textarea_field( $_POST['wpaip_llms_txt_settings']['details'] ) : '',
-                    'include_categories'   => ! empty( $_POST['wpaip_llms_txt_settings']['include_categories'] ) ? 1 : 0,
-                    'include_recent_posts' => ! empty( $_POST['wpaip_llms_txt_settings']['include_recent_posts'] ) ? 1 : 0,
-                    'max_posts'            => isset( $_POST['wpaip_llms_txt_settings']['max_posts'] ) ? max( 10, min( 500, intval( $_POST['wpaip_llms_txt_settings']['max_posts'] ) ) ) : 100,
-                    'ai_policy'            => isset( $_POST['wpaip_llms_txt_settings']['ai_policy'] ) ? sanitize_text_field( $_POST['wpaip_llms_txt_settings']['ai_policy'] ) : '',
+                    'intro'                => isset( $_POST['yimai_gso_llms_txt_settings']['intro'] ) ? sanitize_textarea_field( $_POST['yimai_gso_llms_txt_settings']['intro'] ) : '',
+                    'details'              => isset( $_POST['yimai_gso_llms_txt_settings']['details'] ) ? sanitize_textarea_field( $_POST['yimai_gso_llms_txt_settings']['details'] ) : '',
+                    'include_categories'   => ! empty( $_POST['yimai_gso_llms_txt_settings']['include_categories'] ) ? 1 : 0,
+                    'include_recent_posts' => ! empty( $_POST['yimai_gso_llms_txt_settings']['include_recent_posts'] ) ? 1 : 0,
+                    'max_posts'            => isset( $_POST['yimai_gso_llms_txt_settings']['max_posts'] ) ? max( 10, min( 500, intval( $_POST['yimai_gso_llms_txt_settings']['max_posts'] ) ) ) : 100,
+                    'ai_policy'            => isset( $_POST['yimai_gso_llms_txt_settings']['ai_policy'] ) ? sanitize_text_field( $_POST['yimai_gso_llms_txt_settings']['ai_policy'] ) : '',
                 );
-                update_option( 'wpaip_llms_txt_settings', $new_settings );
+                update_option( 'yimai_gso_llms_txt_settings', $new_settings );
             }
             $redirect_url = add_query_arg( array(
-                'page'  => 'wpaip-center',
+                'page'  => 'yimai-gso-center',
                 'tab'   => 'llms-txt',
             ), admin_url( 'admin.php' ) );
             ?>
             <script type="text/javascript">
-                sessionStorage.setItem('wpaip_save_tab', 'llms-txt');
+                sessionStorage.setItem('yimai_gso_save_tab', 'llms-txt');
                 window.location.href = <?php echo json_encode( $redirect_url ); ?>;
             </script>
             <?php
@@ -2664,20 +2664,20 @@ class WPAIP_NC8O {
         $active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'dashboard';
 
         // 获取需要的数据
-        $default_category = WPAIP_9XCU::get( 'default_category', 1 );
-        $word_count       = WPAIP_9XCU::get( 'word_count', 1000 );
-        $image_count      = WPAIP_9XCU::get( 'image_count', 1 );
+        $default_category = YIMAI_GSO_Settings::get( 'default_category', 1 );
+        $word_count       = YIMAI_GSO_Settings::get( 'word_count', 1000 );
+        $image_count      = YIMAI_GSO_Settings::get( 'image_count', 1 );
         $categories       = $this->get_categories_list('raw');
-        $providers        = WPAIP_9XCU::get_ai_providers();
-        $img_providers    = WPAIP_9XCU::get_image_providers();
-        $ai_provider      = WPAIP_9XCU::get( 'ai_provider', 'openai' );
-        $img_provider     = WPAIP_9XCU::get( 'image_provider', 'pexels' );
+        $providers        = YIMAI_GSO_Settings::get_ai_providers();
+        $img_providers    = YIMAI_GSO_Settings::get_image_providers();
+        $ai_provider      = YIMAI_GSO_Settings::get( 'ai_provider', 'openai' );
+        $img_provider     = YIMAI_GSO_Settings::get( 'image_provider', 'pexels' );
 
         $dashboard_today      = current_time( 'Y-m-d' );
         $dashboard_week_start = wp_date( 'Y-m-d', strtotime( 'monday this week', current_time( 'timestamp' ) ), wp_timezone() );
 
         // 尝试从 transient 读取缓存的仪表盘统计数据（5 分钟有效）
-        $dashboard_cache_key = 'wpaip_dashboard_stats_' . $dashboard_today;
+        $dashboard_cache_key = 'yimai_gso_dashboard_stats_' . $dashboard_today;
         $dashboard_cached    = get_transient( $dashboard_cache_key );
         if ( false !== $dashboard_cached && is_array( $dashboard_cached ) ) {
             $dashboard_stats              = $dashboard_cached['stats'];
@@ -2701,7 +2701,7 @@ class WPAIP_NC8O {
         );
 
         global $wpdb;
-        $pt_list = WPAIP_B7PQ::sql_type_list();
+        $pt_list = YIMAI_GSO_Post_Type_Helper::sql_type_list();
         $dashboard_row = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT
@@ -2713,7 +2713,7 @@ class WPAIP_NC8O {
                     SUM(CASE WHEN p.post_status = 'future' THEN 1 ELSE 0 END) AS scheduled
                  FROM {$wpdb->postmeta} pm
                  INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-                 WHERE pm.meta_key = 'wpaip_generated' AND pm.meta_value = '1'
+                 WHERE pm.meta_key = 'yimai_gso_generated' AND pm.meta_value = '1'
                  AND p.post_type IN ({$pt_list}) AND p.post_status != 'trash'",
                 $dashboard_today,
                 $dashboard_week_start
@@ -2748,7 +2748,7 @@ class WPAIP_NC8O {
                     SUM(CASE WHEN DATE(p.post_date) BETWEEN %s AND %s THEN 1 ELSE 0 END) AS prev_month_count
                  FROM {$wpdb->postmeta} pm
                  INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-                 WHERE pm.meta_key = 'wpaip_generated' AND pm.meta_value = '1'
+                 WHERE pm.meta_key = 'yimai_gso_generated' AND pm.meta_value = '1'
                  AND p.post_type IN ({$pt_list}) AND p.post_status != 'trash'",
                 $dashboard_yesterday,
                 $dashboard_month_start,
@@ -2813,7 +2813,7 @@ class WPAIP_NC8O {
                  WHERE p.post_type IN ({$pt_list}) AND p.post_status = 'publish' AND p.post_date >= %s
                    AND NOT EXISTS (
                        SELECT 1 FROM {$wpdb->postmeta} pm
-                       WHERE pm.post_id = p.ID AND pm.meta_key = 'wpaip_detection_status'
+                       WHERE pm.post_id = p.ID AND pm.meta_key = 'yimai_gso_detection_status'
                    )",
                 $seven_days_ago
             )
@@ -2830,7 +2830,7 @@ class WPAIP_NC8O {
                 "SELECT HOUR(p.post_date) AS hour_value, COUNT(*) AS total
                  FROM {$wpdb->postmeta} pm
                  INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-                 WHERE pm.meta_key = 'wpaip_generated' AND pm.meta_value = '1'
+                 WHERE pm.meta_key = 'yimai_gso_generated' AND pm.meta_value = '1'
                  AND p.post_type IN ({$pt_list}) AND p.post_status != 'trash'
                  AND DATE(p.post_date) = %s
                  GROUP BY HOUR(p.post_date)",
@@ -2848,7 +2848,7 @@ class WPAIP_NC8O {
                 "SELECT DATE(p.post_date) AS day_key, COUNT(*) AS total
                  FROM {$wpdb->postmeta} pm
                  INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-                 WHERE pm.meta_key = 'wpaip_generated' AND pm.meta_value = '1'
+                 WHERE pm.meta_key = 'yimai_gso_generated' AND pm.meta_value = '1'
                  AND p.post_type IN ({$pt_list}) AND p.post_status != 'trash'
                  AND DATE(p.post_date) >= %s
                  GROUP BY DATE(p.post_date)",
@@ -2902,14 +2902,14 @@ class WPAIP_NC8O {
         $dashboard_feature_text = implode( ' / ', array_slice( $dashboard_feature_highlights, 0, 5 ) );
 
         $dashboard_autopilot_meta     = $this->get_feature_meta( 'autopilot_publish' );
-        $dashboard_autopilot_settings = class_exists( 'WPAIP_HXVV' ) ? WPAIP_HXVV::get_settings() : array();
-        $dashboard_autopilot_topics   = class_exists( 'WPAIP_HXVV' ) ? WPAIP_HXVV::get_topic_lines( $dashboard_autopilot_settings ) : array();
-        $dashboard_autopilot_summary  = class_exists( 'WPAIP_96EY' ) ? WPAIP_96EY::get_summary_stats( 7 ) : array();
-        $dashboard_recent_runs        = class_exists( 'WPAIP_96EY' ) ? WPAIP_96EY::get_recent_runs( 1 ) : array();
+        $dashboard_autopilot_settings = class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ? YIMAI_GSO_Autopilot_Plan::get_settings() : array();
+        $dashboard_autopilot_topics   = class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ? YIMAI_GSO_Autopilot_Plan::get_topic_lines( $dashboard_autopilot_settings ) : array();
+        $dashboard_autopilot_summary  = class_exists( 'YIMAI_GSO_Autopilot_Log' ) ? YIMAI_GSO_Autopilot_Log::get_summary_stats( 7 ) : array();
+        $dashboard_recent_runs        = class_exists( 'YIMAI_GSO_Autopilot_Log' ) ? YIMAI_GSO_Autopilot_Log::get_recent_runs( 1 ) : array();
         $dashboard_last_run           = ! empty( $dashboard_recent_runs ) ? $dashboard_recent_runs[0] : array();
         $dashboard_autopilot_enabled  = ! empty( $dashboard_autopilot_meta['available'] ) && ! empty( $dashboard_autopilot_settings['enabled'] );
-        $dashboard_next_run_label     = $dashboard_autopilot_enabled && class_exists( 'WPAIP_HXVV' )
-            ? WPAIP_HXVV::get_next_run_label( $dashboard_autopilot_settings )
+        $dashboard_next_run_label     = $dashboard_autopilot_enabled && class_exists( 'YIMAI_GSO_Autopilot_Plan' )
+            ? YIMAI_GSO_Autopilot_Plan::get_next_run_label( $dashboard_autopilot_settings )
             : '未启用';
 
         $dashboard_autopilot_status_label = '自动化正常';
@@ -2991,7 +2991,7 @@ class WPAIP_NC8O {
                     : '基础版先以单篇生成、改写和基础能力为主' ) );
 
 
-        $dashboard_ai_api_key = trim( (string) WPAIP_9XCU::get( 'ai_api_key', '' ) );
+        $dashboard_ai_api_key = trim( (string) YIMAI_GSO_Settings::get( 'ai_api_key', '' ) );
         $dashboard_todos      = array();
 
         if ( $dashboard_stats['scheduled'] > 0 ) {
@@ -3184,7 +3184,7 @@ class WPAIP_NC8O {
             'posts_per_page' => 4,
             'meta_query'     => array(
                 array(
-                    'key'   => 'wpaip_generated',
+                    'key'   => 'yimai_gso_generated',
                     'value' => 1,
                 ),
             ),
@@ -3195,9 +3195,9 @@ class WPAIP_NC8O {
         if ( $dashboard_recent_query->have_posts() ) {
             foreach ( $dashboard_recent_query->posts as $dashboard_recent_post ) {
                 $dashboard_recent_id         = $dashboard_recent_post->ID;
-                $dashboard_recent_source     = sanitize_key( (string) get_post_meta( $dashboard_recent_id, 'wpaip_source', true ) );
-                $dashboard_recent_generated  = (string) get_post_meta( $dashboard_recent_id, 'wpaip_generated_at', true );
-                $dashboard_recent_word_count = absint( get_post_meta( $dashboard_recent_id, 'wpaip_word_count', true ) );
+                $dashboard_recent_source     = sanitize_key( (string) get_post_meta( $dashboard_recent_id, 'yimai_gso_source', true ) );
+                $dashboard_recent_generated  = (string) get_post_meta( $dashboard_recent_id, 'yimai_gso_generated_at', true );
+                $dashboard_recent_word_count = absint( get_post_meta( $dashboard_recent_id, 'yimai_gso_word_count', true ) );
                 $dashboard_recent_categories = wp_get_post_terms( $dashboard_recent_id, 'category', array( 'fields' => 'names' ) );
                 $dashboard_recent_status     = $dashboard_recent_post->post_status;
                 $dashboard_recent_items[]    = array(
@@ -3361,183 +3361,183 @@ class WPAIP_NC8O {
 
 
 
-        <div class="wrap wpaip-wrap wpaip-center-wrap wpaip-sidebar-layout">
+        <div class="wrap yimai-gso-wrap yimai-gso-center-wrap yimai-gso-sidebar-layout">
 
             <!-- 左侧边栏导航 -->
-            <aside class="wpaip-sidebar">
-                <div class="wpaip-sidebar-header">
-                    <div class="wpaip-sidebar-brand-icon">
-                        <img src="<?php echo esc_url( WPAIP_PLUGIN_URL . 'assets/images/gso-logo.png' ); ?>" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:8px;">
+            <aside class="yimai-gso-sidebar">
+                <div class="yimai-gso-sidebar-header">
+                    <div class="yimai-gso-sidebar-brand-icon">
+                        <img src="<?php echo esc_url( YIMAI_GSO_PLUGIN_URL . 'assets/images/gso-logo.png' ); ?>" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:8px;">
                     </div>
-                    <div class="wpaip-sidebar-brand-text">
+                    <div class="yimai-gso-sidebar-brand-text">
                         <h2>一麦GSO双擎优化</h2>
                         <p>SEO排名与GEO引用双引擎协同优化</p>
                     </div>
                 </div>
-                <nav class="wpaip-sidebar-nav">
-                    <button class="wpaip-sidebar-tab <?php echo $active_tab === 'dashboard' ? 'active' : ''; ?>" data-tab="dashboard">
+                <nav class="yimai-gso-sidebar-nav">
+                    <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'dashboard' ? 'active' : ''; ?>" data-tab="dashboard">
                         <span class="dashicons dashicons-dashboard"></span>
                         <span>仪表盘</span>
                     </button>
 
-                    <div class="wpaip-sidebar-group collapsed" data-group="sys">
-                        <div class="wpaip-sidebar-group-label"><span class="dashicons dashicons-admin-generic"></span> 系统设置</div>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'settings' ? 'active' : ''; ?>" data-tab="settings">
+                    <div class="yimai-gso-sidebar-group collapsed" data-group="sys">
+                        <div class="yimai-gso-sidebar-group-label"><span class="dashicons dashicons-admin-generic"></span> 系统设置</div>
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'settings' ? 'active' : ''; ?>" data-tab="settings">
                             <span class="dashicons dashicons-admin-settings"></span>
                             <span>基础设置</span>
                         </button>
-                        <span class="wpaip-sidebar-link">
+                        <span class="yimai-gso-sidebar-link">
                             <span class="dashicons dashicons-book"></span>
                             <span>使用教程</span>
                         </span>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'changelog' ? 'active' : ''; ?>" data-tab="changelog">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'changelog' ? 'active' : ''; ?>" data-tab="changelog">
                             <span class="dashicons dashicons-clipboard"></span>
                             <span>更新日志</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'updater' ? 'active' : ''; ?>" data-tab="updater">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'updater' ? 'active' : ''; ?>" data-tab="updater">
                             <span class="dashicons dashicons-update"></span>
                             <span>在线更新</span>
                         </button>
                     </div>
 
-                    <div class="wpaip-sidebar-group" data-group="content">
-                        <div class="wpaip-sidebar-group-label"><span class="dashicons dashicons-welcome-write-blog"></span> 内容创作</div>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'single' ? 'active' : ''; ?>" data-tab="single">
+                    <div class="yimai-gso-sidebar-group" data-group="content">
+                        <div class="yimai-gso-sidebar-group-label"><span class="dashicons dashicons-welcome-write-blog"></span> 内容创作</div>
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'single' ? 'active' : ''; ?>" data-tab="single">
                             <span class="dashicons dashicons-welcome-write-blog"></span>
                             <span>单篇文章</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'rewrite' ? 'active' : ''; ?>" data-tab="rewrite">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'rewrite' ? 'active' : ''; ?>" data-tab="rewrite">
                             <span class="dashicons dashicons-edit"></span>
                             <span>内容改写</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'generate' ? 'active' : ''; ?>" data-tab="generate">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'generate' ? 'active' : ''; ?>" data-tab="generate">
                             <span class="dashicons dashicons-edit-large"></span>
                             <span>批量文章</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'ai-excerpt' ? 'active' : ''; ?>" data-tab="ai-excerpt">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'ai-excerpt' ? 'active' : ''; ?>" data-tab="ai-excerpt">
                             <span class="dashicons dashicons-editor-paragraph"></span>
                             <span>AI摘要</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'detection' ? 'active' : ''; ?>" data-tab="detection">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'detection' ? 'active' : ''; ?>" data-tab="detection">
                             <span class="dashicons dashicons-shield-alt"></span>
                             <span>内容检测</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'image-library' ? 'active' : ''; ?>" data-tab="image-library">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'image-library' ? 'active' : ''; ?>" data-tab="image-library">
                             <span class="dashicons dashicons-format-gallery"></span>
                             <span>图片库</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'history' ? 'active' : ''; ?>" data-tab="history">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'history' ? 'active' : ''; ?>" data-tab="history">
                             <span class="dashicons dashicons-list-view"></span>
                             <span>内容管理</span>
                         </button>
                     </div>
 
-                    <div class="wpaip-sidebar-group collapsed" data-group="seo">
-                        <div class="wpaip-sidebar-group-label"><span class="dashicons dashicons-search"></span> SEO 优化</div>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'seo-score' ? 'active' : ''; ?>" data-tab="seo-score">
+                    <div class="yimai-gso-sidebar-group collapsed" data-group="seo">
+                        <div class="yimai-gso-sidebar-group-label"><span class="dashicons dashicons-search"></span> SEO 优化</div>
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'seo-score' ? 'active' : ''; ?>" data-tab="seo-score">
                             <span class="dashicons dashicons-chart-bar"></span>
                             <span>SEO评分</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'seo-meta' ? 'active' : ''; ?>" data-tab="seo-meta">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'seo-meta' ? 'active' : ''; ?>" data-tab="seo-meta">
                             <span class="dashicons dashicons-chart-line"></span>
                             <span>SEO元数据</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'internal-links' ? 'active' : ''; ?>" data-tab="internal-links">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'internal-links' ? 'active' : ''; ?>" data-tab="internal-links">
                             <span class="dashicons dashicons-admin-links"></span>
                             <span>智能内链</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'schema' ? 'active' : ''; ?>" data-tab="schema">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'schema' ? 'active' : ''; ?>" data-tab="schema">
                             <span class="dashicons dashicons-code-standards"></span>
                             <span>结构化数据</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'seo-push' ? 'active' : ''; ?>" data-tab="seo-push">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'seo-push' ? 'active' : ''; ?>" data-tab="seo-push">
                             <span class="dashicons dashicons-share-alt2"></span>
                             <span>SEO推送</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'heading' ? 'active' : ''; ?>" data-tab="heading">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'heading' ? 'active' : ''; ?>" data-tab="heading">
                             <span class="dashicons dashicons-heading"></span>
                             <span>标题分析</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'auto-alt' ? 'active' : ''; ?>" data-tab="auto-alt">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'auto-alt' ? 'active' : ''; ?>" data-tab="auto-alt">
                             <span class="dashicons dashicons-format-image"></span>
                             <span>图片自动ALT</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'canonical' ? 'active' : ''; ?>" data-tab="canonical">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'canonical' ? 'active' : ''; ?>" data-tab="canonical">
                             <span class="dashicons dashicons-admin-links"></span>
                             <span>Canonical</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'optimizer-404' ? 'active' : ''; ?>" data-tab="optimizer-404">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'optimizer-404' ? 'active' : ''; ?>" data-tab="optimizer-404">
                             <span class="dashicons dashicons-warning"></span>
                             <span>404优化</span>
                         </button>
                     </div>
 
                     <?php $l5_meta = $this->get_feature_meta( 'l5_dashboard' ); ?>
-                    <div class="wpaip-sidebar-group collapsed" data-group="geo">
-                        <div class="wpaip-sidebar-group-label"><span class="dashicons dashicons-admin-site"></span> GEO优化</div>
+                    <div class="yimai-gso-sidebar-group collapsed" data-group="geo">
+                        <div class="yimai-gso-sidebar-group-label"><span class="dashicons dashicons-admin-site"></span> GEO优化</div>
                         <?php if ( $l5_meta['available'] ) : ?>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'l5-overview' ? 'active' : ''; ?>" data-tab="l5-overview">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'l5-overview' ? 'active' : ''; ?>" data-tab="l5-overview">
                             <span class="dashicons dashicons-chart-area"></span>
                             <span>双擎仪表盘</span>
                         </button>
                         <?php endif; ?>
                         <?php $audit_meta = $this->get_feature_meta( 'geo_auditor' ); ?>
                         <?php if ( $audit_meta['available'] ) : ?>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'geo-audit' ? 'active' : ''; ?>" data-tab="geo-audit">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'geo-audit' ? 'active' : ''; ?>" data-tab="geo-audit">
                             <span class="dashicons dashicons-chart-bar"></span>
                             <span>AI就绪审计</span>
                         </button>
                         <?php endif; ?>
                         <?php if ( $l5_meta['available'] ) : ?>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'l5-diagnosis' ? 'active' : ''; ?>" data-tab="l5-diagnosis">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'l5-diagnosis' ? 'active' : ''; ?>" data-tab="l5-diagnosis">
                             <span class="dashicons dashicons-search"></span>
                             <span>爬虫友好度</span>
                         </button>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'l5-crawler' ? 'active' : ''; ?>" data-tab="l5-crawler">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'l5-crawler' ? 'active' : ''; ?>" data-tab="l5-crawler">
                             <span class="dashicons dashicons-visibility"></span>
                             <span>AI爬虫追踪</span>
                         </button>
                         <?php endif; ?>
                         <?php $fresh_meta = $this->get_feature_meta( 'content_freshness' ); ?>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'freshness' ? 'active' : ''; ?><?php echo ! $fresh_meta['available'] ? ' locked' : ''; ?>" data-tab="freshness">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'freshness' ? 'active' : ''; ?><?php echo ! $fresh_meta['available'] ? ' locked' : ''; ?>" data-tab="freshness">
                             <span class="dashicons dashicons-update"></span>
                             <span>新鲜度监控</span>
                             <?php if ( ! $fresh_meta['available'] ) : ?>
-                                <span class="wpaip-sidebar-lock-icon dashicons dashicons-lock"></span>
+                                <span class="yimai-gso-sidebar-lock-icon dashicons dashicons-lock"></span>
                             <?php endif; ?>
                         </button>
                         <?php $llms_meta = $this->get_feature_meta( 'llms_txt' ); ?>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'llms-txt' ? 'active' : ''; ?><?php echo ! $llms_meta['available'] ? ' locked' : ''; ?>" data-tab="llms-txt">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'llms-txt' ? 'active' : ''; ?><?php echo ! $llms_meta['available'] ? ' locked' : ''; ?>" data-tab="llms-txt">
                             <span class="dashicons dashicons-media-text"></span>
                             <span>LLMs生成</span>
                             <?php if ( ! $llms_meta['available'] ) : ?>
-                                <span class="wpaip-sidebar-lock-icon dashicons dashicons-lock"></span>
+                                <span class="yimai-gso-sidebar-lock-icon dashicons dashicons-lock"></span>
                             <?php endif; ?>
                         </button>
                         <?php $bridge_meta = $this->get_feature_meta( 'seo_geo_bridge' ); ?>
                         <?php if ( $bridge_meta['available'] ) : ?>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'seo-geo-bridge' ? 'active' : ''; ?>" data-tab="seo-geo-bridge">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'seo-geo-bridge' ? 'active' : ''; ?>" data-tab="seo-geo-bridge">
                             <span class="dashicons dashicons-admin-links"></span>
                             <span>SEO-GEO桥接</span>
                         </button>
                         <?php endif; ?>
                         <?php if ( $l5_meta['available'] ) : ?>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'l5-alerts' ? 'active' : ''; ?>" data-tab="l5-alerts">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'l5-alerts' ? 'active' : ''; ?>" data-tab="l5-alerts">
                             <span class="dashicons dashicons-bell"></span>
                             <span>实时预警</span>
-                            <?php if ( class_exists( 'WPAIP_OULA' ) ) : ?>
-                            <?php $badge = WPAIP_OULA::get_active_critical_count(); ?>
+                            <?php if ( class_exists( 'YIMAI_GSO_Alert_Engine' ) ) : ?>
+                            <?php $badge = YIMAI_GSO_Alert_Engine::get_active_critical_count(); ?>
                             <?php if ( $badge > 0 ) : ?>
-                            <span class="wpaip-l5-alert-badge"><?php echo esc_html( $badge ); ?></span>
+                            <span class="yimai-gso-l5-alert-badge"><?php echo esc_html( $badge ); ?></span>
                             <?php endif; ?>
                             <?php endif; ?>
                         </button>
                         <?php endif; ?>
                     </div>
 
-                    <div class="wpaip-sidebar-group collapsed" data-group="auto">
-                        <div class="wpaip-sidebar-group-label"><span class="dashicons dashicons-clock"></span> 自动化</div>
-                        <button class="wpaip-sidebar-tab <?php echo $active_tab === 'autopilot' ? 'active' : ''; ?>" data-tab="autopilot">
+                    <div class="yimai-gso-sidebar-group collapsed" data-group="auto">
+                        <div class="yimai-gso-sidebar-group-label"><span class="dashicons dashicons-clock"></span> 自动化</div>
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'autopilot' ? 'active' : ''; ?>" data-tab="autopilot">
                             <span class="dashicons dashicons-clock"></span>
                             <span>永动发布</span>
                         </button>
@@ -3546,11 +3546,11 @@ class WPAIP_NC8O {
             </aside>
 
             <!-- 主内容区 -->
-            <main class="wpaip-main-content">
+            <main class="yimai-gso-main-content">
 
             <!-- ==================== 标签1：仪表盘 v5 ==================== -->
-            <div class="wpaip-main-panel <?php echo $active_tab === 'dashboard' ? 'active' : ''; ?>" data-tab="dashboard">
-                <div class="wpaip-dashboard-shell">
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'dashboard' ? 'active' : ''; ?>" data-tab="dashboard">
+                <div class="yimai-gso-dashboard-shell">
                     <?php
                     $trial_banner_html = '';
                     $is_trial_active = false;
@@ -3572,16 +3572,16 @@ class WPAIP_NC8O {
 
 
             <!-- ==================== 标签2：单篇生成 ==================== -->
-            <div class="wpaip-main-panel <?php echo $active_tab === 'single' ? 'active' : ''; ?>" data-tab="single">
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-welcome-write-blog"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">单篇生成</h2>
-                        <p class="wpaip-card-desc">输入标题或关键词，AI 一键生成高质量原创文章，支持多种风格和字数控制</p>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'single' ? 'active' : ''; ?>" data-tab="single">
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-welcome-write-blog"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">单篇生成</h2>
+                        <p class="yimai-gso-card-desc">输入标题或关键词，AI 一键生成高质量原创文章，支持多种风格和字数控制</p>
                     </div>
                 </div>
 
-                <div class="wpaip-panel" style="margin-bottom:16px;border-left:4px solid #3b82f6;background:#eff6ff;">
+                <div class="yimai-gso-panel" style="margin-bottom:16px;border-left:4px solid #3b82f6;background:#eff6ff;">
                     <p style="margin:0;font-size:13px;color:#1e40af;line-height:1.6;">
                         <span class="dashicons dashicons-info-outline" style="color:#3b82f6;margin-right:4px;vertical-align:text-bottom;"></span>
                         生成的文章质量跟大模型有关，建议用 DeepSeek 模型，其它免费的模型都是有限制的，生成出来的文章效果不是很好。可以自己多个模型测试一下，哪个好你就用哪个。
@@ -3591,38 +3591,38 @@ class WPAIP_NC8O {
                 <!-- 状态栏（单篇生成无限制，无需显示） -->
                 <?php // 状态栏已隐藏 ?>
 
-                <div class="wpaip-layout wpaip-single-layout">
+                <div class="yimai-gso-layout yimai-gso-single-layout">
                     <!-- 输入区域 -->
-                    <div class="wpaip-panel wpaip-input-panel">
+                    <div class="yimai-gso-panel yimai-gso-input-panel">
                         <h2>文章参数设置</h2>
 
-                        <div class="wpaip-form-row">
-                            <div class="wpaip-form-group">
+                        <div class="yimai-gso-form-row">
+                            <div class="yimai-gso-form-group">
                                 <label>关键词 / 主题 <span class="required">*</span></label>
-                                <input type="text" id="wpaip-single-keyword" class="large-text"
+                                <input type="text" id="yimai-gso-single-keyword" class="large-text"
                                     placeholder="例如：AI写作技巧、电商运营攻略">
                                 <small>输入文章的核心关键词或主题，AI会根据此生成内容</small>
                             </div>
-                            <div class="wpaip-form-group">
-                                <label>文章标题 <small style="color:var(--wpaip-gray);font-weight:normal;display:inline;">(留空由AI自动生成)</small></label>
-                                <input type="text" id="wpaip-single-title" class="large-text"
+                            <div class="yimai-gso-form-group">
+                                <label>文章标题 <small style="color:var(--yimai-gso-gray);font-weight:normal;display:inline;">(留空由AI自动生成)</small></label>
+                                <input type="text" id="yimai-gso-single-title" class="large-text"
                                     placeholder="留空让AI自动生成标题">
                                 <small>输入标题，AI会围绕此标题撰写正文；留空则AI根据关键词自动生成</small>
                             </div>
                         </div>
 
-                        <div class="wpaip-form-row">
-                            <div class="wpaip-form-group">
+                        <div class="yimai-gso-form-row">
+                            <div class="yimai-gso-form-group">
                                 <label>文章长度</label>
-                                <select id="wpaip-single-length" class="large-text">
+                                <select id="yimai-gso-single-length" class="large-text">
                                     <option value="short">短篇 · 约 800 字</option>
                                     <option value="medium" selected>中篇 · 约 1500 字</option>
                                     <option value="long">长篇 · 约 2500 字</option>
                                 </select>
                             </div>
-                            <div class="wpaip-form-group">
-                                <label>文章类型 <span class="wpaip-tag-new">新增选项</span></label>
-                                <select id="wpaip-single-type" class="large-text">
+                            <div class="yimai-gso-form-group">
+                                <label>文章类型 <span class="yimai-gso-tag-new">新增选项</span></label>
+                                <select id="yimai-gso-single-type" class="large-text">
                                     <option value="guide">📖 教程攻略</option>
                                     <option value="news">📰 资讯新闻</option>
                                     <option value="opinion">💭 观点评论</option>
@@ -3635,10 +3635,10 @@ class WPAIP_NC8O {
                             </div>
                         </div>
 
-                        <div class="wpaip-form-row">
-                            <div class="wpaip-form-group">
-                                <label>写作角度 <span class="wpaip-tag-new">新增</span></label>
-                                <select id="wpaip-single-angle" class="large-text">
+                        <div class="yimai-gso-form-row">
+                            <div class="yimai-gso-form-group">
+                                <label>写作角度 <span class="yimai-gso-tag-new">新增</span></label>
+                                <select id="yimai-gso-single-angle" class="large-text">
                                     <option value="">通用（AI 自动选择）</option>
                                     <option value="tutorial">教程类 · 手把手教学</option>
                                     <option value="reveal">揭秘类 · 行业秘密</option>
@@ -3657,77 +3657,77 @@ class WPAIP_NC8O {
                                     <option value="audience">人群类 · 细分领域</option>
                                 </select>
                             </div>
-                            <div class="wpaip-form-group">
+                            <div class="yimai-gso-form-group">
                                 <label>写作风格</label>
-                                <input type="text" id="wpaip-single-style" class="large-text"
+                                <input type="text" id="yimai-gso-single-style" class="large-text"
                                     placeholder="例如：专业严谨、轻松幽默、干货满满">
                                 <small>描述你想要的写作风格，不填则使用默认风格</small>
                             </div>
                         </div>
 
-                        <div class="wpaip-form-group" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+                        <div class="yimai-gso-form-group" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:8px;">
                             <label style="font-size:13px;font-weight:400;margin:0;">
-                                <input type="checkbox" id="wpaip-single-image-enabled" checked>
+                                <input type="checkbox" id="yimai-gso-single-image-enabled" checked>
                                 自动配图
                             </label>
                             <label style="font-size:13px;font-weight:400;margin:0;">
-                                <input type="checkbox" id="wpaip-single-auto-excerpt">
+                                <input type="checkbox" id="yimai-gso-single-auto-excerpt">
                                 自动生成摘要
                             </label>
                             <label style="font-size:13px;font-weight:400;margin:0;">
-                                <input type="checkbox" id="wpaip-single-auto-seo">
+                                <input type="checkbox" id="yimai-gso-single-auto-seo">
                                 自动提取SEO元数据
                             </label>
                         </div>
 
-                        <button type="button" id="wpaip-single-generate-btn" class="button button-primary button-hero wpaip-generate-btn" style="margin-top:16px;">
+                        <button type="button" id="yimai-gso-single-generate-btn" class="button button-primary button-hero yimai-gso-generate-btn" style="margin-top:16px;">
                             🪄 开始生成
                         </button>
 
-                        <div id="wpaip-single-progress" class="wpaip-progress" style="display:none;">
-                            <div class="wpaip-progress-bar">
-                                <div class="wpaip-progress-fill wpaip-single-fill"></div>
+                        <div id="yimai-gso-single-progress" class="yimai-gso-progress" style="display:none;">
+                            <div class="yimai-gso-progress-bar">
+                                <div class="yimai-gso-progress-fill yimai-gso-single-fill"></div>
                             </div>
-                            <p id="wpaip-single-progress-text">准备中...</p>
+                            <p id="yimai-gso-single-progress-text">准备中...</p>
                         </div>
                     </div>
 
                     <!-- 右侧：结果预览 -->
-                    <div class="wpaip-panel wpaip-single-preview-panel">
-                        <div class="wpaip-titles-toolbar">
-                            <h2>生成结果区 <small style="color:var(--wpaip-gray);font-weight:normal;">(优化后)</small></h2>
-                            <div class="wpaip-titles-actions">
-                                <button id="wpaip-single-copy-btn" class="button" style="display:none;">
+                    <div class="yimai-gso-panel yimai-gso-single-preview-panel">
+                        <div class="yimai-gso-titles-toolbar">
+                            <h2>生成结果区 <small style="color:var(--yimai-gso-gray);font-weight:normal;">(优化后)</small></h2>
+                            <div class="yimai-gso-titles-actions">
+                                <button id="yimai-gso-single-copy-btn" class="button" style="display:none;">
                                     <span class="dashicons dashicons-clipboard" style="font-size:16px;width:16px;height:16px;margin:0;vertical-align:middle;"></span>
                                     复制内容
                                 </button>
                             </div>
                         </div>
 
-                        <div id="wpaip-single-results">
-                            <div class="wpaip-empty">
+                        <div id="yimai-gso-single-results">
+                            <div class="yimai-gso-empty">
                                 <p>✍️ 输入关键词，选择参数<br>点击"开始生成"AI将为你创作一篇完整的文章</p>
                             </div>
                         </div>
 
                         <!-- 预览模式切换 -->
-                        <div id="wpaip-single-preview-tabs" style="display:none;margin-top:16px;">
-                            <div class="wpaip-tab-buttons" style="display:flex;gap:8px;margin-bottom:12px;">
-                                <button type="button" class="wpaip-preview-tab active" data-mode="text">📝 纯文本</button>
-                                <button type="button" class="wpaip-preview-tab" data-mode="html">🌐 HTML 预览</button>
+                        <div id="yimai-gso-single-preview-tabs" style="display:none;margin-top:16px;">
+                            <div class="yimai-gso-tab-buttons" style="display:flex;gap:8px;margin-bottom:12px;">
+                                <button type="button" class="yimai-gso-preview-tab active" data-mode="text">📝 纯文本</button>
+                                <button type="button" class="yimai-gso-preview-tab" data-mode="html">🌐 HTML 预览</button>
                             </div>
-                            <div id="wpaip-single-preview-text" class="wpaip-preview-pane"></div>
-                            <div id="wpaip-single-preview-html" class="wpaip-preview-pane" style="display:none;">
-                                <iframe id="wpaip-single-preview-iframe" style="width:100%;min-height:400px;border:1px solid #e2e8f0;border-radius:6px;" sandbox="allow-same-origin"></iframe>
+                            <div id="yimai-gso-single-preview-text" class="yimai-gso-preview-pane"></div>
+                            <div id="yimai-gso-single-preview-html" class="yimai-gso-preview-pane" style="display:none;">
+                                <iframe id="yimai-gso-single-preview-iframe" style="width:100%;min-height:400px;border:1px solid #e2e8f0;border-radius:6px;" sandbox="allow-same-origin"></iframe>
                             </div>
                         </div>
 
                         <!-- 发布区域 -->
-                        <div id="wpaip-single-publish-area" style="display:none;margin-top:20px;border-top:1px solid #e5e7eb;padding-top:20px;">
-                            <div class="wpaip-form-row">
-                                <div class="wpaip-form-group">
+                        <div id="yimai-gso-single-publish-area" style="display:none;margin-top:20px;border-top:1px solid #e5e7eb;padding-top:20px;">
+                            <div class="yimai-gso-form-row">
+                                <div class="yimai-gso-form-group">
                                     <label>文章分类</label>
-                                    <select id="wpaip-single-category">
+                                    <select id="yimai-gso-single-category">
                                         <?php foreach ( $categories as $cat ) : ?>
                                             <option value="<?php echo $cat->term_id; ?>" <?php selected( $default_category, $cat->term_id ); ?>>
                                                 <?php echo esc_html( $cat->name ); ?>
@@ -3735,38 +3735,38 @@ class WPAIP_NC8O {
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
-                                <div class="wpaip-form-group">
+                                <div class="yimai-gso-form-group">
                                     <label>标签</label>
-                                    <input type="text" id="wpaip-single-tags" class="large-text" placeholder="标签1,标签2,标签3">
+                                    <input type="text" id="yimai-gso-single-tags" class="large-text" placeholder="标签1,标签2,标签3">
                                 </div>
                             </div>
 
-                            <div class="wpaip-form-group">
+                            <div class="yimai-gso-form-group">
                                 <label>发布方式</label>
-                                <div class="wpaip-radio-group">
-                                    <label class="wpaip-radio">
-                                        <input type="radio" name="wpaip-single-status" value="draft" checked>
+                                <div class="yimai-gso-radio-group">
+                                    <label class="yimai-gso-radio">
+                                        <input type="radio" name="yimai-gso-single-status" value="draft" checked>
                                         <span>💾 存为草稿</span>
                                     </label>
-                                    <label class="wpaip-radio">
-                                        <input type="radio" name="wpaip-single-status" value="publish">
+                                    <label class="yimai-gso-radio">
+                                        <input type="radio" name="yimai-gso-single-status" value="publish">
                                         <span>🚀 直接发布</span>
                                     </label>
                                 </div>
                             </div>
 
-                            <div class="wpaip-action-bar">
-                                <button id="wpaip-single-publish-btn" class="button button-primary">
+                            <div class="yimai-gso-action-bar">
+                                <button id="yimai-gso-single-publish-btn" class="button button-primary">
                                     <span class="dashicons dashicons-cloud-upload"></span>
                                     发布到 WordPress
                                 </button>
-                                <button id="wpaip-single-regenerate-btn" class="button">
+                                <button id="yimai-gso-single-regenerate-btn" class="button">
                                     <span class="dashicons dashicons-controls-repeat"></span>
                                     重新生成
                                 </button>
                             </div>
 
-                            <div id="wpaip-single-publish-result" style="display:none;"></div>
+                            <div id="yimai-gso-single-publish-result" style="display:none;"></div>
                         </div>
                     </div>
                 </div>
@@ -3777,50 +3777,50 @@ class WPAIP_NC8O {
             $rewrite_meta     = $this->get_feature_meta( 'content_rewrite' );
             $batch_rw_meta    = $this->get_feature_meta( 'batch_rewrite' );
             $categories_list  = $this->get_categories_list('raw');
-            $default_category = WPAIP_9XCU::get( 'default_category', 1 );
+            $default_category = YIMAI_GSO_Settings::get( 'default_category', 1 );
             ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'rewrite' ? 'active' : ''; ?>" data-tab="rewrite">
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-edit"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">内容改写</h2>
-                        <p class="wpaip-card-desc">AI 改写/翻新已有内容，支持粘贴原文改写、单篇文章翻新和批量翻新三种模式</p>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'rewrite' ? 'active' : ''; ?>" data-tab="rewrite">
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-edit"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">内容改写</h2>
+                        <p class="yimai-gso-card-desc">AI 改写/翻新已有内容，支持粘贴原文改写、单篇文章翻新和批量翻新三种模式</p>
                     </div>
                 </div>
 
                 <!-- 子标签导航 -->
-                <div class="wpaip-rewrite-subtabs">
-                    <button type="button" class="wpaip-rewrite-subtab active" data-rtab="paste">
+                <div class="yimai-gso-rewrite-subtabs">
+                    <button type="button" class="yimai-gso-rewrite-subtab active" data-rtab="paste">
                         <span class="dashicons dashicons-clipboard"></span> 粘贴原文改写
                     </button>
-                    <button type="button" class="wpaip-rewrite-subtab" data-rtab="single">
+                    <button type="button" class="yimai-gso-rewrite-subtab" data-rtab="single">
                         <span class="dashicons dashicons-welcome-write-blog"></span> 单篇文章翻新
                     </button>
-                    <button type="button" class="wpaip-rewrite-subtab" data-rtab="batch">
+                    <button type="button" class="yimai-gso-rewrite-subtab" data-rtab="batch">
                         <span class="dashicons dashicons-category"></span> 批量翻新改写
                         <?php if ( empty( $batch_rw_meta['available'] ) ) : ?>
-                        <span class="wpaip-badge wpaip-badge-locked">Content+</span>
+                        <span class="yimai-gso-badge yimai-gso-badge-locked">Content+</span>
                         <?php endif; ?>
                     </button>
                 </div>
 
                 <!-- ===== 子面板1：粘贴原文改写 ===== -->
-                <div class="wpaip-rewrite-panel active" data-rtab="paste">
+                <div class="yimai-gso-rewrite-panel active" data-rtab="paste">
                     <!-- 顶部控制栏 -->
-                    <div class="wpaip-panel" style="margin-bottom:16px">
+                    <div class="yimai-gso-panel" style="margin-bottom:16px">
                         <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-                            <div class="wpaip-rewrite-options" style="margin-bottom:0">
-                                <div class="wpaip-rewrite-option-item">
+                            <div class="yimai-gso-rewrite-options" style="margin-bottom:0">
+                                <div class="yimai-gso-rewrite-option-item">
                                     <label>改写力度</label>
-                                    <select id="wpaip-rw-paste-strength">
+                                    <select id="yimai-gso-rw-paste-strength">
                                         <option value="light">轻度 — 微调措辞</option>
                                         <option value="medium" selected>中度 — 重组优化</option>
                                         <option value="deep">深度 — 全面重写</option>
                                     </select>
                                 </div>
-                                <div class="wpaip-rewrite-option-item">
+                                <div class="yimai-gso-rewrite-option-item">
                                     <label>改写风格</label>
-                                    <select id="wpaip-rw-paste-style">
+                                    <select id="yimai-gso-rw-paste-style">
                                         <option value="default">默认风格</option>
                                         <option value="professional">更专业</option>
                                         <option value="casual">口语化</option>
@@ -3830,23 +3830,23 @@ class WPAIP_NC8O {
                                 </div>
                             </div>
                             <div style="display:flex;gap:12px;align-items:center;font-size:12px">
-                                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="wpaip-rw-field" value="title" checked> 标题</label>
-                                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="wpaip-rw-field" value="content" checked> 正文</label>
-                                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="wpaip-rw-field" value="excerpt" checked> 摘要</label>
-                                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="wpaip-rw-field" value="tags" checked> 标签</label>
+                                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="yimai-gso-rw-field" value="title" checked> 标题</label>
+                                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="yimai-gso-rw-field" value="content" checked> 正文</label>
+                                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="yimai-gso-rw-field" value="excerpt" checked> 摘要</label>
+                                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" class="yimai-gso-rw-field" value="tags" checked> 标签</label>
                             </div>
                             <div style="flex:1;min-width:180px">
-                                <input type="text" id="wpaip-rw-paste-keywords" placeholder="关键词注入（逗号分隔，可选）" style="width:100%;font-size:12px;padding:2px 8px;height:30px">
+                                <input type="text" id="yimai-gso-rw-paste-keywords" placeholder="关键词注入（逗号分隔，可选）" style="width:100%;font-size:12px;padding:2px 8px;height:30px">
                             </div>
-                            <button type="button" id="wpaip-rw-paste-btn" class="button button-primary" style="white-space:nowrap">
+                            <button type="button" id="yimai-gso-rw-paste-btn" class="button button-primary" style="white-space:nowrap">
                                 <span class="dashicons dashicons-update"></span> 开始改写
                             </button>
                         </div>
-                        <div id="wpaip-rw-paste-progress" class="wpaip-progress" style="display:none;margin-top:8px;">
-                            <div class="wpaip-progress-bar">
-                                <div class="wpaip-progress-fill wpaip-rw-fill"></div>
+                        <div id="yimai-gso-rw-paste-progress" class="yimai-gso-progress" style="display:none;margin-top:8px;">
+                            <div class="yimai-gso-progress-bar">
+                                <div class="yimai-gso-progress-fill yimai-gso-rw-fill"></div>
                             </div>
-                            <p id="wpaip-rw-paste-progress-text" style="text-align:center;font-size:12px">AI 改写中...</p>
+                            <p id="yimai-gso-rw-paste-progress-text" style="text-align:center;font-size:12px">AI 改写中...</p>
                         </div>
                     </div>
 
@@ -3854,17 +3854,17 @@ class WPAIP_NC8O {
                     <div style="display:flex;gap:16px;min-height:460px">
                         <!-- 左栏：原文输入 -->
                         <div style="flex:1;min-width:0;display:flex">
-                            <div class="wpaip-panel" style="flex:1;display:flex;flex-direction:column">
+                            <div class="yimai-gso-panel" style="flex:1;display:flex;flex-direction:column">
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                                     <label style="font-weight:600">原文内容 <span class="required">*</span></label>
-                                    <button type="button" id="wpaip-rw-paste-clear" style="font-size:11px;color:#94a3b8;border:none;background:none;cursor:pointer;display:none">✕ 清空</button>
+                                    <button type="button" id="yimai-gso-rw-paste-clear" style="font-size:11px;color:#94a3b8;border:none;background:none;cursor:pointer;display:none">✕ 清空</button>
                                 </div>
-                                <textarea id="wpaip-rw-paste-text" class="wpaip-rw-textarea" placeholder="在此粘贴需要改写的原文内容，支持任意长度的文字..." style="flex:1;width:100%;resize:vertical;min-height:0"></textarea>
+                                <textarea id="yimai-gso-rw-paste-text" class="yimai-gso-rw-textarea" placeholder="在此粘贴需要改写的原文内容，支持任意长度的文字..." style="flex:1;width:100%;resize:vertical;min-height:0"></textarea>
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-                                    <button type="button" id="wpaip-rw-paste-sample" style="font-size:11px;color:#64748b;border:none;background:#f1f5f9;padding:4px 10px;border-radius:4px;cursor:pointer">填入示例</button>
+                                    <button type="button" id="yimai-gso-rw-paste-sample" style="font-size:11px;color:#64748b;border:none;background:#f1f5f9;padding:4px 10px;border-radius:4px;cursor:pointer">填入示例</button>
                                     <div style="font-size:11px;color:#94a3b8">
-                                        <span id="wpaip-rw-paste-count">0 字</span>
-                                        <span id="wpaip-rw-paste-warn" style="color:#f59e0b;display:none;margin-left:8px">⚠超8000字将被截断</span>
+                                        <span id="yimai-gso-rw-paste-count">0 字</span>
+                                        <span id="yimai-gso-rw-paste-warn" style="color:#f59e0b;display:none;margin-left:8px">⚠超8000字将被截断</span>
                                     </div>
                                 </div>
                             </div>
@@ -3872,18 +3872,18 @@ class WPAIP_NC8O {
 
                         <!-- 右栏：改写结果 -->
                         <div style="flex:1;min-width:0;display:flex">
-                            <div id="wpaip-rw-paste-result" class="wpaip-panel" style="flex:1;display:flex;flex-direction:column">
+                            <div id="yimai-gso-rw-paste-result" class="yimai-gso-panel" style="flex:1;display:flex;flex-direction:column">
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0">
                                     <h3 style="margin:0;font-size:14px;">&#9998; 改写结果</h3>
-                                    <span id="wpaip-rw-result-stats" style="font-size:11px;color:#94a3b8;display:none"></span>
+                                    <span id="yimai-gso-rw-result-stats" style="font-size:11px;color:#94a3b8;display:none"></span>
                                 </div>
                                 <!-- 内容内栏（带边框） -->
-                                <div id="wpaip-rw-paste-result-content" style="flex:1;overflow-y:auto;min-height:200px;border:1px solid #e2e8f0;border-radius:6px;padding:12px;background:#fafbfc;font-size:13px;line-height:1.7;color:#94a3b8;text-align:center">
+                                <div id="yimai-gso-rw-paste-result-content" style="flex:1;overflow-y:auto;min-height:200px;border:1px solid #e2e8f0;border-radius:6px;padding:12px;background:#fafbfc;font-size:13px;line-height:1.7;color:#94a3b8;text-align:center">
                                     点击【开始改写】后，结果将在此处并排展示
                                 </div>
-                                <div id="wpaip-rw-paste-actions" style="display:none;flex-shrink:0;margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0">
-                                    <button class="button wpaip-rw-copy-btn">📋 复制全文</button>
-                                    <button class="button button-primary wpaip-rw-draft-btn">📝 存草稿</button>
+                                <div id="yimai-gso-rw-paste-actions" style="display:none;flex-shrink:0;margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0">
+                                    <button class="button yimai-gso-rw-copy-btn">📋 复制全文</button>
+                                    <button class="button button-primary yimai-gso-rw-draft-btn">📝 存草稿</button>
                                 </div>
                             </div>
                         </div>
@@ -3891,155 +3891,155 @@ class WPAIP_NC8O {
                 </div>
 
                 <!-- ===== 子面板2：单篇文章翻新 ===== -->
-                <div class="wpaip-rewrite-panel" data-rtab="single">
+                <div class="yimai-gso-rewrite-panel" data-rtab="single">
                     <!-- 改写选项 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
-                        <div class="wpaip-rewrite-options">
-                            <div class="wpaip-rewrite-option-item">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
+                        <div class="yimai-gso-rewrite-options">
+                            <div class="yimai-gso-rewrite-option-item">
                                 <label>改写力度</label>
-                                <select id="wpaip-rw-single-strength">
+                                <select id="yimai-gso-rw-single-strength">
                                     <option value="light">轻度 — 微调措辞</option>
                                     <option value="medium" selected>中度 — 重组优化</option>
                                     <option value="deep">深度 — 全面重写</option>
                                 </select>
                             </div>
                         </div>
-                        <label class="wpaip-toggle-label" style="margin-top:12px;">
-                            <input type="checkbox" id="wpaip-rw-single-overwrite">
-                            <span class="wpaip-toggle-switch"></span>
-                            <span class="wpaip-toggle-text">直接覆盖原文章（不勾选则仅预览，确认后再覆盖）</span>
+                        <label class="yimai-gso-toggle-label" style="margin-top:12px;">
+                            <input type="checkbox" id="yimai-gso-rw-single-overwrite">
+                            <span class="yimai-gso-toggle-switch"></span>
+                            <span class="yimai-gso-toggle-text">直接覆盖原文章（不勾选则仅预览，确认后再覆盖）</span>
                         </label>
-                        <button type="button" id="wpaip-rw-single-btn" class="button button-primary wpaip-generate-btn" style="margin-top:16px;" disabled>
+                        <button type="button" id="yimai-gso-rw-single-btn" class="button button-primary yimai-gso-generate-btn" style="margin-top:16px;" disabled>
                             <span class="dashicons dashicons-update"></span> 翻新所选文章
                         </button>
-                        <div id="wpaip-rw-single-progress" class="wpaip-progress" style="display:none;margin-top:16px;">
-                            <div class="wpaip-progress-bar">
-                                <div class="wpaip-progress-fill wpaip-rw-fill"></div>
+                        <div id="yimai-gso-rw-single-progress" class="yimai-gso-progress" style="display:none;margin-top:16px;">
+                            <div class="yimai-gso-progress-bar">
+                                <div class="yimai-gso-progress-fill yimai-gso-rw-fill"></div>
                             </div>
-                            <p id="wpaip-rw-single-progress-text">AI 改写中...</p>
+                            <p id="yimai-gso-rw-single-progress-text">AI 改写中...</p>
                         </div>
                     </div>
 
                     <!-- 搜索 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
-                        <div class="wpaip-rewrite-search-row">
-                            <input type="search" id="wpaip-rw-single-search" class="large-text" placeholder="搜索文章标题..." style="flex:1;">
-                            <select id="wpaip-rw-single-category">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
+                        <div class="yimai-gso-rewrite-search-row">
+                            <input type="search" id="yimai-gso-rw-single-search" class="large-text" placeholder="搜索文章标题..." style="flex:1;">
+                            <select id="yimai-gso-rw-single-category">
                                 <option value="0">全部分类</option>
                                 <?php foreach ( $categories_list as $cat ) : ?>
                                 <option value="<?php echo $cat->term_id; ?>"><?php echo esc_html( $cat->name ); ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <button type="button" id="wpaip-rw-single-search-btn" class="button button-primary">&#128269; 搜索</button>
+                            <button type="button" id="yimai-gso-rw-single-search-btn" class="button button-primary">&#128269; 搜索</button>
                         </div>
-                        <div id="wpaip-rw-single-results" class="wpaip-br-results" style="margin-top:12px;">
-                            <div class="wpaip-empty"><p>搜索文章后将在下方显示结果</p></div>
+                        <div id="yimai-gso-rw-single-results" class="yimai-gso-br-results" style="margin-top:12px;">
+                            <div class="yimai-gso-empty"><p>搜索文章后将在下方显示结果</p></div>
                         </div>
-                        <div id="wpaip-rw-single-pagination" style="display:none;" class="wpaip-post-pagination"></div>
+                        <div id="yimai-gso-rw-single-pagination" style="display:none;" class="yimai-gso-post-pagination"></div>
                     </div>
 
                     <!-- 改写结果 -->
-                    <div id="wpaip-rw-single-result" class="wpaip-panel" style="display:none;">
+                    <div id="yimai-gso-rw-single-result" class="yimai-gso-panel" style="display:none;">
                         <h3 style="margin:0 0 16px;font-size:15px;">&#9998; 改写结果</h3>
-                        <div id="wpaip-rw-single-result-content"></div>
+                        <div id="yimai-gso-rw-single-result-content"></div>
                     </div>
                 </div>
 
                 <!-- ===== 子面板3：批量翻新改写 ===== -->
-                <div class="wpaip-rewrite-panel" data-rtab="batch">
+                <div class="yimai-gso-rewrite-panel" data-rtab="batch">
                     <!-- 改写选项 + 开始 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;<?php echo empty( $batch_rw_meta['available'] ) ? 'opacity:0.5;pointer-events:none;' : ''; ?>">
-                        <div class="wpaip-rewrite-options">
-                            <div class="wpaip-rewrite-option-item">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;<?php echo empty( $batch_rw_meta['available'] ) ? 'opacity:0.5;pointer-events:none;' : ''; ?>">
+                        <div class="yimai-gso-rewrite-options">
+                            <div class="yimai-gso-rewrite-option-item">
                                 <label>改写力度（统一应用于所有选中文章）</label>
-                                <select id="wpaip-rw-batch-strength">
+                                <select id="yimai-gso-rw-batch-strength">
                                     <option value="light">轻度 — 微调措辞</option>
                                     <option value="medium" selected>中度 — 重组优化</option>
                                     <option value="deep">深度 — 全面重写</option>
                                 </select>
                             </div>
                         </div>
-                        <div class="wpaip-detect-flow-card">
-                            <div class="wpaip-detect-flow-title">覆盖策略</div>
-                            <div class="wpaip-detect-flow-desc">批量翻新改写好之后将直接覆盖原文章，并在改写日志中记录。每处理一篇实时更新进度。</div>
+                        <div class="yimai-gso-detect-flow-card">
+                            <div class="yimai-gso-detect-flow-title">覆盖策略</div>
+                            <div class="yimai-gso-detect-flow-desc">批量翻新改写好之后将直接覆盖原文章，并在改写日志中记录。每处理一篇实时更新进度。</div>
                         </div>
-                        <button type="button" id="wpaip-rw-batch-start-btn" class="button button-primary button-hero wpaip-generate-btn" <?php echo empty( $batch_rw_meta['available'] ) ? 'disabled' : ''; ?>>
+                        <button type="button" id="yimai-gso-rw-batch-start-btn" class="button button-primary button-hero yimai-gso-generate-btn" <?php echo empty( $batch_rw_meta['available'] ) ? 'disabled' : ''; ?>>
                             <span class="dashicons dashicons-update"></span> 开始批量改写
                         </button>
 
                         <!-- 进度 -->
-                        <div id="wpaip-rw-batch-progress" class="wpaip-progress" style="display:none;margin-top:16px;">
-                            <div class="wpaip-progress-bar">
-                                <div id="wpaip-rw-batch-fill" class="wpaip-progress-fill"></div>
+                        <div id="yimai-gso-rw-batch-progress" class="yimai-gso-progress" style="display:none;margin-top:16px;">
+                            <div class="yimai-gso-progress-bar">
+                                <div id="yimai-gso-rw-batch-fill" class="yimai-gso-progress-fill"></div>
                             </div>
-                            <p id="wpaip-rw-batch-progress-text">准备中...</p>
-                            <div id="wpaip-rw-batch-stats" style="display:flex;gap:20px;margin-top:8px;font-size:13px;"></div>
+                            <p id="yimai-gso-rw-batch-progress-text">准备中...</p>
+                            <div id="yimai-gso-rw-batch-stats" style="display:flex;gap:20px;margin-top:8px;font-size:13px;"></div>
                         </div>
 
                         <!-- 日志 -->
-                        <div id="wpaip-rw-batch-logs" style="display:none;margin-top:16px;max-height:300px;overflow-y:auto;"></div>
+                        <div id="yimai-gso-rw-batch-logs" style="display:none;margin-top:16px;max-height:300px;overflow-y:auto;"></div>
                     </div>
 
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
                         <!-- 搜索 — 搜索功能始终可用，不受锁定影响 -->
-                        <div class="wpaip-rewrite-search-row">
-                            <input type="search" id="wpaip-rw-batch-search" class="large-text" placeholder="搜索文章标题..." style="flex:1;">
-                            <select id="wpaip-rw-batch-category">
+                        <div class="yimai-gso-rewrite-search-row">
+                            <input type="search" id="yimai-gso-rw-batch-search" class="large-text" placeholder="搜索文章标题..." style="flex:1;">
+                            <select id="yimai-gso-rw-batch-category">
                                 <option value="0">全部分类</option>
                                 <?php foreach ( $categories_list as $cat ) : ?>
                                 <option value="<?php echo $cat->term_id; ?>"><?php echo esc_html( $cat->name ); ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <select id="wpaip-rw-batch-status">
+                            <select id="yimai-gso-rw-batch-status">
                                 <option value="any">全部状态</option>
                                 <option value="publish" selected>已发布</option>
                                 <option value="draft">草稿</option>
                             </select>
-                            <button type="button" id="wpaip-rw-batch-search-btn" class="button button-primary">&#128269; 搜索</button>
+                            <button type="button" id="yimai-gso-rw-batch-search-btn" class="button button-primary">&#128269; 搜索</button>
                         </div>
 
                         <!-- 已选摘要 -->
-                        <div class="wpaip-batch-rewrite-selected-header" style="margin-top:12px;">
-                            <h3 style="margin:0;">已选文章 <span id="wpaip-rw-batch-count" class="wpaip-badge">0</span></h3>
-                            <button type="button" id="wpaip-rw-batch-clear-btn" class="button button-small" style="display:none;">清空选择</button>
+                        <div class="yimai-gso-batch-rewrite-selected-header" style="margin-top:12px;">
+                            <h3 style="margin:0;">已选文章 <span id="yimai-gso-rw-batch-count" class="yimai-gso-badge">0</span></h3>
+                            <button type="button" id="yimai-gso-rw-batch-clear-btn" class="button button-small" style="display:none;">清空选择</button>
                         </div>
-                        <div id="wpaip-rw-batch-selected" class="wpaip-br-selected-list" style="margin-bottom:12px;">
+                        <div id="yimai-gso-rw-batch-selected" class="yimai-gso-br-selected-list" style="margin-bottom:12px;">
                             <p style="color:#999;margin:8px 0;">从下方搜索并勾选需要翻新改写的文章</p>
                         </div>
 
                         <!-- 文章列表 -->
-                        <div id="wpaip-rw-batch-results" class="wpaip-br-results">
-                            <div class="wpaip-empty"><p>搜索文章后将在下方显示结果</p></div>
+                        <div id="yimai-gso-rw-batch-results" class="yimai-gso-br-results">
+                            <div class="yimai-gso-empty"><p>搜索文章后将在下方显示结果</p></div>
                         </div>
-                        <div id="wpaip-rw-batch-pagination" style="display:none;" class="wpaip-post-pagination"></div>
+                        <div id="yimai-gso-rw-batch-pagination" style="display:none;" class="yimai-gso-post-pagination"></div>
                     </div>
                 </div>
             </div>
 
             <!-- ==================== 标签3：批量生成 ==================== -->
             <?php $batch_feature_meta = $this->get_feature_meta( 'batch_generate' ); ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'generate' ? 'active' : ''; ?>" data-tab="generate">
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-edit-large"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">批量生成</h2>
-                        <p class="wpaip-card-desc">批量输入标题自动生成多篇文章，支持存为草稿、直接发布或定时发布</p>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'generate' ? 'active' : ''; ?>" data-tab="generate">
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-edit-large"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">批量生成</h2>
+                        <p class="yimai-gso-card-desc">批量输入标题自动生成多篇文章，支持存为草稿、直接发布或定时发布</p>
                     </div>
                 </div>
 
-                <div class="wpaip-panel" style="margin-bottom:16px;border-left:4px solid #3b82f6;background:#eff6ff;">
+                <div class="yimai-gso-panel" style="margin-bottom:16px;border-left:4px solid #3b82f6;background:#eff6ff;">
                     <p style="margin:0;font-size:13px;color:#1e40af;line-height:1.6;">
                         <span class="dashicons dashicons-info-outline" style="color:#3b82f6;margin-right:4px;vertical-align:text-bottom;"></span>
                         生成的文章质量跟大模型有关，建议用 DeepSeek 模型，其它免费的模型都是有限制的，生成出来的文章效果不是很好。可以自己多个模型测试一下，哪个好你就用哪个。
                     </p>
                 </div>
                 <!-- 步骤条：批量标题 → 批量文章 -->
-                <div class="wpaip-batch-tabs">
-                    <button type="button" class="wpaip-batch-tab active" data-step="1">
+                <div class="yimai-gso-batch-tabs">
+                    <button type="button" class="yimai-gso-batch-tab active" data-step="1">
                         <span class="dashicons dashicons-edit-large" style="font-size:18px;width:18px;height:18px;"></span>
                         批量标题
                     </button>
-                    <button type="button" class="wpaip-batch-tab" data-step="2">
+                    <button type="button" class="yimai-gso-batch-tab" data-step="2">
                         <span class="dashicons dashicons-media-text" style="font-size:18px;width:18px;height:18px;"></span>
                         批量文章
                     </button>
@@ -4047,21 +4047,21 @@ class WPAIP_NC8O {
 
 
                 <!-- 步骤1：选题 -->
-                <div class="wpaip-step-content active" data-step="1">
+                <div class="yimai-gso-step-content active" data-step="1">
                     <!-- 批量标题设置（整宽）-->
-                    <div class="wpaip-panel" style="margin-bottom:18px;">
+                    <div class="yimai-gso-panel" style="margin-bottom:18px;">
                         <h2>📝 批量标题设置</h2>
                         <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;">
-                            <div class="wpaip-form-group" style="flex:1;min-width:250px;margin-bottom:0;">
+                            <div class="yimai-gso-form-group" style="flex:1;min-width:250px;margin-bottom:0;">
                                 <label>行业关键词 / 主题 <span class="required">*</span></label>
-                                <input type="text" id="wpaip-titles-keyword" class="large-text"
+                                <input type="text" id="yimai-gso-titles-keyword" class="large-text"
                                     placeholder="例如：自媒体、短视频、AI创业、电商运营">
                                 <small>输入你的行业领域或内容主题，AI 会生成相关的热门标题</small>
                             </div>
 
-                            <div class="wpaip-form-group" style="width:150px;margin-bottom:0;">
+                            <div class="yimai-gso-form-group" style="width:150px;margin-bottom:0;">
                                 <label>生成数量</label>
-                                <select id="wpaip-titles-count">
+                                <select id="yimai-gso-titles-count">
                                     <option value="10">10 个标题</option>
                                     <option value="20" selected>20 个标题</option>
                                     <option value="30">30 个标题</option>
@@ -4069,54 +4069,54 @@ class WPAIP_NC8O {
                                 </select>
                             </div>
 
-                            <div class="wpaip-form-group" style="width:auto;margin-bottom:0;">
-                                <button id="wpaip-titles-generate-btn" class="button button-primary wpaip-generate-btn">
+                            <div class="yimai-gso-form-group" style="width:auto;margin-bottom:0;">
+                                <button id="yimai-gso-titles-generate-btn" class="button button-primary yimai-gso-generate-btn">
                                     <span class="dashicons dashicons-spell-check"></span>
                                     生成热门标题
                                 </button>
                             </div>
                         </div>
 
-                        <div id="wpaip-titles-progress" class="wpaip-progress" style="display:none;margin-top:16px;">
-                            <div class="wpaip-progress-bar">
-                                <div class="wpaip-progress-fill wpaip-titles-fill"></div>
+                        <div id="yimai-gso-titles-progress" class="yimai-gso-progress" style="display:none;margin-top:16px;">
+                            <div class="yimai-gso-progress-bar">
+                                <div class="yimai-gso-progress-fill yimai-gso-titles-fill"></div>
                             </div>
-                            <p id="wpaip-titles-progress-text">准备中...</p>
+                            <p id="yimai-gso-titles-progress-text">准备中...</p>
                         </div>
                     </div>
 
                     <!-- 双栏：生成历史 | 标题生成结果 -->
-                    <div class="wpaip-layout" style="display:flex;gap:18px;">
+                    <div class="yimai-gso-layout" style="display:flex;gap:18px;">
                         <!-- 左侧：生成历史 -->
-                        <div class="wpaip-panel" style="width:300px;flex-shrink:0;">
+                        <div class="yimai-gso-panel" style="width:300px;flex-shrink:0;">
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                                 <h3 style="margin:0;font-size:14px;color:#64748b;">📜 生成历史</h3>
-                                <button id="wpaip-step1-history-clear" class="button button-small" style="font-size:11px;padding:2px 8px;">清空</button>
+                                <button id="yimai-gso-step1-history-clear" class="button button-small" style="font-size:11px;padding:2px 8px;">清空</button>
                             </div>
-                            <div id="wpaip-step1-titles-history" style="max-height:400px;overflow-y:auto;">
-                                <div class="wpaip-empty" style="padding:12px 0;">
+                            <div id="yimai-gso-step1-titles-history" style="max-height:400px;overflow-y:auto;">
+                                <div class="yimai-gso-empty" style="padding:12px 0;">
                                     <p style="font-size:12px;color:#94a3b8;">暂无历史记录</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 右侧：标题生成结果 -->
-                        <div class="wpaip-panel" style="flex:1;">
-                            <div class="wpaip-titles-toolbar">
-                                <h2>标题生成结果 <span id="wpaip-step1-titles-counter" class="wpaip-batch-counter" style="display:none;">0</span></h2>
-                                <div class="wpaip-titles-actions">
-                                    <span class="wpaip-selected-info">已选择 <span id="wpaip-step1-titles-selected-count">0</span> 个</span>
-                                    <button id="wpaip-step1-titles-select-all" class="button button-small">全选</button>
-                                    <button id="wpaip-step1-titles-deselect-all" class="button button-small">取消</button>
-                                    <button id="wpaip-step1-go-batch" class="button button-primary button-small">
+                        <div class="yimai-gso-panel" style="flex:1;">
+                            <div class="yimai-gso-titles-toolbar">
+                                <h2>标题生成结果 <span id="yimai-gso-step1-titles-counter" class="yimai-gso-batch-counter" style="display:none;">0</span></h2>
+                                <div class="yimai-gso-titles-actions">
+                                    <span class="yimai-gso-selected-info">已选择 <span id="yimai-gso-step1-titles-selected-count">0</span> 个</span>
+                                    <button id="yimai-gso-step1-titles-select-all" class="button button-small">全选</button>
+                                    <button id="yimai-gso-step1-titles-deselect-all" class="button button-small">取消</button>
+                                    <button id="yimai-gso-step1-go-batch" class="button button-primary button-small">
                                         <span class="dashicons dashicons-controls-forward" style="font-size:14px;width:14px;height:14px;"></span>
                                         进入批量文章
                                     </button>
                                 </div>
                             </div>
                             
-                            <div id="wpaip-step1-titles-results" class="wpaip-titles-list-container" style="max-height:400px;overflow-y:auto;">
-                                <div class="wpaip-empty">
+                            <div id="yimai-gso-step1-titles-results" class="yimai-gso-titles-list-container" style="max-height:400px;overflow-y:auto;">
+                                <div class="yimai-gso-empty">
                                     <p>✨ 输入关键词，点击「生成热门标题」<br>从生成结果中勾选标题后，直接进入批量文章配置</p>
                                 </div>
                             </div>
@@ -4125,22 +4125,22 @@ class WPAIP_NC8O {
                 </div>
 
                 <!-- 步骤2：批量文章 -->
-                <div class="wpaip-step-content" data-step="2">
+                <div class="yimai-gso-step-content" data-step="2">
 
                     <!-- 批量文章配置（整宽）-->
-                    <div class="wpaip-panel" style="margin-bottom:18px;">
+                    <div class="yimai-gso-panel" style="margin-bottom:18px;">
                         <h2>📦 批量文章配置</h2>
 
                         <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;">
-                            <div class="wpaip-form-group" style="flex:1;min-width:200px;">
+                            <div class="yimai-gso-form-group" style="flex:1;min-width:200px;">
                                 <label>统一标签设置</label>
-                                <input type="text" id="wpaip-batch-tags" class="large-text"
+                                <input type="text" id="yimai-gso-batch-tags" class="large-text"
                                     placeholder="留空则仅使用 AI 自动标签" value="">
                             </div>
 
-                            <div class="wpaip-form-group" style="width:120px;">
+                            <div class="yimai-gso-form-group" style="width:120px;">
                                 <label>每篇字数</label>
-                                <select id="wpaip-batch-word-count">
+                                <select id="yimai-gso-batch-word-count">
                                     <option value="1000" <?php selected( $word_count, 1000 ); ?>>1000 字</option>
                                     <option value="1500">1500 字</option>
                                     <option value="2000">2000 字</option>
@@ -4150,9 +4150,9 @@ class WPAIP_NC8O {
                                 </select>
                             </div>
 
-                            <div class="wpaip-form-group" style="width:100px;">
+                            <div class="yimai-gso-form-group" style="width:100px;">
                                 <label>每篇配图</label>
-                                <select id="wpaip-batch-image-count">
+                                <select id="yimai-gso-batch-image-count">
                                     <option value="0">不配图</option>
                                     <option value="1" <?php selected( $image_count, 1 ); ?>>1 张</option>
                                     <option value="2">2 张</option>
@@ -4161,9 +4161,9 @@ class WPAIP_NC8O {
                                 </select>
                             </div>
 
-                            <div class="wpaip-form-group" style="width:150px;">
+                            <div class="yimai-gso-form-group" style="width:150px;">
                                 <label>文章分类</label>
-                                <select id="wpaip-batch-category">
+                                <select id="yimai-gso-batch-category">
                                     <?php foreach ( $categories as $cat ) : ?>
                                         <option value="<?php echo $cat->term_id; ?>" <?php selected( $default_category, $cat->term_id ); ?>>
                                             <?php echo esc_html( $cat->name );?>
@@ -4174,64 +4174,64 @@ class WPAIP_NC8O {
                         </div>
 
                         <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:12px;">
-                            <div class="wpaip-form-group" style="width:auto;">
-                                <label class="wpaip-toggle-label" id="wpaip-batch-ai-tags-wrap">
-                                    <input type="checkbox" id="wpaip-batch-ai-tags" checked>
-                                    <span class="wpaip-toggle-switch"></span>
-                                    <span class="wpaip-toggle-text">AI 自动生成标签</span>
+                            <div class="yimai-gso-form-group" style="width:auto;">
+                                <label class="yimai-gso-toggle-label" id="yimai-gso-batch-ai-tags-wrap">
+                                    <input type="checkbox" id="yimai-gso-batch-ai-tags" checked>
+                                    <span class="yimai-gso-toggle-switch"></span>
+                                    <span class="yimai-gso-toggle-text">AI 自动生成标签</span>
                                 </label>
                             </div>
                         </div>
 
-                        <div class="wpaip-detect-flow-card" style="margin:16px 0;">
-                            <div class="wpaip-detect-flow-title">发布设置</div>
-                            <div class="wpaip-detect-flow-desc">在这一页直接确定草稿、直接发布或定时发布。选择定时发布时，系统会按起始时间和发布间隔自动排程。</div>
+                        <div class="yimai-gso-detect-flow-card" style="margin:16px 0;">
+                            <div class="yimai-gso-detect-flow-title">发布设置</div>
+                            <div class="yimai-gso-detect-flow-desc">在这一页直接确定草稿、直接发布或定时发布。选择定时发布时，系统会按起始时间和发布间隔自动排程。</div>
                         </div>
 
                         <?php $this->render_batch_schedule_controls(); ?>
 
-                        <div class="wpaip-action-bar" style="margin-top:16px;">
-                            <button type="button" id="wpaip-batch-start-btn" class="button button-primary button-hero wpaip-generate-btn">
+                        <div class="yimai-gso-action-bar" style="margin-top:16px;">
+                            <button type="button" id="yimai-gso-batch-start-btn" class="button button-primary button-hero yimai-gso-generate-btn">
                                 <span class="dashicons dashicons-controls-forward"></span>
                                 开始批量生成
                             </button>
 
-                            <button type="button" id="wpaip-batch-stop-btn" class="button button-hero wpaip-stop-btn" style="display:none;">
+                            <button type="button" id="yimai-gso-batch-stop-btn" class="button button-hero yimai-gso-stop-btn" style="display:none;">
                                 <span class="dashicons dashicons-sticky"></span>
                                 停止批量生成
                             </button>
                         </div>
 
-                        <div id="wpaip-batch-progress" class="wpaip-progress" style="display:none;margin-top:16px;">
-                            <div class="wpaip-progress-bar">
-                                <div class="wpaip-progress-fill wpaip-batch-fill"></div>
+                        <div id="yimai-gso-batch-progress" class="yimai-gso-progress" style="display:none;margin-top:16px;">
+                            <div class="yimai-gso-progress-bar">
+                                <div class="yimai-gso-progress-fill yimai-gso-batch-fill"></div>
                             </div>
-                            <p id="wpaip-batch-progress-text">等待开始批量生成...</p>
+                            <p id="yimai-gso-batch-progress-text">等待开始批量生成...</p>
                         </div>
                     </div>
 
                     <!-- 双栏：提示词/标题列表 | 生成结果 -->
-                    <div class="wpaip-layout" style="display:flex;gap:18px;">
+                    <div class="yimai-gso-layout" style="display:flex;gap:18px;">
                         <!-- 左侧：提示词/标题列表（可编辑） -->
-                        <div class="wpaip-panel" style="width:350px;flex-shrink:0;">
-                            <div class="wpaip-titles-toolbar">
+                        <div class="yimai-gso-panel" style="width:350px;flex-shrink:0;">
+                            <div class="yimai-gso-titles-toolbar">
                                 <h2>📝 提示词 / 标题列表</h2>
                             </div>
-                            <textarea id="wpaip-batch-prompts" class="wpaip-batch-prompts-textarea" rows="15" style="width:100%;min-height:350px;max-height:400px;overflow-y:auto;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;line-height:1.6;resize:vertical;" placeholder="每行一个提示词或标题...&#10;输入后会自动保存到本地存储&#10;&#10;提示：从步骤1导入的标题会显示在这里，可直接编辑"></textarea>
+                            <textarea id="yimai-gso-batch-prompts" class="yimai-gso-batch-prompts-textarea" rows="15" style="width:100%;min-height:350px;max-height:400px;overflow-y:auto;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;line-height:1.6;resize:vertical;" placeholder="每行一个提示词或标题...&#10;输入后会自动保存到本地存储&#10;&#10;提示：从步骤1导入的标题会显示在这里，可直接编辑"></textarea>
                             <p style="font-size:12px;color:#94a3b8;margin-top:8px;">💡 提示：每行一个标题或提示词，支持直接编辑。从步骤1导入的标题也会显示在这里。</p>
                         </div>
 
                         <!-- 右侧：生成结果 -->
-                        <div class="wpaip-panel" style="flex:1;">
-                            <div class="wpaip-titles-toolbar">
-                                <h2>📊 生成结果 <span id="wpaip-batch-counter" class="wpaip-batch-counter" style="display:none;">0/0</span></h2>
+                        <div class="yimai-gso-panel" style="flex:1;">
+                            <div class="yimai-gso-titles-toolbar">
+                                <h2>📊 生成结果 <span id="yimai-gso-batch-counter" class="yimai-gso-batch-counter" style="display:none;">0/0</span></h2>
                             </div>
-                            <div class="wpaip-result-box success" style="margin-bottom:16px;">
+                            <div class="yimai-gso-result-box success" style="margin-bottom:16px;">
                                 当前执行链路：生成文章 → 配图与标签 → 发布 / 定时发布。开始后会在下方实时追加每篇结果。
                             </div>
 
-                            <div id="wpaip-batch-results" style="max-height:400px;overflow-y:auto;">
-                                <div class="wpaip-empty">
+                            <div id="yimai-gso-batch-results" style="max-height:400px;overflow-y:auto;">
+                                <div class="yimai-gso-empty">
                                     <p>在左侧完成批量文章配置后，点击「开始批量生成」即可在这里查看实时结果。</p>
                                 </div>
                             </div>
@@ -4256,286 +4256,286 @@ class WPAIP_NC8O {
 
             <!-- ==================== 标签：AI摘要 ==================== -->
             <?php $excerpt_meta = $this->get_feature_meta( 'batch_excerpt' ); ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'ai-excerpt' ? 'active' : ''; ?>" data-tab="ai-excerpt">
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-editor-paragraph"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">AI智能摘要</h2>
-                        <p class="wpaip-card-desc">自动为文章生成搜索引擎摘要描述，优化搜索结果片段展示，提升点击率</p>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'ai-excerpt' ? 'active' : ''; ?>" data-tab="ai-excerpt">
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-editor-paragraph"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">AI智能摘要</h2>
+                        <p class="yimai-gso-card-desc">自动为文章生成搜索引擎摘要描述，优化搜索结果片段展示，提升点击率</p>
                     </div>
                 </div>
 
 
 
-                <div class="wpaip-panel" style="margin-bottom:20px;">
+                <div class="yimai-gso-panel" style="margin-bottom:20px;">
                     <p style="margin:0 0 8px;color:#64748b;font-size:13px;">
                         为没有摘要的文章自动生成 SEO 友好的智能摘要，同步写入 Yoast / Rank Math / 子比主题的 SEO 描述字段。
                     </p>
                 </div>
 
                 <!-- 搜索和筛选区 -->
-                <div class="wpaip-panel" style="margin-bottom:20px;">
-                    <div class="wpaip-rewrite-search-row">
-                        <input type="search" id="wpaip-ex-search" class="large-text" placeholder="搜索文章标题...">
-                        <select id="wpaip-ex-category">
+                <div class="yimai-gso-panel" style="margin-bottom:20px;">
+                    <div class="yimai-gso-rewrite-search-row">
+                        <input type="search" id="yimai-gso-ex-search" class="large-text" placeholder="搜索文章标题...">
+                        <select id="yimai-gso-ex-category">
                             <option value="0">全部分类</option>
                             <?php foreach ( $this->get_categories_list('raw') as $cat ) : ?>
                                 <option value="<?php echo $cat->term_id; ?>"><?php echo esc_html( $cat->name ); ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <select id="wpaip-ex-status">
+                        <select id="yimai-gso-ex-status">
                             <option value="any">全部状态</option>
                             <option value="publish">已发布</option>
                             <option value="draft">草稿</option>
                             <option value="future">定时发布</option>
                         </select>
-                        <select id="wpaip-ex-filter">
+                        <select id="yimai-gso-ex-filter">
                             <option value="empty">无摘要</option>
                             <option value="has">有摘要</option>
                             <option value="all">全部</option>
                         </select>
-                        <button type="button" id="wpaip-ex-search-btn" class="button button-primary">搜索</button>
+                        <button type="button" id="yimai-gso-ex-search-btn" class="button button-primary">搜索</button>
                     </div>
                 </div>
 
                 <!-- 已选文章列表 -->
-                <div class="wpaip-panel" style="margin-bottom:20px;">
-                    <div class="wpaip-batch-rewrite-selected-header">
-                        <h3 style="margin:0;">已选文章 <span id="wpaip-ex-selected-count" class="wpaip-badge">0</span></h3>
-                        <button type="button" id="wpaip-ex-clear-btn" class="button button-small" style="display:none;">清空选择</button>
+                <div class="yimai-gso-panel" style="margin-bottom:20px;">
+                    <div class="yimai-gso-batch-rewrite-selected-header">
+                        <h3 style="margin:0;">已选文章 <span id="yimai-gso-ex-selected-count" class="yimai-gso-badge">0</span></h3>
+                        <button type="button" id="yimai-gso-ex-clear-btn" class="button button-small" style="display:none;">清空选择</button>
                     </div>
-                    <div id="wpaip-ex-selected-list" class="wpaip-br-selected-list">
+                    <div id="yimai-gso-ex-selected-list" class="yimai-gso-br-selected-list">
                         <p style="color:#999;margin:8px 0;">从下方搜索并勾选需要生成摘要的文章</p>
                     </div>
                 </div>
 
                 <!-- 搜索结果 -->
-                <div class="wpaip-panel" style="margin-bottom:20px;">
+                <div class="yimai-gso-panel" style="margin-bottom:20px;">
                     <h3 style="margin:0 0 12px;">文章列表</h3>
-                    <div id="wpaip-ex-results" class="wpaip-br-results">
-                        <div class="wpaip-empty"><p>输入关键词搜索文章，或直接点击搜索查看无摘要文章</p></div>
+                    <div id="yimai-gso-ex-results" class="yimai-gso-br-results">
+                        <div class="yimai-gso-empty"><p>输入关键词搜索文章，或直接点击搜索查看无摘要文章</p></div>
                     </div>
-                    <div id="wpaip-ex-pagination" style="display:none;" class="wpaip-post-pagination"></div>
+                    <div id="yimai-gso-ex-pagination" style="display:none;" class="yimai-gso-post-pagination"></div>
                 </div>
 
                 <!-- 开始按钮 -->
-                <button type="button" id="wpaip-ex-start-btn" class="button button-primary button-hero wpaip-generate-btn" <?php echo ( empty( $excerpt_meta['available'] ) || ! empty( $excerpt_meta['readonly'] ) ) ? 'disabled' : ''; ?>>
+                <button type="button" id="yimai-gso-ex-start-btn" class="button button-primary button-hero yimai-gso-generate-btn" <?php echo ( empty( $excerpt_meta['available'] ) || ! empty( $excerpt_meta['readonly'] ) ) ? 'disabled' : ''; ?>>
                     <span class="dashicons dashicons-editor-paragraph" style="font-size:18px;width:18px;height:18px;margin:0 6px 0 0;vertical-align:middle;"></span>
                     批量生成AI摘要
                 </button>
 
                 <!-- 进度区域 -->
-                <div id="wpaip-ex-progress" class="wpaip-progress" style="display:none;margin-top:16px;">
-                    <div class="wpaip-progress-bar">
-                        <div id="wpaip-ex-progress-fill" class="wpaip-progress-fill"></div>
+                <div id="yimai-gso-ex-progress" class="yimai-gso-progress" style="display:none;margin-top:16px;">
+                    <div class="yimai-gso-progress-bar">
+                        <div id="yimai-gso-ex-progress-fill" class="yimai-gso-progress-fill"></div>
                     </div>
-                    <p id="wpaip-ex-progress-text">准备中...</p>
+                    <p id="yimai-gso-ex-progress-text">准备中...</p>
                 </div>
 
                 <!-- 结果区域 -->
-                <div id="wpaip-ex-results-area" style="display:none;margin-top:20px;"></div>
+                <div id="yimai-gso-ex-results-area" style="display:none;margin-top:20px;"></div>
             </div>
 
             <!-- ==================== 标签5：内容管理 ==================== -->
-            <div class="wpaip-main-panel <?php echo $active_tab === 'history' ? 'active' : ''; ?>" data-tab="history">
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'history' ? 'active' : ''; ?>" data-tab="history">
 
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-list-view"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">内容管理</h2>
-                        <p class="wpaip-card-desc">查看和管理所有 AI 生成的文章，支持筛选、编辑和批量操作</p>
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-list-view"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">内容管理</h2>
+                        <p class="yimai-gso-card-desc">查看和管理所有 AI 生成的文章，支持筛选、编辑和批量操作</p>
                     </div>
                 </div>
 
                 <!-- 统计卡片 -->
-                <div class="wpaip-dashboard-stats" id="wpaip-history-stats">
-                    <div class="wpaip-stat-card wpaip-stat-primary">
-                        <div class="wpaip-stat-icon">📊</div>
-                        <div class="wpaip-stat-content">
-                            <div class="wpaip-stat-num" data-stat="total">-</div>
-                            <div class="wpaip-stat-label">总文章</div>
+                <div class="yimai-gso-dashboard-stats" id="yimai-gso-history-stats">
+                    <div class="yimai-gso-stat-card yimai-gso-stat-primary">
+                        <div class="yimai-gso-stat-icon">📊</div>
+                        <div class="yimai-gso-stat-content">
+                            <div class="yimai-gso-stat-num" data-stat="total">-</div>
+                            <div class="yimai-gso-stat-label">总文章</div>
                         </div>
                     </div>
-                    <div class="wpaip-stat-card wpaip-stat-success">
-                        <div class="wpaip-stat-icon">✅</div>
-                        <div class="wpaip-stat-content">
-                            <div class="wpaip-stat-num" data-stat="published">-</div>
-                            <div class="wpaip-stat-label">已发布</div>
+                    <div class="yimai-gso-stat-card yimai-gso-stat-success">
+                        <div class="yimai-gso-stat-icon">✅</div>
+                        <div class="yimai-gso-stat-content">
+                            <div class="yimai-gso-stat-num" data-stat="published">-</div>
+                            <div class="yimai-gso-stat-label">已发布</div>
                         </div>
                     </div>
-                    <div class="wpaip-stat-card wpaip-stat-info">
-                        <div class="wpaip-stat-icon">⏰</div>
-                        <div class="wpaip-stat-content">
-                            <div class="wpaip-stat-num" data-stat="scheduled">-</div>
-                            <div class="wpaip-stat-label">定时发布</div>
+                    <div class="yimai-gso-stat-card yimai-gso-stat-info">
+                        <div class="yimai-gso-stat-icon">⏰</div>
+                        <div class="yimai-gso-stat-content">
+                            <div class="yimai-gso-stat-num" data-stat="scheduled">-</div>
+                            <div class="yimai-gso-stat-label">定时发布</div>
                         </div>
                     </div>
-                    <div class="wpaip-stat-card wpaip-stat-warning">
-                        <div class="wpaip-stat-icon">📝</div>
-                        <div class="wpaip-stat-content">
-                            <div class="wpaip-stat-num" data-stat="drafts">-</div>
-                            <div class="wpaip-stat-label">草稿</div>
+                    <div class="yimai-gso-stat-card yimai-gso-stat-warning">
+                        <div class="yimai-gso-stat-icon">📝</div>
+                        <div class="yimai-gso-stat-content">
+                            <div class="yimai-gso-stat-num" data-stat="drafts">-</div>
+                            <div class="yimai-gso-stat-label">草稿</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 筛选区 -->
-                <div class="wpaip-history-filters">
-                    <div class="wpaip-filter-row">
-                        <select id="wpaip-h-status">
+                <div class="yimai-gso-history-filters">
+                    <div class="yimai-gso-filter-row">
+                        <select id="yimai-gso-h-status">
                             <option value="">全部状态</option>
                             <option value="publish">已发布</option>
                             <option value="future">定时发布</option>
                             <option value="draft">草稿</option>
                         </select>
-                        <select id="wpaip-h-source">
+                        <select id="yimai-gso-h-source">
                             <option value="">全部来源</option>
                             <option value="batch">批量生成</option>
                             <option value="manual">手动发布</option>
                         </select>
-                        <input type="date" id="wpaip-h-date-from" class="wpaip-date-input" placeholder="开始日期">
-                        <input type="date" id="wpaip-h-date-to" class="wpaip-date-input" placeholder="结束日期">
-                        <input type="search" id="wpaip-h-search" class="wpaip-search-input" placeholder="搜索标题...">
+                        <input type="date" id="yimai-gso-h-date-from" class="yimai-gso-date-input" placeholder="开始日期">
+                        <input type="date" id="yimai-gso-h-date-to" class="yimai-gso-date-input" placeholder="结束日期">
+                        <input type="search" id="yimai-gso-h-search" class="yimai-gso-search-input" placeholder="搜索标题...">
                     </div>
-                    <div class="wpaip-filter-actions">
-                        <button id="wpaip-h-search-btn" class="button">🔍 搜索</button>
-                        <button id="wpaip-h-reset-btn" class="button">重置</button>
+                    <div class="yimai-gso-filter-actions">
+                        <button id="yimai-gso-h-search-btn" class="button">🔍 搜索</button>
+                        <button id="yimai-gso-h-reset-btn" class="button">重置</button>
                     </div>
                 </div>
 
                 <!-- 文章列表 -->
-                <div class="wpaip-history-list" id="wpaip-history-list">
-                    <div class="wpaip-loading-state">
-                        <span class="wpaip-loading"></span>加载中...
+                <div class="yimai-gso-history-list" id="yimai-gso-history-list">
+                    <div class="yimai-gso-loading-state">
+                        <span class="yimai-gso-loading"></span>加载中...
                     </div>
                 </div>
 
                 <!-- 分页 -->
-                <div class="wpaip-history-pagination" id="wpaip-history-pagination"></div>
+                <div class="yimai-gso-history-pagination" id="yimai-gso-history-pagination"></div>
 
                 <!-- 详情弹窗 -->
-                <div id="wpaip-history-modal" class="wpaip-modal" style="display:none;">
-                    <div class="wpaip-modal-content">
-                        <div class="wpaip-modal-header">
+                <div id="yimai-gso-history-modal" class="yimai-gso-modal" style="display:none;">
+                    <div class="yimai-gso-modal-content">
+                        <div class="yimai-gso-modal-header">
                             <h2>文章详情</h2>
-                            <button class="wpaip-modal-close">&times;</button>
+                            <button class="yimai-gso-modal-close">&times;</button>
                         </div>
-                        <div class="wpaip-modal-body" id="wpaip-modal-body"></div>
+                        <div class="yimai-gso-modal-body" id="yimai-gso-modal-body"></div>
                     </div>
                 </div>
             </div>
 
             <!-- ==================== 标签：结构化数据 ==================== -->
             <?php $schema_meta = $this->get_feature_meta( 'schema_generator' ); ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'schema' ? 'active' : ''; ?>" data-tab="schema">
-                <div id="wpaip-schema-root"
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'schema' ? 'active' : ''; ?>" data-tab="schema">
+                <div id="yimai-gso-schema-root"
                     data-available="<?php echo ! empty( $schema_meta['available'] ) ? '1' : '0'; ?>"
                     data-readonly="<?php echo ! empty( $schema_meta['readonly'] ) ? '1' : '0'; ?>">
-                    <div class="wpaip-page-card-header">
-                        <div class="wpaip-card-icon"><span class="dashicons dashicons-code-standards"></span></div>
-                        <div class="wpaip-card-body">
-                            <h2 class="wpaip-card-title">结构化数据</h2>
-                            <p class="wpaip-card-desc">自动生成 Schema.org JSON-LD 结构化数据（Article/FAQ/HowTo/Breadcrumb），获得搜索结果富摘要</p>
+                    <div class="yimai-gso-page-card-header">
+                        <div class="yimai-gso-card-icon"><span class="dashicons dashicons-code-standards"></span></div>
+                        <div class="yimai-gso-card-body">
+                            <h2 class="yimai-gso-card-title">结构化数据</h2>
+                            <p class="yimai-gso-card-desc">自动生成 Schema.org JSON-LD 结构化数据（Article/FAQ/HowTo/Breadcrumb），获得搜索结果富摘要</p>
                         </div>
                     </div>
 
                     <!-- 统计卡片 -->
-                    <div class="wpaip-seo-score-stats-row">
-                        <div class="wpaip-seo-score-stat-card">
-                            <div class="wpaip-seo-score-stat-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                    <div class="yimai-gso-seo-score-stats-row">
+                        <div class="yimai-gso-seo-score-stat-card">
+                            <div class="yimai-gso-seo-score-stat-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
                                 <span class="dashicons dashicons-code-standards"></span>
                             </div>
-                            <div class="wpaip-seo-score-stat-body">
-                                <div class="wpaip-seo-score-stat-value" id="wpaip-schema-total">-</div>
-                                <div class="wpaip-seo-score-stat-label">已生成Schema</div>
+                            <div class="yimai-gso-seo-score-stat-body">
+                                <div class="yimai-gso-seo-score-stat-value" id="yimai-gso-schema-total">-</div>
+                                <div class="yimai-gso-seo-score-stat-label">已生成Schema</div>
                             </div>
                         </div>
-                        <div class="wpaip-seo-score-stat-card">
-                            <div class="wpaip-seo-score-stat-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a)">
+                        <div class="yimai-gso-seo-score-stat-card">
+                            <div class="yimai-gso-seo-score-stat-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a)">
                                 <span class="dashicons dashicons-media-text"></span>
                             </div>
-                            <div class="wpaip-seo-score-stat-body">
-                                <div class="wpaip-seo-score-stat-value" id="wpaip-schema-article">-</div>
-                                <div class="wpaip-seo-score-stat-label">Article</div>
+                            <div class="yimai-gso-seo-score-stat-body">
+                                <div class="yimai-gso-seo-score-stat-value" id="yimai-gso-schema-article">-</div>
+                                <div class="yimai-gso-seo-score-stat-label">Article</div>
                             </div>
                         </div>
-                        <div class="wpaip-seo-score-stat-card">
-                            <div class="wpaip-seo-score-stat-icon" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">
+                        <div class="yimai-gso-seo-score-stat-card">
+                            <div class="yimai-gso-seo-score-stat-icon" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">
                                 <span class="dashicons dashicons-editor-help"></span>
                             </div>
-                            <div class="wpaip-seo-score-stat-body">
-                                <div class="wpaip-seo-score-stat-value" id="wpaip-schema-faq">-</div>
-                                <div class="wpaip-seo-score-stat-label">FAQPage</div>
+                            <div class="yimai-gso-seo-score-stat-body">
+                                <div class="yimai-gso-seo-score-stat-value" id="yimai-gso-schema-faq">-</div>
+                                <div class="yimai-gso-seo-score-stat-label">FAQPage</div>
                             </div>
                         </div>
-                        <div class="wpaip-seo-score-stat-card">
-                            <div class="wpaip-seo-score-stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+                        <div class="yimai-gso-seo-score-stat-card">
+                            <div class="yimai-gso-seo-score-stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
                                 <span class="dashicons dashicons-list-view"></span>
                             </div>
-                            <div class="wpaip-seo-score-stat-body">
-                                <div class="wpaip-seo-score-stat-value" id="wpaip-schema-howto">-</div>
-                                <div class="wpaip-seo-score-stat-label">HowTo</div>
+                            <div class="yimai-gso-seo-score-stat-body">
+                                <div class="yimai-gso-seo-score-stat-value" id="yimai-gso-schema-howto">-</div>
+                                <div class="yimai-gso-seo-score-stat-label">HowTo</div>
                             </div>
                         </div>
-                        <div class="wpaip-seo-score-stat-card">
-                            <div class="wpaip-seo-score-stat-icon" style="background:linear-gradient(135deg,#ec4899,#db2777)">
+                        <div class="yimai-gso-seo-score-stat-card">
+                            <div class="yimai-gso-seo-score-stat-icon" style="background:linear-gradient(135deg,#ec4899,#db2777)">
                                 <span class="dashicons dashicons-cart"></span>
                             </div>
-                            <div class="wpaip-seo-score-stat-body">
-                                <div class="wpaip-seo-score-stat-value" id="wpaip-schema-product">-</div>
-                                <div class="wpaip-seo-score-stat-label">Product</div>
+                            <div class="yimai-gso-seo-score-stat-body">
+                                <div class="yimai-gso-seo-score-stat-value" id="yimai-gso-schema-product">-</div>
+                                <div class="yimai-gso-seo-score-stat-label">Product</div>
                             </div>
                         </div>
                     </div>
 
                     <!-- 设置区域 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
                         <h3 style="margin:0 0 16px;">Schema 类型开关</h3>
-                        <div class="wpaip-schema-type-toggles">
-                            <label class="wpaip-schema-toggle">
+                        <div class="yimai-gso-schema-type-toggles">
+                            <label class="yimai-gso-schema-toggle">
                                 <input type="checkbox" name="schema_type_article" value="Article" checked>
-                                <span class="wpaip-schema-toggle-label">Article (文章)</span>
+                                <span class="yimai-gso-schema-toggle-label">Article (文章)</span>
                                 <small>所有文章自动生成基本信息+作者+时间</small>
                             </label>
-                            <label class="wpaip-schema-toggle">
+                            <label class="yimai-gso-schema-toggle">
                                 <input type="checkbox" name="schema_type_faq" value="FAQPage" checked>
-                                <span class="wpaip-schema-toggle-label">FAQPage (问答)</span>
+                                <span class="yimai-gso-schema-toggle-label">FAQPage (问答)</span>
                                 <small>检测到问答结构时自动生成FAQ Schema</small>
                             </label>
-                            <label class="wpaip-schema-toggle">
+                            <label class="yimai-gso-schema-toggle">
                                 <input type="checkbox" name="schema_type_howto" value="HowTo" checked>
-                                <span class="wpaip-schema-toggle-label">HowTo (教程)</span>
+                                <span class="yimai-gso-schema-toggle-label">HowTo (教程)</span>
                                 <small>检测到步骤型内容时自动生成HowTo Schema</small>
                             </label>
-                            <label class="wpaip-schema-toggle">
+                            <label class="yimai-gso-schema-toggle">
                                 <input type="checkbox" name="schema_type_product" value="Product" checked>
-                                <span class="wpaip-schema-toggle-label">Product (产品)</span>
+                                <span class="yimai-gso-schema-toggle-label">Product (产品)</span>
                                 <small>检测到产品/价格关键词时自动生成Product Schema，支持Google产品富摘要</small>
                             </label>
-                            <label class="wpaip-schema-toggle">
+                            <label class="yimai-gso-schema-toggle">
                                 <input type="checkbox" name="schema_type_breadcrumb" value="BreadcrumbList" checked>
-                                <span class="wpaip-schema-toggle-label">BreadcrumbList (面包屑)</span>
+                                <span class="yimai-gso-schema-toggle-label">BreadcrumbList (面包屑)</span>
                                 <small>生成面包屑导航结构化数据</small>
                             </label>
                         </div>
                         <div style="margin-top:16px;">
-                            <button type="button" id="wpaip-schema-save-btn" class="button button-primary">保存设置</button>
+                            <button type="button" id="yimai-gso-schema-save-btn" class="button button-primary">保存设置</button>
                         </div>
                     </div>
 
                     <!-- 操作按钮 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
                         <h3 style="margin:0 0 12px;">批量操作</h3>
                         <p style="color:#64748b;font-size:13px;margin:0 0 12px;">对已发布的文章重新检测 Schema 类型（FAQ/HowTo/Article），不会影响已生成的文章内容</p>
-                        <button type="button" id="wpaip-schema-rebuild-btn" class="wpaip-btn-modern-primary">
+                        <button type="button" id="yimai-gso-schema-rebuild-btn" class="yimai-gso-btn-modern-primary">
                             <span class="dashicons dashicons-update" style="font-size:16px;width:16px;height:16px;margin:0 4px 0 0;vertical-align:middle;"></span>
                             重新检测所有文章 Schema 类型
                         </button>
-                        <div id="wpaip-schema-rebuild-result" style="margin-top:12px;"></div>
+                        <div id="yimai-gso-schema-rebuild-result" style="margin-top:12px;"></div>
                     </div>
 
                     <!-- 说明 -->
-                    <div class="wpaip-panel">
+                    <div class="yimai-gso-panel">
                         <h3 style="margin:0 0 12px;">什么是结构化数据？</h3>
                         <div style="color:#475569;font-size:13px;line-height:1.8;">
                             <p style="margin:0 0 8px;">结构化数据(Structured Data)是一种让搜索引擎更好理解你网页内容的标准格式。通过 JSON-LD 标记，你的文章可以获得：</p>
@@ -4552,53 +4552,53 @@ class WPAIP_NC8O {
 
             <!-- ==================== 标签：SEO评分 ==================== -->
             <?php $scorer_meta = $this->get_feature_meta( 'seo_scorer' ); ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'seo-score' ? 'active' : ''; ?>" data-tab="seo-score">
-                <div id="wpaip-seo-scorer-root"
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'seo-score' ? 'active' : ''; ?>" data-tab="seo-score">
+                <div id="yimai-gso-seo-scorer-root"
                     data-available="<?php echo ! empty( $scorer_meta['available'] ) ? '1' : '0'; ?>"
                     data-readonly="<?php echo ! empty( $scorer_meta['readonly'] ) ? '1' : '0'; ?>">
-                    <div class="wpaip-page-card-header">
-                        <div class="wpaip-card-icon"><span class="dashicons dashicons-chart-bar"></span></div>
-                        <div class="wpaip-card-body">
-                            <h2 class="wpaip-card-title">SEO 综合评分</h2>
-                            <p class="wpaip-card-desc">对已发布文章进行 9 维度 SEO 健康度评分（0-100分），发现优化机会并给出改进建议</p>
+                    <div class="yimai-gso-page-card-header">
+                        <div class="yimai-gso-card-icon"><span class="dashicons dashicons-chart-bar"></span></div>
+                        <div class="yimai-gso-card-body">
+                            <h2 class="yimai-gso-card-title">SEO 综合评分</h2>
+                            <p class="yimai-gso-card-desc">对已发布文章进行 9 维度 SEO 健康度评分（0-100分），发现优化机会并给出改进建议</p>
                         </div>
                     </div>
 
                     <!-- 搜索和筛选 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
-                        <div class="wpaip-rewrite-search-row">
-                            <input type="search" id="wpaip-ss-search" class="large-text" placeholder="搜索文章标题...">
-                            <select id="wpaip-ss-category">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
+                        <div class="yimai-gso-rewrite-search-row">
+                            <input type="search" id="yimai-gso-ss-search" class="large-text" placeholder="搜索文章标题...">
+                            <select id="yimai-gso-ss-category">
                                 <option value="0">全部分类</option>
                                 <?php foreach ( $this->get_categories_list('raw') as $cat ) : ?>
                                     <option value="<?php echo $cat->term_id; ?>"><?php echo esc_html( $cat->name ); ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <select id="wpaip-ss-status">
+                            <select id="yimai-gso-ss-status">
                                 <option value="publish">已发布</option>
                                 <option value="any">全部状态</option>
                                 <option value="draft">草稿</option>
                             </select>
-                            <button type="button" id="wpaip-ss-search-btn" class="button button-primary">搜索</button>
+                            <button type="button" id="yimai-gso-ss-search-btn" class="button button-primary">搜索</button>
                         </div>
                     </div>
 
                     <!-- 批量操作按钮 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
-                        <button type="button" id="wpaip-ss-batch-analyze-btn" class="wpaip-btn-modern-primary">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
+                        <button type="button" id="yimai-gso-ss-batch-analyze-btn" class="yimai-gso-btn-modern-primary">
                             <span class="dashicons dashicons-chart-bar" style="font-size:16px;width:16px;height:16px;margin:0 4px 0 0;vertical-align:middle;"></span>
                             批量评分所选文章（SEO+GEO）
                         </button>
                         <small style="margin-left:8px;color:#64748b;">勾选需要评分的文章，一键执行双引擎评分</small>
-                        <div id="wpaip-ss-batch-result" style="margin-top:12px;"></div>
+                        <div id="yimai-gso-ss-batch-result" style="margin-top:12px;"></div>
                     </div>
 
                     <!-- 文章列表 -->
-                    <div class="wpaip-panel">
-                        <table class="widefat striped" id="wpaip-ss-table">
+                    <div class="yimai-gso-panel">
+                        <table class="widefat striped" id="yimai-gso-ss-table">
                             <thead>
                                 <tr>
-                                    <th style="width:40px;"><input type="checkbox" id="wpaip-ss-check-all"></th>
+                                    <th style="width:40px;"><input type="checkbox" id="yimai-gso-ss-check-all"></th>
                                     <th>文章标题</th>
                                     <th style="width:80px;">日期</th>
                                     <th style="width:70px;">SEO评分</th>
@@ -4607,34 +4607,34 @@ class WPAIP_NC8O {
                                     <th style="width:140px;">操作</th>
                                 </tr>
                             </thead>
-                            <tbody id="wpaip-ss-tbody">
-                                <tr><td colspan="7"><div class="wpaip-empty"><p>搜索文章开始评分</p></div></td></tr>
+                            <tbody id="yimai-gso-ss-tbody">
+                                <tr><td colspan="7"><div class="yimai-gso-empty"><p>搜索文章开始评分</p></div></td></tr>
                             </tbody>
                         </table>
-                        <div id="wpaip-ss-pagination" style="display:none;" class="wpaip-post-pagination"></div>
+                        <div id="yimai-gso-ss-pagination" style="display:none;" class="yimai-gso-post-pagination"></div>
                     </div>
 
                     <!-- 单篇分析结果弹窗 - SEO（保留，不变） -->
-                    <div id="wpaip-ss-detail-modal" style="display:none;">
-                        <div class="wpaip-ss-detail-overlay"></div>
-                        <div class="wpaip-ss-detail-content">
-                            <div class="wpaip-ss-detail-header">
-                                <h2 id="wpaip-ss-detail-title">SEO评分详情</h2>
-                                <button type="button" id="wpaip-ss-detail-close" class="button button-small">&times;</button>
+                    <div id="yimai-gso-ss-detail-modal" style="display:none;">
+                        <div class="yimai-gso-ss-detail-overlay"></div>
+                        <div class="yimai-gso-ss-detail-content">
+                            <div class="yimai-gso-ss-detail-header">
+                                <h2 id="yimai-gso-ss-detail-title">SEO评分详情</h2>
+                                <button type="button" id="yimai-gso-ss-detail-close" class="button button-small">&times;</button>
                             </div>
-                            <div class="wpaip-ss-detail-body" id="wpaip-ss-detail-body"></div>
+                            <div class="yimai-gso-ss-detail-body" id="yimai-gso-ss-detail-body"></div>
                         </div>
                     </div>
 
                     <!-- 单篇分析结果弹窗 - GEO（新增） -->
-                    <div id="wpaip-geo-detail-modal" style="display:none;">
-                        <div class="wpaip-geo-detail-overlay"></div>
-                        <div class="wpaip-ss-detail-content" style="max-width:680px;">
-                            <div class="wpaip-ss-detail-header" style="border-bottom-color:#7c3aed;">
-                                <h2 id="wpaip-geo-detail-title" style="color:#7c3aed;">GEO 评分详情</h2>
-                                <button type="button" id="wpaip-geo-detail-close" class="button button-small">&times;</button>
+                    <div id="yimai-gso-geo-detail-modal" style="display:none;">
+                        <div class="yimai-gso-geo-detail-overlay"></div>
+                        <div class="yimai-gso-ss-detail-content" style="max-width:680px;">
+                            <div class="yimai-gso-ss-detail-header" style="border-bottom-color:#7c3aed;">
+                                <h2 id="yimai-gso-geo-detail-title" style="color:#7c3aed;">GEO 评分详情</h2>
+                                <button type="button" id="yimai-gso-geo-detail-close" class="button button-small">&times;</button>
                             </div>
-                            <div class="wpaip-ss-detail-body" id="wpaip-geo-detail-body"></div>
+                            <div class="yimai-gso-ss-detail-body" id="yimai-gso-geo-detail-body"></div>
                         </div>
                     </div>
                 </div>
@@ -4642,39 +4642,39 @@ class WPAIP_NC8O {
 
             <!-- ==================== 标签：标题分析 ==================== -->
             <?php $heading_meta = $this->get_feature_meta( 'heading_analyzer' ); ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'heading' ? 'active' : ''; ?>" data-tab="heading">
-                <div id="wpaip-heading-root"
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'heading' ? 'active' : ''; ?>" data-tab="heading">
+                <div id="yimai-gso-heading-root"
                     data-available="<?php echo ! empty( $heading_meta['available'] ) ? '1' : '0'; ?>"
                     data-readonly="<?php echo ! empty( $heading_meta['readonly'] ) ? '1' : '0'; ?>">
-                    <div class="wpaip-page-card-header">
-                        <div class="wpaip-card-icon"><span class="dashicons dashicons-heading"></span></div>
-                        <div class="wpaip-card-body">
-                            <h2 class="wpaip-card-title">标题结构分析</h2>
-                            <p class="wpaip-card-desc">检测文章 H2/H3 标题层级合理性和关键词覆盖率，提供 AI 智能优化建议</p>
+                    <div class="yimai-gso-page-card-header">
+                        <div class="yimai-gso-card-icon"><span class="dashicons dashicons-heading"></span></div>
+                        <div class="yimai-gso-card-body">
+                            <h2 class="yimai-gso-card-title">标题结构分析</h2>
+                            <p class="yimai-gso-card-desc">检测文章 H2/H3 标题层级合理性和关键词覆盖率，提供 AI 智能优化建议</p>
                         </div>
                     </div>
 
                     <!-- 搜索区域 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
-                        <div class="wpaip-rewrite-search-row">
-                            <input type="search" id="wpaip-ha-search" class="large-text" placeholder="输入文章标题搜索...">
-                            <select id="wpaip-ha-category">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
+                        <div class="yimai-gso-rewrite-search-row">
+                            <input type="search" id="yimai-gso-ha-search" class="large-text" placeholder="输入文章标题搜索...">
+                            <select id="yimai-gso-ha-category">
                                 <option value="0">全部分类</option>
                                 <?php foreach ( $this->get_categories_list('raw') as $cat ) : ?>
                                     <option value="<?php echo $cat->term_id; ?>"><?php echo esc_html( $cat->name ); ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <button type="button" id="wpaip-ha-search-btn" class="button button-primary">搜索</button>
-                            <button type="button" id="wpaip-ha-batch-btn" class="button" style="margin-left:8px;">批量分析所选</button>
+                            <button type="button" id="yimai-gso-ha-search-btn" class="button button-primary">搜索</button>
+                            <button type="button" id="yimai-gso-ha-batch-btn" class="button" style="margin-left:8px;">批量分析所选</button>
                         </div>
                     </div>
 
                     <!-- 文章列表 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
-                        <table class="widefat striped" id="wpaip-ha-table">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
+                        <table class="widefat striped" id="yimai-gso-ha-table">
                             <thead>
                                 <tr>
-                                    <th style="width:36px;"><input type="checkbox" id="wpaip-ha-select-all" title="全选/取消全选"></th>
+                                    <th style="width:36px;"><input type="checkbox" id="yimai-gso-ha-select-all" title="全选/取消全选"></th>
                                     <th>文章标题</th>
                                     <th style="width:70px;">评分</th>
                                     <th style="width:60px;">H2数</th>
@@ -4683,96 +4683,96 @@ class WPAIP_NC8O {
                                     <th style="width:130px;">操作</th>
                                 </tr>
                             </thead>
-                            <tbody id="wpaip-ha-tbody">
-                                <tr><td colspan="7"><div class="wpaip-empty"><p>搜索文章开始分析标题结构</p></div></td></tr>
+                            <tbody id="yimai-gso-ha-tbody">
+                                <tr><td colspan="7"><div class="yimai-gso-empty"><p>搜索文章开始分析标题结构</p></div></td></tr>
                             </tbody>
                         </table>
                     </div>
 
                     <!-- 分析结果区域 -->
-                    <div class="wpaip-panel" id="wpaip-ha-result-panel" style="display:none;">
-                        <div id="wpaip-ha-result"></div>
+                    <div class="yimai-gso-panel" id="yimai-gso-ha-result-panel" style="display:none;">
+                        <div id="yimai-gso-ha-result"></div>
                     </div>
                 </div>
             </div>
 
             <!-- ==================== 标签：Canonical URL 管理 ==================== -->
             <?php $canonical_meta = $this->get_feature_meta( 'canonical_manager' ); ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'canonical' ? 'active' : ''; ?>" data-tab="canonical">
-                <div id="wpaip-canonical-root"
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'canonical' ? 'active' : ''; ?>" data-tab="canonical">
+                <div id="yimai-gso-canonical-root"
                     data-available="<?php echo ! empty( $canonical_meta['available'] ) ? '1' : '0'; ?>"
                     data-readonly="<?php echo ! empty( $canonical_meta['readonly'] ) ? '1' : '0'; ?>"
-                    data-nonce="<?php echo esc_attr( wp_create_nonce( 'wpaip_seo_nonce' ) ); ?>">
-                    <div class="wpaip-page-card-header">
-                        <div class="wpaip-card-icon"><span class="dashicons dashicons-admin-links"></span></div>
-                        <div class="wpaip-card-body">
-                            <h2 class="wpaip-card-title">Canonical URL 管理</h2>
-                            <p class="wpaip-card-desc">管理文章 canonical 标签，防止重复内容问题，支持跨站转载自定义 canonical</p>
+                    data-nonce="<?php echo esc_attr( wp_create_nonce( 'yimai_gso_seo_nonce' ) ); ?>">
+                    <div class="yimai-gso-page-card-header">
+                        <div class="yimai-gso-card-icon"><span class="dashicons dashicons-admin-links"></span></div>
+                        <div class="yimai-gso-card-body">
+                            <h2 class="yimai-gso-card-title">Canonical URL 管理</h2>
+                            <p class="yimai-gso-card-desc">管理文章 canonical 标签，防止重复内容问题，支持跨站转载自定义 canonical</p>
                         </div>
                     </div>
 
                     <!-- 统计卡片 -->
-                    <div class="wpaip-seo-push-stats-row" style="margin-bottom:20px">
-                        <div class="wpaip-seo-push-stat-card">
-                            <div class="wpaip-seo-push-stat-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">
+                    <div class="yimai-gso-seo-push-stats-row" style="margin-bottom:20px">
+                        <div class="yimai-gso-seo-push-stat-card">
+                            <div class="yimai-gso-seo-push-stat-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)">
                                 <span class="dashicons dashicons-admin-links"></span>
                             </div>
-                            <div class="wpaip-seo-push-stat-info">
-                                <div class="wpaip-seo-push-stat-value" id="wpaip-cm-total">-</div>
-                                <div class="wpaip-seo-push-stat-label">已发布文章</div>
+                            <div class="yimai-gso-seo-push-stat-info">
+                                <div class="yimai-gso-seo-push-stat-value" id="yimai-gso-cm-total">-</div>
+                                <div class="yimai-gso-seo-push-stat-label">已发布文章</div>
                             </div>
                         </div>
-                        <div class="wpaip-seo-push-stat-card">
-                            <div class="wpaip-seo-push-stat-icon" style="background:linear-gradient(135deg,#10b981,#059669)">
+                        <div class="yimai-gso-seo-push-stat-card">
+                            <div class="yimai-gso-seo-push-stat-icon" style="background:linear-gradient(135deg,#10b981,#059669)">
                                 <span class="dashicons dashicons-yes-alt"></span>
                             </div>
-                            <div class="wpaip-seo-push-stat-info">
-                                <div class="wpaip-seo-push-stat-value" id="wpaip-cm-default">-</div>
-                                <div class="wpaip-seo-push-stat-label">默认 canonical</div>
+                            <div class="yimai-gso-seo-push-stat-info">
+                                <div class="yimai-gso-seo-push-stat-value" id="yimai-gso-cm-default">-</div>
+                                <div class="yimai-gso-seo-push-stat-label">默认 canonical</div>
                             </div>
                         </div>
-                        <div class="wpaip-seo-push-stat-card">
-                            <div class="wpaip-seo-push-stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+                        <div class="yimai-gso-seo-push-stat-card">
+                            <div class="yimai-gso-seo-push-stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
                                 <span class="dashicons dashicons-edit"></span>
                             </div>
-                            <div class="wpaip-seo-push-stat-info">
-                                <div class="wpaip-seo-push-stat-value" id="wpaip-cm-custom">-</div>
-                                <div class="wpaip-seo-push-stat-label">自定义 canonical</div>
+                            <div class="yimai-gso-seo-push-stat-info">
+                                <div class="yimai-gso-seo-push-stat-value" id="yimai-gso-cm-custom">-</div>
+                                <div class="yimai-gso-seo-push-stat-label">自定义 canonical</div>
                             </div>
                         </div>
-                        <div class="wpaip-seo-push-stat-card">
-                            <div class="wpaip-seo-push-stat-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">
+                        <div class="yimai-gso-seo-push-stat-card">
+                            <div class="yimai-gso-seo-push-stat-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">
                                 <span class="dashicons dashicons-external"></span>
                             </div>
-                            <div class="wpaip-seo-push-stat-info">
-                                <div class="wpaip-seo-push-stat-value" id="wpaip-cm-external">-</div>
-                                <div class="wpaip-seo-push-stat-label">跨站转载</div>
+                            <div class="yimai-gso-seo-push-stat-info">
+                                <div class="yimai-gso-seo-push-stat-value" id="yimai-gso-cm-external">-</div>
+                                <div class="yimai-gso-seo-push-stat-label">跨站转载</div>
                             </div>
                         </div>
                     </div>
 
                     <!-- 搜索区域 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
-                        <div class="wpaip-rewrite-search-row">
-                            <input type="search" id="wpaip-cm-search" class="large-text" placeholder="输入文章标题搜索...">
-                            <select id="wpaip-cm-category">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
+                        <div class="yimai-gso-rewrite-search-row">
+                            <input type="search" id="yimai-gso-cm-search" class="large-text" placeholder="输入文章标题搜索...">
+                            <select id="yimai-gso-cm-category">
                                 <option value="0">全部分类</option>
                                 <?php foreach ( $this->get_categories_list('raw') as $cat ) : ?>
                                     <option value="<?php echo $cat->term_id; ?>"><?php echo esc_html( $cat->name ); ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <select id="wpaip-cm-filter">
+                            <select id="yimai-gso-cm-filter">
                                 <option value="all">全部状态</option>
                                 <option value="custom">仅自定义 canonical</option>
                                 <option value="none">仅默认 canonical</option>
                             </select>
-                            <button type="button" id="wpaip-cm-search-btn" class="button button-primary">扫描</button>
+                            <button type="button" id="yimai-gso-cm-search-btn" class="button button-primary">扫描</button>
                         </div>
                     </div>
 
                     <!-- 文章列表 -->
-                    <div class="wpaip-panel" style="margin-bottom:20px;">
-                        <table class="widefat striped" id="wpaip-cm-table">
+                    <div class="yimai-gso-panel" style="margin-bottom:20px;">
+                        <table class="widefat striped" id="yimai-gso-cm-table">
                             <thead>
                                 <tr>
                                     <th style="width:40%">文章标题</th>
@@ -4782,148 +4782,148 @@ class WPAIP_NC8O {
                                     <th style="width:5%">操作</th>
                                 </tr>
                             </thead>
-                            <tbody id="wpaip-cm-tbody">
-                                <tr><td colspan="5"><div class="wpaip-empty"><p>点击"扫描"开始检查文章的 Canonical URL 状态</p></div></td></tr>
+                            <tbody id="yimai-gso-cm-tbody">
+                                <tr><td colspan="5"><div class="yimai-gso-empty"><p>点击"扫描"开始检查文章的 Canonical URL 状态</p></div></td></tr>
                             </tbody>
                         </table>
-                        <div class="wpaip-sp-pagination" id="wpaip-cm-pagination" style="padding:12px;display:flex;align-items:center;gap:8px;justify-content:center"></div>
+                        <div class="yimai-gso-sp-pagination" id="yimai-gso-cm-pagination" style="padding:12px;display:flex;align-items:center;gap:8px;justify-content:center"></div>
                     </div>
                 </div>
             </div>
 
             <!-- ==================== 标签：404 页面优化 ==================== -->
             <?php $optimizer_404_meta = $this->get_feature_meta( 'seo_push' ); ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'optimizer-404' ? 'active' : ''; ?>" data-tab="optimizer-404">
-                <div id="wpaip-404-root"
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'optimizer-404' ? 'active' : ''; ?>" data-tab="optimizer-404">
+                <div id="yimai-gso-404-root"
                     data-available="<?php echo ! empty( $optimizer_404_meta['available'] ) ? '1' : '0'; ?>"
                     data-readonly="<?php echo ! empty( $optimizer_404_meta['readonly'] ) ? '1' : '0'; ?>"
-                    data-nonce="<?php echo esc_attr( wp_create_nonce( 'wpaip_seo_nonce' ) ); ?>">
+                    data-nonce="<?php echo esc_attr( wp_create_nonce( 'yimai_gso_seo_nonce' ) ); ?>">
 
                     <!-- ====== 页面标题 ====== -->
-                    <div class="wpaip-page-card-header">
-                        <div class="wpaip-card-icon"><span class="dashicons dashicons-warning"></span></div>
-                        <div class="wpaip-card-body">
-                            <h2 class="wpaip-card-title">404 页面优化</h2>
-                            <p class="wpaip-card-desc">检测站内死链、智能推荐重定向、一键修复内容死链、自定义用户友好的404页面</p>
+                    <div class="yimai-gso-page-card-header">
+                        <div class="yimai-gso-card-icon"><span class="dashicons dashicons-warning"></span></div>
+                        <div class="yimai-gso-card-body">
+                            <h2 class="yimai-gso-card-title">404 页面优化</h2>
+                            <p class="yimai-gso-card-desc">检测站内死链、智能推荐重定向、一键修复内容死链、自定义用户友好的404页面</p>
                         </div>
                     </div>
 
                     <!-- ====== 数据概览卡片 ====== -->
-                    <div class="wpaip-404-stats-overview">
-                        <div class="wpaip-404-stat-card wpaip-404-stat-dead">
-                            <div class="wpaip-404-stat-glow"></div>
-                            <div class="wpaip-404-stat-icon">🔗</div>
-                            <div class="wpaip-404-stat-body">
-                                <div class="wpaip-404-stat-value" id="wpaip-404-total-links">-</div>
-                                <div class="wpaip-404-stat-label">待处理死链</div>
-                                <div class="wpaip-404-stat-delta" id="wpaip-404-delta-dead" style="display:none"></div>
+                    <div class="yimai-gso-404-stats-overview">
+                        <div class="yimai-gso-404-stat-card yimai-gso-404-stat-dead">
+                            <div class="yimai-gso-404-stat-glow"></div>
+                            <div class="yimai-gso-404-stat-icon">🔗</div>
+                            <div class="yimai-gso-404-stat-body">
+                                <div class="yimai-gso-404-stat-value" id="yimai-gso-404-total-links">-</div>
+                                <div class="yimai-gso-404-stat-label">待处理死链</div>
+                                <div class="yimai-gso-404-stat-delta" id="yimai-gso-404-delta-dead" style="display:none"></div>
                             </div>
                         </div>
-                        <div class="wpaip-404-stat-card wpaip-404-stat-hits">
-                            <div class="wpaip-404-stat-glow"></div>
-                            <div class="wpaip-404-stat-icon">👁️</div>
-                            <div class="wpaip-404-stat-body">
-                                <div class="wpaip-404-stat-value" id="wpaip-404-total-hits">0</div>
-                                <div class="wpaip-404-stat-label">总访问量</div>
-                                <div class="wpaip-404-stat-delta" id="wpaip-404-delta-hits" style="display:none"></div>
+                        <div class="yimai-gso-404-stat-card yimai-gso-404-stat-hits">
+                            <div class="yimai-gso-404-stat-glow"></div>
+                            <div class="yimai-gso-404-stat-icon">👁️</div>
+                            <div class="yimai-gso-404-stat-body">
+                                <div class="yimai-gso-404-stat-value" id="yimai-gso-404-total-hits">0</div>
+                                <div class="yimai-gso-404-stat-label">总访问量</div>
+                                <div class="yimai-gso-404-stat-delta" id="yimai-gso-404-delta-hits" style="display:none"></div>
                             </div>
                         </div>
-                        <div class="wpaip-404-stat-card wpaip-404-stat-redirect">
-                            <div class="wpaip-404-stat-glow"></div>
-                            <div class="wpaip-404-stat-icon">↗️</div>
-                            <div class="wpaip-404-stat-body">
-                                <div class="wpaip-404-stat-value" id="wpaip-404-redirect-count">0</div>
-                                <div class="wpaip-404-stat-label">活跃重定向</div>
-                                <div class="wpaip-404-stat-delta neutral" id="wpaip-404-delta-redirect" style="display:none"></div>
+                        <div class="yimai-gso-404-stat-card yimai-gso-404-stat-redirect">
+                            <div class="yimai-gso-404-stat-glow"></div>
+                            <div class="yimai-gso-404-stat-icon">↗️</div>
+                            <div class="yimai-gso-404-stat-body">
+                                <div class="yimai-gso-404-stat-value" id="yimai-gso-404-redirect-count">0</div>
+                                <div class="yimai-gso-404-stat-label">活跃重定向</div>
+                                <div class="yimai-gso-404-stat-delta neutral" id="yimai-gso-404-delta-redirect" style="display:none"></div>
                             </div>
                         </div>
-                        <div class="wpaip-404-stat-card wpaip-404-stat-custom">
-                            <div class="wpaip-404-stat-glow"></div>
-                            <div class="wpaip-404-stat-icon">🎨</div>
-                            <div class="wpaip-404-stat-body">
-                                <div class="wpaip-404-stat-value" id="wpaip-404-custom-status">未启用</div>
-                                <div class="wpaip-404-stat-label">自定义404页面</div>
-                                <div class="wpaip-404-stat-delta neutral" id="wpaip-404-delta-custom" style="display:none"></div>
+                        <div class="yimai-gso-404-stat-card yimai-gso-404-stat-custom">
+                            <div class="yimai-gso-404-stat-glow"></div>
+                            <div class="yimai-gso-404-stat-icon">🎨</div>
+                            <div class="yimai-gso-404-stat-body">
+                                <div class="yimai-gso-404-stat-value" id="yimai-gso-404-custom-status">未启用</div>
+                                <div class="yimai-gso-404-stat-label">自定义404页面</div>
+                                <div class="yimai-gso-404-stat-delta neutral" id="yimai-gso-404-delta-custom" style="display:none"></div>
                             </div>
                         </div>
                     </div>
 
                     <!-- ====== 子标签导航 ====== -->
-                    <div class="wpaip-404-sub-tabs">
-                        <button type="button" class="wpaip-404-sub-tab active" data-subtab="scan">
-                            🔍 死链检测 <span class="wpaip-404-tab-count" id="wpaip-404-scan-badge" style="display:none"></span>
+                    <div class="yimai-gso-404-sub-tabs">
+                        <button type="button" class="yimai-gso-404-sub-tab active" data-subtab="scan">
+                            🔍 死链检测 <span class="yimai-gso-404-tab-count" id="yimai-gso-404-scan-badge" style="display:none"></span>
                         </button>
-                        <button type="button" class="wpaip-404-sub-tab" data-subtab="redirects">
-                            ↗️ 重定向管理 <span class="wpaip-404-tab-count" id="wpaip-404-redirect-badge" style="display:none"></span>
+                        <button type="button" class="yimai-gso-404-sub-tab" data-subtab="redirects">
+                            ↗️ 重定向管理 <span class="yimai-gso-404-tab-count" id="yimai-gso-404-redirect-badge" style="display:none"></span>
                         </button>
-                        <button type="button" class="wpaip-404-sub-tab" data-subtab="custom-page">
+                        <button type="button" class="yimai-gso-404-sub-tab" data-subtab="custom-page">
                             🎨 自定义404页面
                         </button>
-                        <button type="button" class="wpaip-404-sub-tab" data-subtab="settings">
+                        <button type="button" class="yimai-gso-404-sub-tab" data-subtab="settings">
                             ⚙️ 设置
                         </button>
                     </div>
 
                     <!-- ====== 子面板：死链检测 ====== -->
-                    <div class="wpaip-404-sub-panel" data-subpanel="scan">
+                    <div class="yimai-gso-404-sub-panel" data-subpanel="scan">
                         <!-- 功能提示卡片 -->
-                        <div class="wpaip-404-tips-row">
-                            <div class="wpaip-404-tip-card wpaip-404-tip-blue">
-                                <div class="wpaip-404-tip-icon">🔍</div>
+                        <div class="yimai-gso-404-tips-row">
+                            <div class="yimai-gso-404-tip-card yimai-gso-404-tip-blue">
+                                <div class="yimai-gso-404-tip-icon">🔍</div>
                                 <h4>双源扫描</h4>
                                 <p>同时从404访问日志和文章内链中检测死链，覆盖爬虫与用户访问两条路径</p>
                             </div>
-                            <div class="wpaip-404-tip-card wpaip-404-tip-green">
-                                <div class="wpaip-404-tip-icon">💡</div>
+                            <div class="yimai-gso-404-tip-card yimai-gso-404-tip-green">
+                                <div class="yimai-gso-404-tip-icon">💡</div>
                                 <h4>智能建议</h4>
                                 <p>基于4级匹配策略（路径解析→关键词搜索→模糊匹配→热门兜底）推荐最佳重定向目标</p>
                             </div>
-                            <div class="wpaip-404-tip-card wpaip-404-tip-purple">
-                                <div class="wpaip-404-tip-icon">⚡</div>
+                            <div class="yimai-gso-404-tip-card yimai-gso-404-tip-purple">
+                                <div class="yimai-gso-404-tip-icon">⚡</div>
                                 <h4>一键修复</h4>
                                 <p>支持一键创建301重定向、从文章中移除死链保留锚文本、批量应用操作</p>
                             </div>
                         </div>
 
                         <!-- 筛选栏 -->
-                        <div class="wpaip-404-filter-bar">
-                            <div class="wpaip-404-filter-pills">
-                                <button type="button" class="wpaip-404-filter-pill active wpaip-404-source-tab" data-source="logs">📋 404日志</button>
-                                <button type="button" class="wpaip-404-filter-pill wpaip-404-source-tab" data-source="internal">🔗 内链死链</button>
+                        <div class="yimai-gso-404-filter-bar">
+                            <div class="yimai-gso-404-filter-pills">
+                                <button type="button" class="yimai-gso-404-filter-pill active yimai-gso-404-source-tab" data-source="logs">📋 404日志</button>
+                                <button type="button" class="yimai-gso-404-filter-pill yimai-gso-404-source-tab" data-source="internal">🔗 内链死链</button>
                             </div>
-                            <select id="wpaip-404-bot-filter" class="wpaip-404-filter-select">
+                            <select id="yimai-gso-404-bot-filter" class="yimai-gso-404-filter-select">
                                 <option value="all">全部来源</option>
                                 <option value="bot">仅爬虫</option>
                                 <option value="user">仅用户</option>
                             </select>
-                            <select id="wpaip-404-time-filter" class="wpaip-404-filter-select">
+                            <select id="yimai-gso-404-time-filter" class="yimai-gso-404-filter-select">
                                 <option value="all">全部时间</option>
                                 <option value="today">今天</option>
                                 <option value="week">近7天</option>
                                 <option value="month">近30天</option>
                             </select>
-                            <input type="text" id="wpaip-404-search" class="wpaip-404-filter-search" placeholder="搜索路径或关键词...">
-                            <span class="wpaip-404-filter-spacer"></span>
-                            <button type="button" class="wpaip-404-btn" id="wpaip-404-export-csv-btn">📥 导出CSV</button>
-                            <button type="button" class="wpaip-404-btn wpaip-404-btn-danger" id="wpaip-404-clear-btn">🗑️ 清空日志</button>
-                            <button type="button" class="wpaip-404-btn wpaip-404-btn-primary" id="wpaip-404-scan-btn" <?php disabled( empty( $optimizer_404_meta['available'] ), true ); ?>>
+                            <input type="text" id="yimai-gso-404-search" class="yimai-gso-404-filter-search" placeholder="搜索路径或关键词...">
+                            <span class="yimai-gso-404-filter-spacer"></span>
+                            <button type="button" class="yimai-gso-404-btn" id="yimai-gso-404-export-csv-btn">📥 导出CSV</button>
+                            <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-danger" id="yimai-gso-404-clear-btn">🗑️ 清空日志</button>
+                            <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-primary" id="yimai-gso-404-scan-btn" <?php disabled( empty( $optimizer_404_meta['available'] ), true ); ?>>
                                 🔍 开始扫描
                             </button>
                         </div>
 
                         <!-- 扫描进度条 -->
-                        <div class="wpaip-404-scan-progress" id="wpaip-404-scan-progress" style="display:none">
-                            <div class="wpaip-404-scan-progress-bar">
-                                <div class="wpaip-404-scan-progress-fill" id="wpaip-404-scan-fill"></div>
+                        <div class="yimai-gso-404-scan-progress" id="yimai-gso-404-scan-progress" style="display:none">
+                            <div class="yimai-gso-404-scan-progress-bar">
+                                <div class="yimai-gso-404-scan-progress-fill" id="yimai-gso-404-scan-fill"></div>
                             </div>
-                            <div class="wpaip-404-scan-progress-text" id="wpaip-404-scan-text"></div>
+                            <div class="yimai-gso-404-scan-progress-text" id="yimai-gso-404-scan-text"></div>
                         </div>
 
                         <!-- 死链表格 -->
-                        <div class="wpaip-404-panel">
-                            <div class="wpaip-404-panel-body no-padding">
-                                <div class="wpaip-404-table-wrap">
-                                    <table class="wpaip-404-data-table" id="wpaip-404-table">
+                        <div class="yimai-gso-404-panel">
+                            <div class="yimai-gso-404-panel-body no-padding">
+                                <div class="yimai-gso-404-table-wrap">
+                                    <table class="yimai-gso-404-data-table" id="yimai-gso-404-table">
                                         <thead><tr>
                                             <th style="width:22%">死链路径</th>
                                             <th style="width:8%">来源</th>
@@ -4934,139 +4934,139 @@ class WPAIP_NC8O {
                                             <th style="width:10%">来路</th>
                                             <th style="width:15%">操作</th>
                                         </tr></thead>
-                                        <tbody id="wpaip-404-tbody">
-                                            <tr><td colspan="8"><div class="wpaip-404-empty-state"><div class="empty-icon">🔍</div><div class="empty-title">点击「开始扫描」检测站内死链</div></div></td></tr>
+                                        <tbody id="yimai-gso-404-tbody">
+                                            <tr><td colspan="8"><div class="yimai-gso-404-empty-state"><div class="empty-icon">🔍</div><div class="empty-title">点击「开始扫描」检测站内死链</div></div></td></tr>
                                         </tbody>
                                     </table>
                                 </div>
-                                <div id="wpaip-404-pagination" class="wpaip-404-pagination"></div>
+                                <div id="yimai-gso-404-pagination" class="yimai-gso-404-pagination"></div>
                             </div>
                         </div>
                     </div>
 
                     <!-- ====== 子面板：重定向管理 ====== -->
-                    <div class="wpaip-404-sub-panel" data-subpanel="redirects" style="display:none">
-                        <div class="wpaip-404-alert wpaip-404-alert-info">
-                            💡 <strong>提示：</strong>应用重定向后，插件会自动尝试写入 <code>.htaccess</code> / Nginx 配置，同时通过 WordPress 内部重定向兜底。<span id="wpaip-404-server-status"></span>
+                    <div class="yimai-gso-404-sub-panel" data-subpanel="redirects" style="display:none">
+                        <div class="yimai-gso-404-alert yimai-gso-404-alert-info">
+                            💡 <strong>提示：</strong>应用重定向后，插件会自动尝试写入 <code>.htaccess</code> / Nginx 配置，同时通过 WordPress 内部重定向兜底。<span id="yimai-gso-404-server-status"></span>
                         </div>
 
-                        <div class="wpaip-404-filter-bar">
-                            <input type="text" id="wpaip-404-red-search" class="wpaip-404-filter-search" placeholder="搜索重定向规则..." style="width:240px">
-                            <span class="wpaip-404-filter-spacer"></span>
-                            <button type="button" class="wpaip-404-btn" id="wpaip-404-import-csv-btn">📥 导入CSV</button>
-                            <button type="button" class="wpaip-404-btn" id="wpaip-404-export-red-btn">📤 导出CSV</button>
-                            <button type="button" class="wpaip-404-btn wpaip-404-btn-primary" id="wpaip-404-red-refresh-btn">🔄 刷新列表</button>
+                        <div class="yimai-gso-404-filter-bar">
+                            <input type="text" id="yimai-gso-404-red-search" class="yimai-gso-404-filter-search" placeholder="搜索重定向规则..." style="width:240px">
+                            <span class="yimai-gso-404-filter-spacer"></span>
+                            <button type="button" class="yimai-gso-404-btn" id="yimai-gso-404-import-csv-btn">📥 导入CSV</button>
+                            <button type="button" class="yimai-gso-404-btn" id="yimai-gso-404-export-red-btn">📤 导出CSV</button>
+                            <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-primary" id="yimai-gso-404-red-refresh-btn">🔄 刷新列表</button>
                         </div>
 
-                        <div class="wpaip-404-panel">
-                            <div class="wpaip-404-panel-body no-padding">
-                                <div class="wpaip-404-table-wrap">
-                                    <table class="wpaip-404-data-table" id="wpaip-404-red-table">
+                        <div class="yimai-gso-404-panel">
+                            <div class="yimai-gso-404-panel-body no-padding">
+                                <div class="yimai-gso-404-table-wrap">
+                                    <table class="yimai-gso-404-data-table" id="yimai-gso-404-red-table">
                                         <thead><tr>
-                                            <th style="width:8%"><input type="checkbox" id="wpaip-404-red-check-all"></th>
+                                            <th style="width:8%"><input type="checkbox" id="yimai-gso-404-red-check-all"></th>
                                             <th style="width:24%">来源路径</th>
-                                            <th style="width:4%" class="wpaip-404-arrow-col"></th>
+                                            <th style="width:4%" class="yimai-gso-404-arrow-col"></th>
                                             <th style="width:24%">目标URL</th>
                                             <th style="width:12%">状态</th>
                                             <th style="width:12%">更新时间</th>
                                             <th style="width:16%">操作</th>
                                         </tr></thead>
-                                        <tbody id="wpaip-404-red-tbody">
-                                            <tr><td colspan="7"><div class="wpaip-404-empty-state"><div class="empty-icon">↗️</div><div class="empty-title">暂无重定向规则</div><div class="empty-desc">在死链检测中应用建议即可自动创建</div></div></td></tr>
+                                        <tbody id="yimai-gso-404-red-tbody">
+                                            <tr><td colspan="7"><div class="yimai-gso-404-empty-state"><div class="empty-icon">↗️</div><div class="empty-title">暂无重定向规则</div><div class="empty-desc">在死链检测中应用建议即可自动创建</div></div></td></tr>
                                         </tbody>
                                     </table>
                                 </div>
-                                <div class="wpaip-404-batch-bar" id="wpaip-404-batch-bar" style="display:none">
-                                    <button type="button" class="wpaip-404-btn wpaip-404-btn-danger" id="wpaip-404-red-batch-delete">🗑️ 批量删除选中</button>
-                                    <span class="wpaip-404-batch-count">已选 <span id="wpaip-404-batch-count">0</span> 条</span>
+                                <div class="yimai-gso-404-batch-bar" id="yimai-gso-404-batch-bar" style="display:none">
+                                    <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-danger" id="yimai-gso-404-red-batch-delete">🗑️ 批量删除选中</button>
+                                    <span class="yimai-gso-404-batch-count">已选 <span id="yimai-gso-404-batch-count">0</span> 条</span>
                                 </div>
-                                <div id="wpaip-404-red-pagination" class="wpaip-404-pagination"></div>
+                                <div id="yimai-gso-404-red-pagination" class="yimai-gso-404-pagination"></div>
                             </div>
                         </div>
 
                         <!-- CSV导入弹窗（隐藏） -->
-                        <div id="wpaip-404-import-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;align-items:center;justify-content:center">
-                            <div class="wpaip-404-modal-box">
-                                <div class="wpaip-404-modal-header">
+                        <div id="yimai-gso-404-import-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;align-items:center;justify-content:center">
+                            <div class="yimai-gso-404-modal-box">
+                                <div class="yimai-gso-404-modal-header">
                                     <h3>导入重定向 CSV</h3>
-                                    <button type="button" class="wpaip-404-modal-close">✕</button>
+                                    <button type="button" class="yimai-gso-404-modal-close">✕</button>
                                 </div>
-                                <div class="wpaip-404-modal-body">
+                                <div class="yimai-gso-404-modal-body">
                                     <p style="color:#64748b;font-size:12px;margin-bottom:12px">格式：来源路径,目标URL[,标题] (每行一条)</p>
-                                    <textarea id="wpaip-404-import-csv" rows="8" style="width:100%;font-family:monospace;font-size:12px" placeholder="/old-page,/new-page,新页面标题
+                                    <textarea id="yimai-gso-404-import-csv" rows="8" style="width:100%;font-family:monospace;font-size:12px" placeholder="/old-page,/new-page,新页面标题
 /article-123,/article-456,替代文章"></textarea>
                                 </div>
-                                <div class="wpaip-404-modal-footer">
-                                    <button type="button" class="wpaip-404-btn" id="wpaip-404-import-cancel">取消</button>
-                                    <button type="button" class="wpaip-404-btn wpaip-404-btn-primary" id="wpaip-404-import-submit">导入</button>
+                                <div class="yimai-gso-404-modal-footer">
+                                    <button type="button" class="yimai-gso-404-btn" id="yimai-gso-404-import-cancel">取消</button>
+                                    <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-primary" id="yimai-gso-404-import-submit">导入</button>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- ====== 子面板：自定义404页面 ====== -->
-                    <div class="wpaip-404-sub-panel" data-subpanel="custom-page" style="display:none">
-                        <div class="wpaip-404-alert wpaip-404-alert-success" id="wpaip-404-custom-alert" style="display:none">
+                    <div class="yimai-gso-404-sub-panel" data-subpanel="custom-page" style="display:none">
+                        <div class="yimai-gso-404-alert yimai-gso-404-alert-success" id="yimai-gso-404-custom-alert" style="display:none">
                             ✅ 自定义404页面已启用。当访客访问不存在的页面时，将显示您自定义的友好页面，而非主题默认的404模板。
                         </div>
 
-                        <div class="wpaip-404-custom-layout">
+                        <div class="yimai-gso-404-custom-layout">
                             <!-- 左侧：操作面板 -->
-                            <div class="wpaip-404-panel">
-                                <div class="wpaip-404-panel-header">
+                            <div class="yimai-gso-404-panel">
+                                <div class="yimai-gso-404-panel-header">
                                     <h3>🎨 自定义 404 页面</h3>
-                                    <button type="button" class="wpaip-404-btn wpaip-404-btn-primary" id="wpaip-404-gen-btn">🔄 生成 404 页面</button>
+                                    <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-primary" id="yimai-gso-404-gen-btn">🔄 生成 404 页面</button>
                                 </div>
-                                <div class="wpaip-404-panel-body">
+                                <div class="yimai-gso-404-panel-body">
                                     <p style="font-size:13px;color:#64748b;margin-bottom:20px">
                                         自动生成一个包含搜索框、最新文章列表和分类导航的用户友好404页面。<strong>启用后将完全替换主题的404模板</strong>，并智能推荐与请求URL相关的文章。
                                     </p>
 
-                                    <div class="wpaip-404-gen-result" id="wpaip-404-gen-result" style="display:none">
+                                    <div class="yimai-gso-404-gen-result" id="yimai-gso-404-gen-result" style="display:none">
                                         <div style="margin-bottom:12px;display:flex;gap:8px">
-                                            <button type="button" class="wpaip-404-btn" id="wpaip-404-copy-btn">📋 复制HTML代码</button>
-                                            <a id="wpaip-404-preview-link" href="#" target="_blank" class="wpaip-404-btn">🔗 预览效果</a>
+                                            <button type="button" class="yimai-gso-404-btn" id="yimai-gso-404-copy-btn">📋 复制HTML代码</button>
+                                            <a id="yimai-gso-404-preview-link" href="#" target="_blank" class="yimai-gso-404-btn">🔗 预览效果</a>
                                         </div>
-                                        <textarea id="wpaip-404-html" readonly style="width:100%;height:200px;font-family:monospace;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;resize:vertical"></textarea>
+                                        <textarea id="yimai-gso-404-html" readonly style="width:100%;height:200px;font-family:monospace;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;resize:vertical"></textarea>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- 右侧：404 页面预览 -->
                             <div>
-                                <div class="wpaip-404-preview-label">📱 实时预览</div>
-                                <div class="wpaip-404-preview-card">
-                                    <div class="wpaip-404-preview-toolbar">
-                                        <span class="wpaip-404-preview-dot r"></span>
-                                        <span class="wpaip-404-preview-dot y"></span>
-                                        <span class="wpaip-404-preview-dot g"></span>
-                                        <span class="wpaip-404-preview-url"><?php echo esc_html( home_url( '/this-page-does-not-exist' ) ); ?></span>
+                                <div class="yimai-gso-404-preview-label">📱 实时预览</div>
+                                <div class="yimai-gso-404-preview-card">
+                                    <div class="yimai-gso-404-preview-toolbar">
+                                        <span class="yimai-gso-404-preview-dot r"></span>
+                                        <span class="yimai-gso-404-preview-dot y"></span>
+                                        <span class="yimai-gso-404-preview-dot g"></span>
+                                        <span class="yimai-gso-404-preview-url"><?php echo esc_html( home_url( '/this-page-does-not-exist' ) ); ?></span>
                                     </div>
-                                    <div class="wpaip-404-preview-content">
-                                        <div class="wpaip-404-preview-404">404</div>
-                                        <div class="wpaip-404-preview-subtitle">页面未找到</div>
-                                        <div class="wpaip-404-preview-desc">您访问的页面可能已被移动、删除或从未存在</div>
-                                        <div class="wpaip-404-preview-search">
+                                    <div class="yimai-gso-404-preview-content">
+                                        <div class="yimai-gso-404-preview-404">404</div>
+                                        <div class="yimai-gso-404-preview-subtitle">页面未找到</div>
+                                        <div class="yimai-gso-404-preview-desc">您访问的页面可能已被移动、删除或从未存在</div>
+                                        <div class="yimai-gso-404-preview-search">
                                             <input type="text" placeholder="搜索站内内容..." disabled>
                                             <button disabled>搜索</button>
                                         </div>
-                                        <div class="wpaip-404-preview-links">
+                                        <div class="yimai-gso-404-preview-links">
                                             <a href="#">← 返回首页</a>
                                             <a href="#">📧 联系我们</a>
                                         </div>
-                                        <div class="wpaip-404-preview-suggestions">
-                                            <div class="wpaip-404-preview-suggest-title">您可能正在找</div>
-                                            <div class="wpaip-404-preview-suggest-item">
+                                        <div class="yimai-gso-404-preview-suggestions">
+                                            <div class="yimai-gso-404-preview-suggest-title">您可能正在找</div>
+                                            <div class="yimai-gso-404-preview-suggest-item">
                                                 <span>热门文章推荐</span>
-                                                <span class="wpaip-404-preview-suggest-score">92%</span>
+                                                <span class="yimai-gso-404-preview-suggest-score">92%</span>
                                             </div>
-                                            <div class="wpaip-404-preview-suggest-item">
+                                            <div class="yimai-gso-404-preview-suggest-item">
                                                 <span>相关分类内容</span>
-                                                <span class="wpaip-404-preview-suggest-score">85%</span>
+                                                <span class="yimai-gso-404-preview-suggest-score">85%</span>
                                             </div>
-                                            <div class="wpaip-404-preview-suggest-item">
+                                            <div class="yimai-gso-404-preview-suggest-item">
                                                 <span>最新发布文章</span>
-                                                <span class="wpaip-404-preview-suggest-score">78%</span>
+                                                <span class="yimai-gso-404-preview-suggest-score">78%</span>
                                             </div>
                                         </div>
                                     </div>
@@ -5076,74 +5076,74 @@ class WPAIP_NC8O {
                     </div>
 
                     <!-- ====== 子面板：设置 ====== -->
-                    <div class="wpaip-404-sub-panel" data-subpanel="settings" style="display:none">
-                        <div class="wpaip-404-panel" style="margin-bottom:16px">
-                            <div class="wpaip-404-panel-header">
+                    <div class="yimai-gso-404-sub-panel" data-subpanel="settings" style="display:none">
+                        <div class="yimai-gso-404-panel" style="margin-bottom:16px">
+                            <div class="yimai-gso-404-panel-header">
                                 <h3>⚙️ 功能开关</h3>
                             </div>
-                            <div class="wpaip-404-panel-body">
-                                <div class="wpaip-404-setting-card">
-                                    <label class="wpaip-404-toggle">
-                                        <input type="checkbox" id="wpaip-404-setting-log" name="log_enabled" <?php checked( WPAIP_9XCU::get( 'optimize_404_log_enabled', 1 ), 1 ); ?>>
-                                        <span class="wpaip-404-toggle-track"><span class="wpaip-404-toggle-thumb"></span></span>
+                            <div class="yimai-gso-404-panel-body">
+                                <div class="yimai-gso-404-setting-card">
+                                    <label class="yimai-gso-404-toggle">
+                                        <input type="checkbox" id="yimai-gso-404-setting-log" name="log_enabled" <?php checked( YIMAI_GSO_Settings::get( 'optimize_404_log_enabled', 1 ), 1 ); ?>>
+                                        <span class="yimai-gso-404-toggle-track"><span class="yimai-gso-404-toggle-thumb"></span></span>
                                     </label>
-                                    <div class="wpaip-404-setting-info">
+                                    <div class="yimai-gso-404-setting-info">
                                         <h4>启用 404 访问日志记录</h4>
                                         <p>记录所有404请求的URL、来源、User-Agent和访问时间。日志上限 500 条，超限自动清理最早记录。</p>
                                     </div>
                                 </div>
 
-                                <div class="wpaip-404-setting-card">
-                                    <label class="wpaip-404-toggle">
-                                        <input type="checkbox" id="wpaip-404-setting-custom" name="custom_enabled" <?php checked( WPAIP_9XCU::get( 'optimize_404_custom_enabled', 0 ), 1 ); ?>>
-                                        <span class="wpaip-404-toggle-track"><span class="wpaip-404-toggle-thumb"></span></span>
+                                <div class="yimai-gso-404-setting-card">
+                                    <label class="yimai-gso-404-toggle">
+                                        <input type="checkbox" id="yimai-gso-404-setting-custom" name="custom_enabled" <?php checked( YIMAI_GSO_Settings::get( 'optimize_404_custom_enabled', 0 ), 1 ); ?>>
+                                        <span class="yimai-gso-404-toggle-track"><span class="yimai-gso-404-toggle-thumb"></span></span>
                                     </label>
-                                    <div class="wpaip-404-setting-info">
+                                    <div class="yimai-gso-404-setting-info">
                                         <h4>启用自定义404页面</h4>
                                         <p>用插件生成的友好404页面替换主题默认404模板。包含搜索框、最新文章、分类导航和智能推荐。<span style="color:#f59e0b">⚠ 此操作会 hook <code>template_include</code> 替换主题渲染</span></p>
                                     </div>
                                 </div>
 
-                                <div class="wpaip-404-setting-card">
-                                    <label class="wpaip-404-toggle">
-                                        <input type="checkbox" id="wpaip-404-setting-auto-redirect" name="auto_redirect" <?php checked( WPAIP_9XCU::get( 'optimize_404_auto_redirect', 0 ), 1 ); ?>>
-                                        <span class="wpaip-404-toggle-track"><span class="wpaip-404-toggle-thumb"></span></span>
+                                <div class="yimai-gso-404-setting-card">
+                                    <label class="yimai-gso-404-toggle">
+                                        <input type="checkbox" id="yimai-gso-404-setting-auto-redirect" name="auto_redirect" <?php checked( YIMAI_GSO_Settings::get( 'optimize_404_auto_redirect', 0 ), 1 ); ?>>
+                                        <span class="yimai-gso-404-toggle-track"><span class="yimai-gso-404-toggle-thumb"></span></span>
                                     </label>
-                                    <div class="wpaip-404-setting-info">
+                                    <div class="yimai-gso-404-setting-info">
                                         <h4>自动应用重定向建议</h4>
                                         <p>当智能匹配得分 ≥ 80 分时，自动创建 301 重定向并写入服务器配置。<span style="color:#64748b">建议先手动审核后再启用</span></p>
                                     </div>
                                 </div>
 
                                 <div style="margin-top:12px">
-                                    <button type="button" class="wpaip-404-btn wpaip-404-btn-primary" id="wpaip-404-save-settings-btn">💾 保存设置</button>
-                                    <span id="wpaip-404-settings-msg" style="margin-left:8px;font-size:12px;color:#10b981;display:none">✅ 已保存</span>
+                                    <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-primary" id="yimai-gso-404-save-settings-btn">💾 保存设置</button>
+                                    <span id="yimai-gso-404-settings-msg" style="margin-left:8px;font-size:12px;color:#10b981;display:none">✅ 已保存</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="wpaip-404-panel">
-                            <div class="wpaip-404-panel-header">
+                        <div class="yimai-gso-404-panel">
+                            <div class="yimai-gso-404-panel-header">
                                 <h3>🚫 忽略规则</h3>
                             </div>
-                            <div class="wpaip-404-panel-body">
+                            <div class="yimai-gso-404-panel-body">
                                 <p style="font-size:12px;color:#64748b;margin-bottom:12px">
                                     每行一个正则表达式，匹配的URL不会被记录到404日志。适用于 <code>/wp-json/</code>、<code>/wp-admin/</code> 等系统路径。
                                 </p>
-                                <textarea id="wpaip-404-ignore-rules" rows="5" style="width:100%;font-family:monospace;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;resize:vertical"><?php echo esc_textarea( WPAIP_9XCU::get( 'optimize_404_ignore_rules', '' ) ); ?></textarea>
-                                <div class="wpaip-404-quick-add" style="margin-top:10px">
+                                <textarea id="yimai-gso-404-ignore-rules" rows="5" style="width:100%;font-family:monospace;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;resize:vertical"><?php echo esc_textarea( YIMAI_GSO_Settings::get( 'optimize_404_ignore_rules', '' ) ); ?></textarea>
+                                <div class="yimai-gso-404-quick-add" style="margin-top:10px">
                                     <span style="font-size:11px;color:#94a3b8;line-height:2">快速添加：</span>
-                                    <span class="wpaip-404-quick-tag">/wp-json/</span>
-                                    <span class="wpaip-404-quick-tag">/wp-admin/</span>
-                                    <span class="wpaip-404-quick-tag">/xmlrpc.php</span>
-                                    <span class="wpaip-404-quick-tag">/favicon.ico</span>
-                                    <span class="wpaip-404-quick-tag">/.well-known/</span>
-                                    <span class="wpaip-404-quick-tag">/\.php$</span>
-                                    <span class="wpaip-404-quick-tag">/\.map$</span>
+                                    <span class="yimai-gso-404-quick-tag">/wp-json/</span>
+                                    <span class="yimai-gso-404-quick-tag">/wp-admin/</span>
+                                    <span class="yimai-gso-404-quick-tag">/xmlrpc.php</span>
+                                    <span class="yimai-gso-404-quick-tag">/favicon.ico</span>
+                                    <span class="yimai-gso-404-quick-tag">/.well-known/</span>
+                                    <span class="yimai-gso-404-quick-tag">/\.php$</span>
+                                    <span class="yimai-gso-404-quick-tag">/\.map$</span>
                                 </div>
                                 <div style="margin-top:12px">
-                                    <button type="button" class="wpaip-404-btn wpaip-404-btn-primary" id="wpaip-404-save-ignore-btn">💾 保存忽略规则</button>
-                                    <span id="wpaip-404-ignore-msg" style="margin-left:8px;font-size:12px;color:#10b981;display:none">✅ 已保存</span>
+                                    <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-primary" id="yimai-gso-404-save-ignore-btn">💾 保存忽略规则</button>
+                                    <span id="yimai-gso-404-ignore-msg" style="margin-left:8px;font-size:12px;color:#10b981;display:none">✅ 已保存</span>
                                 </div>
                             </div>
                         </div>
@@ -5153,208 +5153,208 @@ class WPAIP_NC8O {
 
             <!-- ==================== 标签：SEO推送 ==================== -->
             <?php $seo_push_meta = $this->get_feature_meta( 'seo_push' ); ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'seo-push' ? 'active' : ''; ?>" data-tab="seo-push">
-                <div id="wpaip-seo-push-root"
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'seo-push' ? 'active' : ''; ?>" data-tab="seo-push">
+                <div id="yimai-gso-seo-push-root"
                     data-available="<?php echo ! empty( $seo_push_meta['available'] ) ? '1' : '0'; ?>"
                     data-readonly="<?php echo ! empty( $seo_push_meta['readonly'] ) ? '1' : '0'; ?>">
                 <?php
                 // 获取当前激活的推送子标签（默认 config）
                 $active_push_tab = isset( $_GET['sp_tab'] ) ? sanitize_text_field( $_GET['sp_tab'] ) : 'config';
                 ?>
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-share-alt2"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">SEO推送</h2>
-                        <p class="wpaip-card-desc">管理百度/必应/Google/360 搜索引擎主动推送、Sitemap 生成与推送日志</p>
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-share-alt2"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">SEO推送</h2>
+                        <p class="yimai-gso-card-desc">管理百度/必应/Google/360 搜索引擎主动推送、Sitemap 生成与推送日志</p>
                     </div>
                 </div>
-                <div class="wpaip-seo-push-header">
-                    <div class="wpaip-seo-push-header-left" style="display:none">
-                        <h1 class="wpaip-page-title">
+                <div class="yimai-gso-seo-push-header">
+                    <div class="yimai-gso-seo-push-header-left" style="display:none">
+                        <h1 class="yimai-gso-page-title">
                             <span class="dashicons dashicons-share-alt2"></span>
                             SEO推送设置
                         </h1>
-                        <p class="wpaip-seo-push-desc">管理搜索引擎主动推送、Sitemap生成与推送日志，加快内容收录</p>
+                        <p class="yimai-gso-seo-push-desc">管理搜索引擎主动推送、Sitemap生成与推送日志，加快内容收录</p>
                     </div>
-                    <div class="wpaip-seo-push-header-right">
+                    <div class="yimai-gso-seo-push-header-right">
                     </div>
                 </div>
 
                 <!-- 推送统计卡片 -->
-                <div class="wpaip-seo-push-stats-row">
-                    <div class="wpaip-seo-push-stat-card">
-                        <div class="wpaip-seo-push-stat-icon" style="background:linear-gradient(135deg,#4caf50,#2e7d32)">
+                <div class="yimai-gso-seo-push-stats-row">
+                    <div class="yimai-gso-seo-push-stat-card">
+                        <div class="yimai-gso-seo-push-stat-icon" style="background:linear-gradient(135deg,#4caf50,#2e7d32)">
                             <span class="dashicons dashicons-search"></span>
                         </div>
-                        <div class="wpaip-seo-push-stat-info">
-                            <div class="wpaip-seo-push-stat-value" id="wpaip-sp-baidu-count">-</div>
-                            <div class="wpaip-seo-push-stat-label">百度推送成功</div>
+                        <div class="yimai-gso-seo-push-stat-info">
+                            <div class="yimai-gso-seo-push-stat-value" id="yimai-gso-sp-baidu-count">-</div>
+                            <div class="yimai-gso-seo-push-stat-label">百度推送成功</div>
                         </div>
                     </div>
-                    <div class="wpaip-seo-push-stat-card">
-                        <div class="wpaip-seo-push-stat-icon" style="background:linear-gradient(135deg,#0078d4,#005a9e)">
+                    <div class="yimai-gso-seo-push-stat-card">
+                        <div class="yimai-gso-seo-push-stat-icon" style="background:linear-gradient(135deg,#0078d4,#005a9e)">
                             <span class="dashicons dashicons-migrate"></span>
                         </div>
-                        <div class="wpaip-seo-push-stat-info">
-                            <div class="wpaip-seo-push-stat-value" id="wpaip-sp-bing-count">-</div>
-                            <div class="wpaip-seo-push-stat-label">必应推送成功</div>
+                        <div class="yimai-gso-seo-push-stat-info">
+                            <div class="yimai-gso-seo-push-stat-value" id="yimai-gso-sp-bing-count">-</div>
+                            <div class="yimai-gso-seo-push-stat-label">必应推送成功</div>
                         </div>
                     </div>
-                    <div class="wpaip-seo-push-stat-card">
-                        <div class="wpaip-seo-push-stat-icon" style="background:linear-gradient(135deg,#ea4335,#34a853)">
+                    <div class="yimai-gso-seo-push-stat-card">
+                        <div class="yimai-gso-seo-push-stat-icon" style="background:linear-gradient(135deg,#ea4335,#34a853)">
                             <span class="dashicons dashicons-google"></span>
                         </div>
-                        <div class="wpaip-seo-push-stat-info">
-                            <div class="wpaip-seo-push-stat-value" id="wpaip-sp-google-count">-</div>
-                            <div class="wpaip-seo-push-stat-label">Google推送成功</div>
+                        <div class="yimai-gso-seo-push-stat-info">
+                            <div class="yimai-gso-seo-push-stat-value" id="yimai-gso-sp-google-count">-</div>
+                            <div class="yimai-gso-seo-push-stat-label">Google推送成功</div>
                         </div>
                     </div>
-                    <div class="wpaip-seo-push-stat-card">
-                        <div class="wpaip-seo-push-stat-icon" style="background:linear-gradient(135deg,#9c27b0,#7b1fa2)">
+                    <div class="yimai-gso-seo-push-stat-card">
+                        <div class="yimai-gso-seo-push-stat-icon" style="background:linear-gradient(135deg,#9c27b0,#7b1fa2)">
                             <span class="dashicons dashicons-chart-line"></span>
                         </div>
-                        <div class="wpaip-seo-push-stat-info">
-                            <div class="wpaip-seo-push-stat-value" id="wpaip-sp-success-rate">-</div>
-                            <div class="wpaip-seo-push-stat-label">总成功率</div>
+                        <div class="yimai-gso-seo-push-stat-info">
+                            <div class="yimai-gso-seo-push-stat-value" id="yimai-gso-sp-success-rate">-</div>
+                            <div class="yimai-gso-seo-push-stat-label">总成功率</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 子标签页 -->
-                <div class="wpaip-seo-push-tabs wpaip-tabs-container">
-                    <button type="button" class="wpaip-tab-modern <?php echo $active_push_tab === 'config' ? 'active' : ''; ?>" data-sp-tab="config">
+                <div class="yimai-gso-seo-push-tabs yimai-gso-tabs-container">
+                    <button type="button" class="yimai-gso-tab-modern <?php echo $active_push_tab === 'config' ? 'active' : ''; ?>" data-sp-tab="config">
                         <span class="dashicons dashicons-admin-generic"></span> 推送配置
                     </button>
-                    <button type="button" class="wpaip-tab-modern <?php echo $active_push_tab === 'push' ? 'active' : ''; ?>" data-sp-tab="push">
+                    <button type="button" class="yimai-gso-tab-modern <?php echo $active_push_tab === 'push' ? 'active' : ''; ?>" data-sp-tab="push">
                         <span class="dashicons dashicons-upload"></span> 手动推送
                     </button>
-                    <button type="button" class="wpaip-tab-modern <?php echo $active_push_tab === 'sitemap' ? 'active' : ''; ?>" data-sp-tab="sitemap">
+                    <button type="button" class="yimai-gso-tab-modern <?php echo $active_push_tab === 'sitemap' ? 'active' : ''; ?>" data-sp-tab="sitemap">
                         <span class="dashicons dashicons-media-spreadsheet"></span> Sitemap
                     </button>
-                    <button type="button" class="wpaip-tab-modern <?php echo $active_push_tab === 'logs' ? 'active' : ''; ?>" data-sp-tab="logs">
+                    <button type="button" class="yimai-gso-tab-modern <?php echo $active_push_tab === 'logs' ? 'active' : ''; ?>" data-sp-tab="logs">
                         <span class="dashicons dashicons-list-view"></span> 推送日志
                     </button>
                 </div>
 
                 <!-- ===== 子面板1：推送配置 ===== -->
-                <div class="wpaip-seo-push-panel active" data-sp-panel="config">
-                    <form method="post" action="" id="wpaip-seo-push-form">
-                        <?php wp_nonce_field( 'wpaip_seo_push_settings' ); ?>
-                        <input type="hidden" name="wpaip_seo_push_settings" value="1">
+                <div class="yimai-gso-seo-push-panel active" data-sp-panel="config">
+                    <form method="post" action="" id="yimai-gso-seo-push-form">
+                        <?php wp_nonce_field( 'yimai_gso_seo_push_settings' ); ?>
+                        <input type="hidden" name="yimai_gso_seo_push_settings" value="1">
 
                         <!-- 全局开关 -->
-                        <div class="wpaip-seo-push-section">
-                            <h3 class="wpaip-seo-push-section-title">
+                        <div class="yimai-gso-seo-push-section">
+                            <h3 class="yimai-gso-seo-push-section-title">
                                 <span class="dashicons dashicons-admin-settings"></span> 全局设置
                             </h3>
-                            <div class="wpaip-seo-push-section-body">
-                                <div class="wpaip-seo-push-field">
-                                    <label class="wpaip-seo-push-toggle">
-                                        <input type="checkbox" name="wpaip_seo_push_auto_enabled" value="1" <?php checked( WPAIP_9XCU::get( 'seo_push_auto_enabled', 0 ), 1 ); ?> <?php disabled( empty( $seo_push_meta['available'] ), true ); ?>>
-                                        <span class="wpaip-seo-push-toggle-slider"></span>
-                                        <span class="wpaip-seo-push-toggle-label">发布时自动推送 — 新文章发布后自动提交到搜索引擎</span>
+                            <div class="yimai-gso-seo-push-section-body">
+                                <div class="yimai-gso-seo-push-field">
+                                    <label class="yimai-gso-seo-push-toggle">
+                                        <input type="checkbox" name="yimai_gso_seo_push_auto_enabled" value="1" <?php checked( YIMAI_GSO_Settings::get( 'seo_push_auto_enabled', 0 ), 1 ); ?> <?php disabled( empty( $seo_push_meta['available'] ), true ); ?>>
+                                        <span class="yimai-gso-seo-push-toggle-slider"></span>
+                                        <span class="yimai-gso-seo-push-toggle-label">发布时自动推送 — 新文章发布后自动提交到搜索引擎</span>
                                     </label>
                                 </div>
-                                <div class="wpaip-seo-push-field">
-                                    <label class="wpaip-seo-push-toggle">
-                                        <input type="checkbox" name="wpaip_seo_push_on_update" value="1" <?php checked( WPAIP_9XCU::get( 'seo_push_on_update', 0 ), 1 ); ?> <?php disabled( empty( $seo_push_meta['available'] ), true ); ?>>
-                                        <span class="wpaip-seo-push-toggle-slider"></span>
-                                        <span class="wpaip-seo-push-toggle-label">更新时自动推送 — 文章更新后重新提交URL</span>
+                                <div class="yimai-gso-seo-push-field">
+                                    <label class="yimai-gso-seo-push-toggle">
+                                        <input type="checkbox" name="yimai_gso_seo_push_on_update" value="1" <?php checked( YIMAI_GSO_Settings::get( 'seo_push_on_update', 0 ), 1 ); ?> <?php disabled( empty( $seo_push_meta['available'] ), true ); ?>>
+                                        <span class="yimai-gso-seo-push-toggle-slider"></span>
+                                        <span class="yimai-gso-seo-push-toggle-label">更新时自动推送 — 文章更新后重新提交URL</span>
                                     </label>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 百度推送 -->
-                        <div class="wpaip-seo-push-section">
-                            <h3 class="wpaip-seo-push-section-title">
-                                <span class="wpaip-seo-push-platform-dot" style="background:#4caf50"></span> 百度搜索推送
+                        <div class="yimai-gso-seo-push-section">
+                            <h3 class="yimai-gso-seo-push-section-title">
+                                <span class="yimai-gso-seo-push-platform-dot" style="background:#4caf50"></span> 百度搜索推送
                             </h3>
-                            <div class="wpaip-seo-push-section-body">
-                                <div class="wpaip-seo-push-field">
-                                    <label class="wpaip-seo-push-toggle">
-                                        <input type="checkbox" name="wpaip_seo_push_baidu_enabled" value="1" <?php checked( WPAIP_9XCU::get( 'seo_push_baidu_enabled', 0 ), 1 ); ?> <?php disabled( empty( $seo_push_meta['available'] ), true ); ?>>
-                                        <span class="wpaip-seo-push-toggle-slider"></span>
-                                        <span class="wpaip-seo-push-toggle-label">启用百度推送</span>
+                            <div class="yimai-gso-seo-push-section-body">
+                                <div class="yimai-gso-seo-push-field">
+                                    <label class="yimai-gso-seo-push-toggle">
+                                        <input type="checkbox" name="yimai_gso_seo_push_baidu_enabled" value="1" <?php checked( YIMAI_GSO_Settings::get( 'seo_push_baidu_enabled', 0 ), 1 ); ?> <?php disabled( empty( $seo_push_meta['available'] ), true ); ?>>
+                                        <span class="yimai-gso-seo-push-toggle-slider"></span>
+                                        <span class="yimai-gso-seo-push-toggle-label">启用百度推送</span>
                                     </label>
                                 </div>
-                                <div class="wpaip-seo-push-field">
-                                    <label>接口调用地址 <span class="wpaip-seo-push-required">*</span></label>
-                                    <input type="text" name="wpaip_seo_push_baidu_api_address" value="<?php echo esc_attr( WPAIP_9XCU::get( 'seo_push_baidu_api_address', '' ) ); ?>" class="large-text" placeholder="http://data.zz.baidu.com/urls?site=www.example.com&token=edk7yc4rEZP9pDQD" style="width:100%;max-width:600px">
+                                <div class="yimai-gso-seo-push-field">
+                                    <label>接口调用地址 <span class="yimai-gso-seo-push-required">*</span></label>
+                                    <input type="text" name="yimai_gso_seo_push_baidu_api_address" value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'seo_push_baidu_api_address', '' ) ); ?>" class="large-text" placeholder="http://data.zz.baidu.com/urls?site=www.example.com&token=edk7yc4rEZP9pDQD" style="width:100%;max-width:600px">
                                     <p class="description">登录百度搜索资源平台 > 资源提交 > <strong>普通收录</strong> > API提交 > 复制完整的「接口调用地址」粘贴到这里<br>官方格式：http://data.zz.baidu.com/urls?site=<strong>你的域名</strong>&token=<strong>你的密钥</strong></p>
                                 </div>
-                                <div class="wpaip-seo-push-field">
-                                    <button type="button" class="button wpaip-sp-test-btn" data-platform="baidu">
+                                <div class="yimai-gso-seo-push-field">
+                                    <button type="button" class="button yimai-gso-sp-test-btn" data-platform="baidu">
                                         <span class="dashicons dashicons-controls-play"></span> 测试连接
                                     </button>
-                                    <span class="wpaip-sp-test-result" id="wpaip-sp-test-baidu"></span>
+                                    <span class="yimai-gso-sp-test-result" id="yimai-gso-sp-test-baidu"></span>
                                 </div>
-                                <div class="wpaip-seo-push-field" style="border-top:1px dashed #ddd;padding-top:12px;margin-top:4px">
+                                <div class="yimai-gso-seo-push-field" style="border-top:1px dashed #ddd;padding-top:12px;margin-top:4px">
                                     <label>百度站长验证码</label>
-                                    <input type="text" name="wpaip_seo_push_baidu_verify_code" value="<?php echo esc_attr( WPAIP_9XCU::get( 'seo_push_baidu_verify_code', '' ) ); ?>" class="regular-text" placeholder="粘贴百度站长平台的验证码，如 abcd1234efgh5678">
+                                    <input type="text" name="yimai_gso_seo_push_baidu_verify_code" value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'seo_push_baidu_verify_code', '' ) ); ?>" class="regular-text" placeholder="粘贴百度站长平台的验证码，如 abcd1234efgh5678">
                                     <p class="description">在百度搜索资源平台添加站点后，选择 <strong>HTML标签验证</strong>，将 <code>content="..."</code> 中的验证码粘贴到这里，插件会自动在页面头部注入验证标签。</p>
                                 </div>
-                                <div class="wpaip-seo-push-field">
+                                <div class="yimai-gso-seo-push-field">
                                     <label>百度统计代码</label>
-                                    <textarea name="wpaip_seo_push_baidu_tongji_code" rows="4" class="large-text" placeholder="粘贴百度统计（https://tongji.baidu.com）提供的完整安装代码"><?php echo esc_textarea( WPAIP_9XCU::get( 'seo_push_baidu_tongji_code', '' ) ); ?></textarea>
+                                    <textarea name="yimai_gso_seo_push_baidu_tongji_code" rows="4" class="large-text" placeholder="粘贴百度统计（https://tongji.baidu.com）提供的完整安装代码"><?php echo esc_textarea( YIMAI_GSO_Settings::get( 'seo_push_baidu_tongji_code', '' ) ); ?></textarea>
                                     <p class="description">登录 <a href="https://tongji.baidu.com/" target="_blank">百度统计</a>，在"管理 > 代码获取"中复制安装代码，粘贴到此处。插件会自动注入到页面底部。</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 必应推送 -->
-                        <div class="wpaip-seo-push-section">
-                            <h3 class="wpaip-seo-push-section-title">
-                                <span class="wpaip-seo-push-platform-dot" style="background:#0078d4"></span> 必应(Bing)推送
-                                <span class="wpaip-seo-push-notice" style="font-size:12px;color:#0078d4;font-weight:normal;margin-left:8px">推荐使用 IndexNow</span>
+                        <div class="yimai-gso-seo-push-section">
+                            <h3 class="yimai-gso-seo-push-section-title">
+                                <span class="yimai-gso-seo-push-platform-dot" style="background:#0078d4"></span> 必应(Bing)推送
+                                <span class="yimai-gso-seo-push-notice" style="font-size:12px;color:#0078d4;font-weight:normal;margin-left:8px">推荐使用 IndexNow</span>
                             </h3>
-                            <div class="wpaip-seo-push-section-body">
-                                <div class="wpaip-seo-push-field">
-                                    <label class="wpaip-seo-push-toggle">
-                                        <input type="checkbox" name="wpaip_seo_push_bing_enabled" value="1" <?php checked( WPAIP_9XCU::get( 'seo_push_bing_enabled', 0 ), 1 ); ?> <?php disabled( empty( $seo_push_meta['available'] ), true ); ?>>
-                                        <span class="wpaip-seo-push-toggle-slider"></span>
-                                        <span class="wpaip-seo-push-toggle-label">启用必应推送</span>
+                            <div class="yimai-gso-seo-push-section-body">
+                                <div class="yimai-gso-seo-push-field">
+                                    <label class="yimai-gso-seo-push-toggle">
+                                        <input type="checkbox" name="yimai_gso_seo_push_bing_enabled" value="1" <?php checked( YIMAI_GSO_Settings::get( 'seo_push_bing_enabled', 0 ), 1 ); ?> <?php disabled( empty( $seo_push_meta['available'] ), true ); ?>>
+                                        <span class="yimai-gso-seo-push-toggle-slider"></span>
+                                        <span class="yimai-gso-seo-push-toggle-label">启用必应推送</span>
                                     </label>
                                 </div>
-                                <div class="wpaip-seo-push-field">
-                                    <label>IndexNow Key <span class="wpaip-seo-push-required">*</span>（推荐）</label>
-                                    <input type="text" name="wpaip_seo_push_bing_indexnow_key" value="<?php echo esc_attr( WPAIP_9XCU::get( 'seo_push_bing_indexnow_key', '' ) ); ?>" class="regular-text" placeholder="32位十六进制密钥，如 f317d2a87c5441c98e407458b2912b64">
+                                <div class="yimai-gso-seo-push-field">
+                                    <label>IndexNow Key <span class="yimai-gso-seo-push-required">*</span>（推荐）</label>
+                                    <input type="text" name="yimai_gso_seo_push_bing_indexnow_key" value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'seo_push_bing_indexnow_key', '' ) ); ?>" class="regular-text" placeholder="32位十六进制密钥，如 f317d2a87c5441c98e407458b2912b64">
                                     <p class="description">
                                         在 <a href="https://www.bing.com/webmasters/indexnow" target="_blank">Bing IndexNow</a> 获取密钥。获取后需将密钥文件(如 f317...64.txt)上传到网站根目录，确保可通过 https://你的域名/密钥.txt 访问。
                                     </p>
                                 </div>
-                                <div class="wpaip-seo-push-field" style="border-top:1px dashed #ddd;padding-top:12px;margin-top:4px">
+                                <div class="yimai-gso-seo-push-field" style="border-top:1px dashed #ddd;padding-top:12px;margin-top:4px">
                                     <label>旧版 API Key（备选，无需填写IndexNow Key时使用）</label>
-                                    <input type="text" name="wpaip_seo_push_bing_api_key" value="<?php echo esc_attr( WPAIP_9XCU::get( 'seo_push_bing_api_key', '' ) ); ?>" class="regular-text" placeholder="Bing Webmaster API Key">
+                                    <input type="text" name="yimai_gso_seo_push_bing_api_key" value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'seo_push_bing_api_key', '' ) ); ?>" class="regular-text" placeholder="Bing Webmaster API Key">
                                     <p class="description">在 Bing Webmaster Tools &gt; 设置 &gt; API访问 &gt; API密钥 中生成。填写IndexNow Key后此项无需填写。</p>
                                 </div>
-                                <div class="wpaip-seo-push-field">
-                                    <button type="button" class="button wpaip-sp-test-btn" data-platform="bing">
+                                <div class="yimai-gso-seo-push-field">
+                                    <button type="button" class="button yimai-gso-sp-test-btn" data-platform="bing">
                                         <span class="dashicons dashicons-controls-play"></span> 测试连接
                                     </button>
-                                    <span class="wpaip-sp-test-result" id="wpaip-sp-test-bing"></span>
+                                    <span class="yimai-gso-sp-test-result" id="yimai-gso-sp-test-bing"></span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Google推送 -->
-                        <div class="wpaip-seo-push-section">
-                            <h3 class="wpaip-seo-push-section-title">
-                                <span class="wpaip-seo-push-platform-dot" style="background:#ea4335"></span> Google 推送
-                                <span class="wpaip-seo-push-notice" style="font-size:12px;color:#34a853;font-weight:normal;margin-left:8px">Sitemap Ping 零配置</span>
+                        <div class="yimai-gso-seo-push-section">
+                            <h3 class="yimai-gso-seo-push-section-title">
+                                <span class="yimai-gso-seo-push-platform-dot" style="background:#ea4335"></span> Google 推送
+                                <span class="yimai-gso-seo-push-notice" style="font-size:12px;color:#34a853;font-weight:normal;margin-left:8px">Sitemap Ping 零配置</span>
                             </h3>
-                            <div class="wpaip-seo-push-section-body">
-                                <div class="wpaip-seo-push-field">
-                                    <label class="wpaip-seo-push-toggle">
-                                        <input type="checkbox" name="wpaip_seo_push_google_enabled" value="1" <?php checked( WPAIP_9XCU::get( 'seo_push_google_enabled', 0 ), 1 ); ?> <?php disabled( empty( $seo_push_meta['available'] ), true ); ?>>
-                                        <span class="wpaip-seo-push-toggle-slider"></span>
-                                        <span class="wpaip-seo-push-toggle-label">启用 Google 推送</span>
+                            <div class="yimai-gso-seo-push-section-body">
+                                <div class="yimai-gso-seo-push-field">
+                                    <label class="yimai-gso-seo-push-toggle">
+                                        <input type="checkbox" name="yimai_gso_seo_push_google_enabled" value="1" <?php checked( YIMAI_GSO_Settings::get( 'seo_push_google_enabled', 0 ), 1 ); ?> <?php disabled( empty( $seo_push_meta['available'] ), true ); ?>>
+                                        <span class="yimai-gso-seo-push-toggle-slider"></span>
+                                        <span class="yimai-gso-seo-push-toggle-label">启用 Google 推送</span>
                                     </label>
                                 </div>
-                                <div class="wpaip-seo-push-field">
+                                <div class="yimai-gso-seo-push-field">
                                     <label>推送方式</label>
-                                    <?php $google_mode = WPAIP_9XCU::get( 'seo_push_google_mode', 'sitemap_ping' ); ?>
-                                    <select name="wpaip_seo_push_google_mode" id="wpaip-seo-push-google-mode" style="min-width:200px">
+                                    <?php $google_mode = YIMAI_GSO_Settings::get( 'seo_push_google_mode', 'sitemap_ping' ); ?>
+                                    <select name="yimai_gso_seo_push_google_mode" id="yimai-gso-seo-push-google-mode" style="min-width:200px">
                                         <option value="sitemap_ping" <?php selected( $google_mode, 'sitemap_ping' ); ?>>Sitemap Ping（推荐，零配置）</option>
                                         <option value="indexing_api" <?php selected( $google_mode, 'indexing_api' ); ?>>Indexing API（即时推送，需GCP配置）</option>
                                     </select>
@@ -5363,11 +5363,11 @@ class WPAIP_NC8O {
                                         <strong>Indexing API</strong>：即时推送URL到Google索引，需配置Google Cloud Service Account
                                     </p>
                                 </div>
-                                <div class="wpaip-seo-push-field wpaip-google-indexing-config" style="display:<?php echo $google_mode === 'indexing_api' ? 'block' : 'none'; ?>;border-top:1px dashed #ddd;padding-top:12px;margin-top:4px">
-                                    <label>Service Account JSON 密钥 <span class="wpaip-seo-push-required">*</span></label>
-                                    <textarea name="wpaip_seo_push_google_service_json" rows="6" class="large-text" placeholder="粘贴 Google Cloud Service Account JSON 密钥内容"><?php
-                                        $gj = WPAIP_9XCU::get( 'seo_push_google_service_json', '' );
-                                        echo esc_textarea( $gj ? WPAIP_9XCU::get_masked( 'seo_push_google_service_json' ) : '' );
+                                <div class="yimai-gso-seo-push-field yimai-gso-google-indexing-config" style="display:<?php echo $google_mode === 'indexing_api' ? 'block' : 'none'; ?>;border-top:1px dashed #ddd;padding-top:12px;margin-top:4px">
+                                    <label>Service Account JSON 密钥 <span class="yimai-gso-seo-push-required">*</span></label>
+                                    <textarea name="yimai_gso_seo_push_google_service_json" rows="6" class="large-text" placeholder="粘贴 Google Cloud Service Account JSON 密钥内容"><?php
+                                        $gj = YIMAI_GSO_Settings::get( 'seo_push_google_service_json', '' );
+                                        echo esc_textarea( $gj ? YIMAI_GSO_Settings::get_masked( 'seo_push_google_service_json' ) : '' );
                                     ?></textarea>
                                     <p class="description">
                                         1. 前往 <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> 创建项目并启用 Indexing API<br>
@@ -5376,21 +5376,21 @@ class WPAIP_NC8O {
                                         4. 将 JSON 文件内容完整粘贴到上方文本框
                                     </p>
                                 </div>
-                                <div class="wpaip-seo-push-field">
-                                    <button type="button" class="button wpaip-sp-test-btn" data-platform="google">
+                                <div class="yimai-gso-seo-push-field">
+                                    <button type="button" class="button yimai-gso-sp-test-btn" data-platform="google">
                                         <span class="dashicons dashicons-controls-play"></span> 测试连接
                                     </button>
-                                    <span class="wpaip-sp-test-result" id="wpaip-sp-test-google"></span>
+                                    <span class="yimai-gso-sp-test-result" id="yimai-gso-sp-test-google"></span>
                                 </div>
                             </div>
                         </div>
 
                         <script>
                         (function() {
-                            var $mode = document.getElementById('wpaip-seo-push-google-mode');
+                            var $mode = document.getElementById('yimai-gso-seo-push-google-mode');
                             if ($mode) {
                                 $mode.addEventListener('change', function() {
-                                    var $config = document.querySelector('.wpaip-google-indexing-config');
+                                    var $config = document.querySelector('.yimai-gso-google-indexing-config');
                                     if ($config) {
                                         $config.style.display = this.value === 'indexing_api' ? 'block' : 'none';
                                     }
@@ -5400,20 +5400,20 @@ class WPAIP_NC8O {
                         </script>
 
                         <!-- robots.txt -->
-                        <div class="wpaip-seo-push-section">
-                            <h3 class="wpaip-seo-push-section-title">
+                        <div class="yimai-gso-seo-push-section">
+                            <h3 class="yimai-gso-seo-push-section-title">
                                 <span class="dashicons dashicons-clipboard"></span> robots.txt 自定义
                             </h3>
-                            <div class="wpaip-seo-push-section-body">
-                                <div class="wpaip-seo-push-field">
+                            <div class="yimai-gso-seo-push-section-body">
+                                <div class="yimai-gso-seo-push-field">
                                     <label>自定义 robots.txt 内容</label>
-                                    <textarea name="wpaip_robots_content" rows="8" class="large-text" placeholder="留空则使用默认配置，自动包含 Sitemap 地址"><?php echo esc_textarea( WPAIP_9XCU::get( 'wpaip_robots_content', '' ) ); ?></textarea>
+                                    <textarea name="yimai_gso_robots_content" rows="8" class="large-text" placeholder="留空则使用默认配置，自动包含 Sitemap 地址"><?php echo esc_textarea( YIMAI_GSO_Settings::get( 'yimai_gso_robots_content', '' ) ); ?></textarea>
                                     <p class="description">自定义 robots.txt 规则，留空则自动生成默认规则（Allow: / + Sitemap引用）</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="wpaip-seo-push-save-bar">
+                        <div class="yimai-gso-seo-push-save-bar">
                             <button type="submit" class="button button-primary button-hero">
                                 <span class="dashicons dashicons-saved"></span> 保存推送配置
                             </button>
@@ -5422,17 +5422,17 @@ class WPAIP_NC8O {
                 </div>
 
                 <!-- ===== 子面板2：手动推送 ===== -->
-                <div class="wpaip-seo-push-panel" data-sp-panel="push">
-                    <div class="wpaip-seo-push-section">
-                        <h3 class="wpaip-seo-push-section-title">
+                <div class="yimai-gso-seo-push-panel" data-sp-panel="push">
+                    <div class="yimai-gso-seo-push-section">
+                        <h3 class="yimai-gso-seo-push-section-title">
                             <span class="dashicons dashicons-upload"></span> 批量推送文章
                         </h3>
-                        <div class="wpaip-seo-push-section-body">
-                            <p class="wpaip-seo-push-help">选择要推送到搜索引擎的文章，支持按分类和日期范围筛选</p>
-                            <div class="wpaip-seo-push-filter-row">
-                                <div class="wpaip-seo-push-filter-group">
+                        <div class="yimai-gso-seo-push-section-body">
+                            <p class="yimai-gso-seo-push-help">选择要推送到搜索引擎的文章，支持按分类和日期范围筛选</p>
+                            <div class="yimai-gso-seo-push-filter-row">
+                                <div class="yimai-gso-seo-push-filter-group">
                                     <label>分类筛选</label>
-                                    <select id="wpaip-sp-push-category">
+                                    <select id="yimai-gso-sp-push-category">
                                         <option value="0">全部分类</option>
                                         <?php
                                         $push_categories = get_categories( array( 'hide_empty' => false, 'orderby' => 'name' ) );
@@ -5442,38 +5442,38 @@ class WPAIP_NC8O {
                                         ?>
                                     </select>
                                 </div>
-                                <div class="wpaip-seo-push-filter-group">
+                                <div class="yimai-gso-seo-push-filter-group">
                                     <label>每页数量</label>
-                                    <select id="wpaip-sp-push-per-page">
+                                    <select id="yimai-gso-sp-push-per-page">
                                         <option value="20">20篇</option>
                                         <option value="50" selected>50篇</option>
                                         <option value="100">100篇</option>
                                         <option value="200">200篇</option>
                                     </select>
                                 </div>
-                                <div class="wpaip-seo-push-filter-group" style="align-self:flex-end">
-                                    <button type="button" class="button" id="wpaip-sp-load-posts">
+                                <div class="yimai-gso-seo-push-filter-group" style="align-self:flex-end">
+                                    <button type="button" class="button" id="yimai-gso-sp-load-posts">
                                         <span class="dashicons dashicons-update"></span> 加载文章
                                     </button>
                                 </div>
                             </div>
 
-                            <div id="wpaip-sp-posts-table-wrap" style="display:none">
-                                <div class="wpaip-sp-select-bar">
-                                    <label class="wpaip-sp-select-all">
-                                        <input type="checkbox" id="wpaip-sp-check-all">
+                            <div id="yimai-gso-sp-posts-table-wrap" style="display:none">
+                                <div class="yimai-gso-sp-select-bar">
+                                    <label class="yimai-gso-sp-select-all">
+                                        <input type="checkbox" id="yimai-gso-sp-check-all">
                                         <span>全选</span>
                                     </label>
-                                    <span id="wpaip-sp-selected-count" style="margin-left:12px;color:#666">已选 0 篇</span>
+                                    <span id="yimai-gso-sp-selected-count" style="margin-left:12px;color:#666">已选 0 篇</span>
                                     <span style="flex:1"></span>
-                                    <button type="button" class="button button-primary" id="wpaip-sp-do-batch-push" disabled>
+                                    <button type="button" class="button button-primary" id="yimai-gso-sp-do-batch-push" disabled>
                                         <span class="dashicons dashicons-share-alt2" style="margin-top:4px"></span> 推送选中文章
                                     </button>
                                 </div>
-                                <table class="wp-list-table widefat fixed striped" id="wpaip-sp-posts-table">
+                                <table class="wp-list-table widefat fixed striped" id="yimai-gso-sp-posts-table">
                                     <thead>
                                         <tr>
-                                            <th style="width:40px" class="column-cb"><input type="checkbox" id="wpaip-sp-check-all-2"></th>
+                                            <th style="width:40px" class="column-cb"><input type="checkbox" id="yimai-gso-sp-check-all-2"></th>
                                             <th>ID</th>
                                             <th>文章标题</th>
                                             <th>分类</th>
@@ -5481,80 +5481,80 @@ class WPAIP_NC8O {
                                             <th>推送状态</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="wpaip-sp-posts-tbody"></tbody>
+                                    <tbody id="yimai-gso-sp-posts-tbody"></tbody>
                                 </table>
                             </div>
 
-                            <div id="wpaip-sp-push-result" style="display:none;margin-top:16px"></div>
+                            <div id="yimai-gso-sp-push-result" style="display:none;margin-top:16px"></div>
                         </div>
                     </div>
                 </div>
 
                 <!-- ===== 子面板3：Sitemap管理 ===== -->
-                <div class="wpaip-seo-push-panel" data-sp-panel="sitemap">
-                    <div class="wpaip-seo-push-section">
-                        <h3 class="wpaip-seo-push-section-title">
+                <div class="yimai-gso-seo-push-panel" data-sp-panel="sitemap">
+                    <div class="yimai-gso-seo-push-section">
+                        <h3 class="yimai-gso-seo-push-section-title">
                             <span class="dashicons dashicons-media-spreadsheet"></span> Sitemap 管理
                         </h3>
-                        <div class="wpaip-seo-push-section-body">
-                            <div class="wpaip-sp-sitemap-info-grid">
-                                <div class="wpaip-sp-sitemap-card">
-                                    <div class="wpaip-sp-sitemap-card-title">主 Sitemap (索引)</div>
-                                    <div class="wpaip-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap.xml' ) ); ?></a></div>
+                        <div class="yimai-gso-seo-push-section-body">
+                            <div class="yimai-gso-sp-sitemap-info-grid">
+                                <div class="yimai-gso-sp-sitemap-card">
+                                    <div class="yimai-gso-sp-sitemap-card-title">主 Sitemap (索引)</div>
+                                    <div class="yimai-gso-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap.xml' ) ); ?></a></div>
                                 </div>
-                                <div class="wpaip-sp-sitemap-card">
-                                    <div class="wpaip-sp-sitemap-card-title">文章 Sitemap</div>
-                                    <div class="wpaip-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap-post.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap-post.xml' ) ); ?></a></div>
+                                <div class="yimai-gso-sp-sitemap-card">
+                                    <div class="yimai-gso-sp-sitemap-card-title">文章 Sitemap</div>
+                                    <div class="yimai-gso-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap-post.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap-post.xml' ) ); ?></a></div>
                                 </div>
-                                <div class="wpaip-sp-sitemap-card">
-                                    <div class="wpaip-sp-sitemap-card-title">分类 Sitemap</div>
-                                    <div class="wpaip-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap-taxonomy-category.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap-taxonomy-category.xml' ) ); ?></a></div>
+                                <div class="yimai-gso-sp-sitemap-card">
+                                    <div class="yimai-gso-sp-sitemap-card-title">分类 Sitemap</div>
+                                    <div class="yimai-gso-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap-taxonomy-category.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap-taxonomy-category.xml' ) ); ?></a></div>
                                 </div>
-                                <div class="wpaip-sp-sitemap-card">
-                                    <div class="wpaip-sp-sitemap-card-title">标签 Sitemap</div>
-                                    <div class="wpaip-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap-taxonomy-post_tag.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap-taxonomy-post_tag.xml' ) ); ?></a></div>
+                                <div class="yimai-gso-sp-sitemap-card">
+                                    <div class="yimai-gso-sp-sitemap-card-title">标签 Sitemap</div>
+                                    <div class="yimai-gso-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap-taxonomy-post_tag.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap-taxonomy-post_tag.xml' ) ); ?></a></div>
                                 </div>
-                                <div class="wpaip-sp-sitemap-card">
-                                    <div class="wpaip-sp-sitemap-card-title">HTML 站点地图</div>
-                                    <div class="wpaip-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap.html' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap.html' ) ); ?></a></div>
+                                <div class="yimai-gso-sp-sitemap-card">
+                                    <div class="yimai-gso-sp-sitemap-card-title">HTML 站点地图</div>
+                                    <div class="yimai-gso-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap.html' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap.html' ) ); ?></a></div>
                                 </div>
-                                <div class="wpaip-sp-sitemap-card">
-                                    <div class="wpaip-sp-sitemap-card-title">robots.txt</div>
-                                    <div class="wpaip-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/robots.txt' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/robots.txt' ) ); ?></a></div>
+                                <div class="yimai-gso-sp-sitemap-card">
+                                    <div class="yimai-gso-sp-sitemap-card-title">robots.txt</div>
+                                    <div class="yimai-gso-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/robots.txt' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/robots.txt' ) ); ?></a></div>
                                 </div>
                             </div>
 
-                            <div class="wpaip-sp-sitemap-actions" style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
-                                <button type="button" class="button button-primary" id="wpaip-sp-push-sitemap">
+                            <div class="yimai-gso-sp-sitemap-actions" style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
+                                <button type="button" class="button button-primary" id="yimai-gso-sp-push-sitemap">
                                     <span class="dashicons dashicons-share-alt2" style="margin-top:4px"></span> 推送Sitemap到搜索引擎
                                 </button>
                             </div>
-                            <div id="wpaip-sp-sitemap-result" style="margin-top:12px"></div>
+                            <div id="yimai-gso-sp-sitemap-result" style="margin-top:12px"></div>
                         </div>
                     </div>
                 </div>
 
                 <!-- ===== 子面板4：推送日志 ===== -->
-                <div class="wpaip-seo-push-panel" data-sp-panel="logs">
-                    <div class="wpaip-seo-push-section">
-                        <div class="wpaip-seo-push-section-title" style="display:flex;align-items:center;justify-content:space-between">
+                <div class="yimai-gso-seo-push-panel" data-sp-panel="logs">
+                    <div class="yimai-gso-seo-push-section">
+                        <div class="yimai-gso-seo-push-section-title" style="display:flex;align-items:center;justify-content:space-between">
                             <h3 style="margin:0;display:flex;align-items:center;gap:6px">
                                 <span class="dashicons dashicons-list-view"></span> 推送日志
                             </h3>
                             <div style="display:flex;gap:8px;align-items:center">
-                                <select id="wpaip-sp-log-platform" style="line-height:28px;height:28px">
+                                <select id="yimai-gso-sp-log-platform" style="line-height:28px;height:28px">
                                     <option value="">全部平台</option>
                                     <option value="baidu">百度</option>
                                     <option value="bing">必应</option>
                                     <option value="google">Google</option>
                                 </select>
-                                <button type="button" class="button button-small" id="wpaip-sp-clear-logs">
+                                <button type="button" class="button button-small" id="yimai-gso-sp-clear-logs">
                                     <span class="dashicons dashicons-trash" style="margin-top:2px"></span> 清空日志
                                 </button>
                             </div>
                         </div>
-                        <div class="wpaip-seo-push-section-body" style="padding:0">
-                            <table class="wp-list-table widefat fixed striped" id="wpaip-sp-logs-table">
+                        <div class="yimai-gso-seo-push-section-body" style="padding:0">
+                            <table class="wp-list-table widefat fixed striped" id="yimai-gso-sp-logs-table">
                                 <thead>
                                     <tr>
                                         <th style="width:40px">ID</th>
@@ -5566,39 +5566,39 @@ class WPAIP_NC8O {
                                         <th style="width:150px">时间</th>
                                     </tr>
                                 </thead>
-                                <tbody id="wpaip-sp-logs-tbody">
+                                <tbody id="yimai-gso-sp-logs-tbody">
                                     <tr><td colspan="8" style="text-align:center;padding:40px;color:#999">加载中...</td></tr>
                                 </tbody>
                             </table>
-                            <div class="wpaip-sp-pagination" id="wpaip-sp-logs-pagination" style="padding:12px;display:flex;align-items:center;gap:8px;justify-content:center"></div>
+                            <div class="yimai-gso-sp-pagination" id="yimai-gso-sp-logs-pagination" style="padding:12px;display:flex;align-items:center;gap:8px;justify-content:center"></div>
                         </div>
                     </div>
                 </div>
 
-                </div><!-- end #wpaip-seo-push-root -->
+                </div><!-- end #yimai-gso-seo-push-root -->
 
-            </div><!-- end .wpaip-main-panel seo-push -->
+            </div><!-- end .yimai-gso-main-panel seo-push -->
 
             <!-- ==================== 标签5：插件设置 ==================== -->
-            <div class="wpaip-main-panel <?php echo $active_tab === 'settings' ? 'active' : ''; ?>" data-tab="settings">
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'settings' ? 'active' : ''; ?>" data-tab="settings">
                 <?php ?>
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-admin-settings"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">插件设置</h2>
-                        <p class="wpaip-card-desc">配置 AI 接口、SEO 参数、发布策略等核心运行参数</p>
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-admin-settings"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">插件设置</h2>
+                        <p class="yimai-gso-card-desc">配置 AI 接口、SEO 参数、发布策略等核心运行参数</p>
                     </div>
                 </div>
-                <div class="wpaip-settings-header">
-                    <div class="wpaip-settings-header-left" style="display:none">
-                        <h1 class="wpaip-page-title">
+                <div class="yimai-gso-settings-header">
+                    <div class="yimai-gso-settings-header-left" style="display:none">
+                        <h1 class="yimai-gso-page-title">
                             <span class="dashicons dashicons-admin-settings"></span>
                             插件设置
                         </h1>
                     </div>
-                    <div class="wpaip-settings-header-right">
-                        <div class="wpaip-edition-info-mini">
-                            <span class="wpaip-edition-status-dot"></span>
+                    <div class="yimai-gso-settings-header-right">
+                        <div class="yimai-gso-edition-info-mini">
+                            <span class="yimai-gso-edition-status-dot"></span>
                             <span><?php echo esc_html( $dashboard_plan_label ); ?></span>
                         </div>
                     </div>
@@ -5610,53 +5610,53 @@ class WPAIP_NC8O {
                     $settings_subtab = 'ai';
                 }
                 ?>
-                <form method="post" action="" id="wpaip-settings-form">
-                    <?php wp_nonce_field( 'wpaip_settings_nonce' ); ?>
-                    <input type="hidden" name="wpaip_current_subtab" id="wpaip-current-subtab" value="<?php echo esc_attr( $settings_subtab ); ?>">
+                <form method="post" action="" id="yimai-gso-settings-form">
+                    <?php wp_nonce_field( 'yimai_gso_settings_nonce' ); ?>
+                    <input type="hidden" name="yimai_gso_current_subtab" id="yimai-gso-current-subtab" value="<?php echo esc_attr( $settings_subtab ); ?>">
 
                 <!-- 设置子标签页 -->
-                <div class="wpaip-settings-tabs">
-                    <button type="button" class="wpaip-settings-tab <?php echo $settings_subtab === 'ai' ? 'active' : ''; ?>" data-tab="ai">
+                <div class="yimai-gso-settings-tabs">
+                    <button type="button" class="yimai-gso-settings-tab <?php echo $settings_subtab === 'ai' ? 'active' : ''; ?>" data-tab="ai">
                         <span class="dashicons dashicons-admin-generic"></span>
                         AI配置
                     </button>
-                    <button type="button" class="wpaip-settings-tab <?php echo $settings_subtab === 'image' ? 'active' : ''; ?>" data-tab="image">
+                    <button type="button" class="yimai-gso-settings-tab <?php echo $settings_subtab === 'image' ? 'active' : ''; ?>" data-tab="image">
                         <span class="dashicons dashicons-format-image"></span>
                         配图设置
                     </button>
-                    <button type="button" class="wpaip-settings-tab <?php echo $settings_subtab === 'publish' ? 'active' : ''; ?>" data-tab="publish">
+                    <button type="button" class="yimai-gso-settings-tab <?php echo $settings_subtab === 'publish' ? 'active' : ''; ?>" data-tab="publish">
                         <span class="dashicons dashicons-upload"></span>
                         发布设置
                     </button>
-                    <button type="button" class="wpaip-settings-tab <?php echo $settings_subtab === 'geo' ? 'active' : ''; ?>" data-tab="geo">
+                    <button type="button" class="yimai-gso-settings-tab <?php echo $settings_subtab === 'geo' ? 'active' : ''; ?>" data-tab="geo">
                         <span class="dashicons dashicons-networking"></span>
                         GEO实体
                     </button>
-                    <button type="button" class="wpaip-settings-tab <?php echo $settings_subtab === 'knowledge' ? 'active' : ''; ?>" data-tab="knowledge">
+                    <button type="button" class="yimai-gso-settings-tab <?php echo $settings_subtab === 'knowledge' ? 'active' : ''; ?>" data-tab="knowledge">
                         <span class="dashicons dashicons-book-alt"></span>
                         品牌资料
                     </button>
-                    <button type="button" class="wpaip-settings-tab <?php echo $settings_subtab === 'crawler' ? 'active' : ''; ?>" data-tab="crawler">
+                    <button type="button" class="yimai-gso-settings-tab <?php echo $settings_subtab === 'crawler' ? 'active' : ''; ?>" data-tab="crawler">
                         <span class="dashicons dashicons-shield"></span>
                         爬虫策略
                     </button>
-                    <button type="button" class="wpaip-settings-tab <?php echo $settings_subtab === 'authors' ? 'active' : ''; ?>" data-tab="authors">
+                    <button type="button" class="yimai-gso-settings-tab <?php echo $settings_subtab === 'authors' ? 'active' : ''; ?>" data-tab="authors">
                         <span class="dashicons dashicons-admin-users"></span>
                         作者档案
                     </button>
                 </div>
 
                 <!-- AI配置 -->
-                <div class="wpaip-settings-panel <?php echo $settings_subtab === 'ai' ? 'active' : ''; ?>" data-tab="ai">
+                <div class="yimai-gso-settings-panel <?php echo $settings_subtab === 'ai' ? 'active' : ''; ?>" data-tab="ai">
 
-                    <div class="wpaip-settings-section">
-                        <div class="wpaip-settings-section-header">
+                    <div class="yimai-gso-settings-section">
+                        <div class="yimai-gso-settings-section-header">
                             <h2>🤖 AI 接口配置</h2>
                         </div>
-                        <div class="wpaip-settings-fields">
-                            <div class="wpaip-field-group">
+                        <div class="yimai-gso-settings-fields">
+                            <div class="yimai-gso-field-group">
                                 <label>AI 提供商</label>
-                                <select name="wpaip_ai_provider" id="setting-ai-provider">
+                                <select name="yimai_gso_ai_provider" id="setting-ai-provider">
                                     <?php foreach ( $providers as $key => $prov ) : ?>
                                         <option value="<?php echo $key; ?>" <?php selected( $ai_provider, $key ); ?>>
                                             <?php echo esc_html( $prov['name'] ); ?>
@@ -5664,50 +5664,50 @@ class WPAIP_NC8O {
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>API Key <span class="required">*</span></label>
-                                <div class="wpaip-input-with-action">
-                                    <input type="password" name="wpaip_ai_api_key" class="large-text"
-                                           value="<?php echo esc_attr( WPAIP_9XCU::get_masked( 'ai_api_key' ) ); ?>"
+                                <div class="yimai-gso-input-with-action">
+                                    <input type="password" name="yimai_gso_ai_api_key" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get_masked( 'ai_api_key' ) ); ?>"
                                            placeholder="sk-xxxx...">
                                     <button type="button" class="button" id="test-ai-api">测试连接</button>
                                 </div>
                                 <span id="test-ai-result"></span>
-                                <small class="wpaip-field-hint">
+                                <small class="yimai-gso-field-hint">
                                     OpenAI: <a href="https://platform.openai.com/api-keys" target="_blank">获取Key</a> |
                                     DeepSeek: <a href="https://platform.deepseek.com" target="_blank">获取Key</a>
                                 </small>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>API 接口地址</label>
-                                <input type="url" name="wpaip_ai_api_url" class="large-text"
-                                       value="<?php echo esc_attr( WPAIP_9XCU::get( 'ai_api_url' ) ); ?>"
+                                <input type="url" name="yimai_gso_ai_api_url" class="large-text"
+                                       value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'ai_api_url' ) ); ?>"
                                        placeholder="留空则使用所选提供商默认地址">
-                                <small class="wpaip-field-hint">如使用国内中转代理，在此填写代理地址</small>
+                                <small class="yimai-gso-field-hint">如使用国内中转代理，在此填写代理地址</small>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>模型名称</label>
-                                <input type="text" name="wpaip_ai_model" class="regular-text"
-                                       value="<?php echo esc_attr( WPAIP_9XCU::get( 'ai_model', 'gpt-4o' ) ); ?>"
+                                <input type="text" name="yimai_gso_ai_model" class="regular-text"
+                                       value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'ai_model', 'gpt-4o' ) ); ?>"
                                        placeholder="gpt-4o">
-                                <small class="wpaip-field-hint" id="model-hint">常用：gpt-4o / deepseek-chat / qwen-max / glm-4</small>
+                                <small class="yimai-gso-field-hint" id="model-hint">常用：gpt-4o / deepseek-chat / qwen-max / glm-4</small>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>默认每篇字数</label>
-                                <input type="number" name="wpaip_word_count" min="300" max="5000" step="100"
-                                       value="<?php echo esc_attr( WPAIP_9XCU::get( 'word_count', 1500 ) ); ?>">
+                                <input type="number" name="yimai_gso_word_count" min="300" max="5000" step="100"
+                                       value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'word_count', 1500 ) ); ?>">
                                 <small>建议 800-2000 字，SEO效果好</small>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>系统提示词</label>
-                                <div class="wpaip-system-prompt-section">
-                                    <button type="button" class="button button-secondary" id="wpaip-toggle-default-prompt">
+                                <div class="yimai-gso-system-prompt-section">
+                                    <button type="button" class="button button-secondary" id="yimai-gso-toggle-default-prompt">
                                         <span class="dashicons dashicons-visibility" style="font-size:14px;width:14px;height:14px;"></span>
                                         <span class="btn-text">查看默认提示词</span>
                                     </button>
-                                    <div id="wpaip-default-prompt-box" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;">
+                                    <div id="yimai-gso-default-prompt-box" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;">
                                         <div style="color:#94a3b8;font-size:11px;margin-bottom:8px;">📋 默认提示词预览</div>
-                                        <pre style="color:#e2e8f0;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;margin:0;"><?php echo esc_textarea( WPAIP_9XCU::get_default_system_prompt() ); ?></pre>
+                                        <pre style="color:#e2e8f0;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;margin:0;"><?php echo esc_textarea( YIMAI_GSO_Settings::get_default_system_prompt() ); ?></pre>
                                         <div style="margin-top:10px;padding:10px;background:#0f172a;border-radius:6px;">
                                             <div style="color:#94a3b8;font-size:11px;margin-bottom:6px;">💡 如何使用自定义提示词</div>
                                             <ul style="color:#cbd5e1;font-size:11px;margin:0;padding-left:16px;line-height:1.8;">
@@ -5718,34 +5718,34 @@ class WPAIP_NC8O {
                                         </div>
                                     </div>
                                 </div>
-                                <textarea name="wpaip_system_prompt" rows="6" class="large-text"
-                                          placeholder="自定义AI角色提示词，留空则使用默认..."><?php echo esc_textarea( WPAIP_9XCU::get( 'system_prompt' ) ); ?></textarea>
+                                <textarea name="yimai_gso_system_prompt" rows="6" class="large-text"
+                                          placeholder="自定义AI角色提示词，留空则使用默认..."><?php echo esc_textarea( YIMAI_GSO_Settings::get( 'system_prompt' ) ); ?></textarea>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>单篇生成 · 系统提示词 <span style="display:inline-block;margin-left:6px;padding:1px 8px;font-size:11px;font-weight:600;background:#ede9fe;color:#7c3aed;border-radius:4px;">独立配置</span></label>
-                                <small style="display:block;color:var(--wpaip-gray);font-size:12px;margin-top:2px;">专用于单篇生成功能，与上方批量生成的系统提示词独立配置。留空则使用内置默认。</small>
-                                <div class="wpaip-system-prompt-section" style="margin-bottom:4px;">
-                                    <button type="button" class="button button-secondary" id="wpaip-toggle-default-single-prompt" style="font-size:11px;padding:2px 10px;min-height:28px;line-height:24px;">
+                                <small style="display:block;color:var(--yimai-gso-gray);font-size:12px;margin-top:2px;">专用于单篇生成功能，与上方批量生成的系统提示词独立配置。留空则使用内置默认。</small>
+                                <div class="yimai-gso-system-prompt-section" style="margin-bottom:4px;">
+                                    <button type="button" class="button button-secondary" id="yimai-gso-toggle-default-single-prompt" style="font-size:11px;padding:2px 10px;min-height:28px;line-height:24px;">
                                         <span class="dashicons dashicons-visibility" style="font-size:13px;width:13px;height:13px;"></span>
                                         查看内置默认
                                     </button>
-                                    <div id="wpaip-default-single-prompt-box" style="display:none;margin-top:8px;padding:10px;background:#1e293b;border-radius:6px;border:1px solid #334155;">
-                                        <pre style="color:#e2e8f0;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;margin:0;"><?php echo esc_textarea( WPAIP_9XCU::get_default_single_generate_system_prompt() ); ?></pre>
+                                    <div id="yimai-gso-default-single-prompt-box" style="display:none;margin-top:8px;padding:10px;background:#1e293b;border-radius:6px;border:1px solid #334155;">
+                                        <pre style="color:#e2e8f0;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;margin:0;"><?php echo esc_textarea( YIMAI_GSO_Settings::get_default_single_generate_system_prompt() ); ?></pre>
                                     </div>
                                 </div>
-                                <textarea name="wpaip_single_generate_system_prompt" rows="4" class="large-text"
-                                          placeholder="自定义单篇生成提示词，留空则使用内置默认..."><?php echo esc_textarea( WPAIP_9XCU::get( 'single_generate_system_prompt' ) ); ?></textarea>
+                                <textarea name="yimai_gso_single_generate_system_prompt" rows="4" class="large-text"
+                                          placeholder="自定义单篇生成提示词，留空则使用内置默认..."><?php echo esc_textarea( YIMAI_GSO_Settings::get( 'single_generate_system_prompt' ) ); ?></textarea>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>用户提示词模板</label>
-                                <div class="wpaip-system-prompt-section" style="margin-bottom:10px;">
-                                    <button type="button" class="button button-secondary" id="wpaip-toggle-default-user-prompt">
+                                <div class="yimai-gso-system-prompt-section" style="margin-bottom:10px;">
+                                    <button type="button" class="button button-secondary" id="yimai-gso-toggle-default-user-prompt">
                                         <span class="dashicons dashicons-visibility" style="font-size:14px;width:14px;height:14px;"></span>
                                         <span class="btn-text">查看默认用户提示词</span>
                                     </button>
-                                    <div id="wpaip-default-user-prompt-box" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;">
+                                    <div id="yimai-gso-default-user-prompt-box" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border-radius:8px;border:1px solid #334155;">
                                         <div style="color:#94a3b8;font-size:11px;margin-bottom:8px;">📋 默认用户提示词模板预览</div>
-                                        <pre style="color:#e2e8f0;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;margin:0;"><?php echo esc_textarea( WPAIP_9XCU::get_default_user_prompt() ); ?></pre>
+                                        <pre style="color:#e2e8f0;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;margin:0;"><?php echo esc_textarea( YIMAI_GSO_Settings::get_default_user_prompt() ); ?></pre>
                                         <div style="margin-top:10px;padding:10px;background:#0f172a;border-radius:6px;">
                                             <div style="color:#94a3b8;font-size:11px;margin-bottom:6px;">💡 可用变量</div>
                                             <ul style="color:#cbd5e1;font-size:11px;margin:0;padding-left:16px;line-height:1.8;">
@@ -5756,221 +5756,221 @@ class WPAIP_NC8O {
                                         </div>
                                     </div>
                                 </div>
-                                <textarea name="wpaip_user_prompt" rows="6" class="large-text"
-                                          placeholder="自定义用户提示词模板，留空则使用默认...&#10;可用变量：{{lang_name}} {{prompt}} {{word_count}}"><?php echo esc_textarea( WPAIP_9XCU::get( 'user_prompt' ) ); ?></textarea>
-                                <small class="wpaip-field-hint">定义每次生成文章时发送给AI的用户指令。留空使用默认模板，填写则完全覆盖。</small>
+                                <textarea name="yimai_gso_user_prompt" rows="6" class="large-text"
+                                          placeholder="自定义用户提示词模板，留空则使用默认...&#10;可用变量：{{lang_name}} {{prompt}} {{word_count}}"><?php echo esc_textarea( YIMAI_GSO_Settings::get( 'user_prompt' ) ); ?></textarea>
+                                <small class="yimai-gso-field-hint">定义每次生成文章时发送给AI的用户指令。留空使用默认模板，填写则完全覆盖。</small>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 配图设置 -->
-                <div class="wpaip-settings-panel <?php echo $settings_subtab === 'image' ? 'active' : ''; ?>" data-tab="image">
-                    <div class="wpaip-settings-section">
-                        <div class="wpaip-settings-section-header">
+                <div class="yimai-gso-settings-panel <?php echo $settings_subtab === 'image' ? 'active' : ''; ?>" data-tab="image">
+                    <div class="yimai-gso-settings-section">
+                        <div class="yimai-gso-settings-section-header">
                             <h2>🖼️ 自动配图配置</h2>
                         </div>
-                        <div class="wpaip-settings-fields">
-                            <div class="wpaip-field-group">
+                        <div class="yimai-gso-settings-fields">
+                            <div class="yimai-gso-field-group">
                                 <label>配图来源</label>
-                                <select name="wpaip_image_provider" id="setting-img-provider">
+                                <select name="yimai_gso_image_provider" id="setting-img-provider">
                                     <?php foreach ( $img_providers as $key => $prov ) : ?>
                                         <option value="<?php echo $key; ?>" <?php selected( $img_provider, $key ); ?>>
                                             <?php echo esc_html( $prov['name'] ); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <small class="wpaip-field-hint">推荐 Pexels / Unsplash / Lorem Flickr</small>
+                                <small class="yimai-gso-field-hint">推荐 Pexels / Unsplash / Lorem Flickr</small>
                             </div>
-                            <div class="wpaip-field-group" id="pexels-key-row">
+                            <div class="yimai-gso-field-group" id="pexels-key-row">
                                 <label>Pexels API Key</label>
-                                <div class="wpaip-input-with-action">
-                                    <input type="password" name="wpaip_pexels_api_key" class="large-text"
-                                           value="<?php echo esc_attr( WPAIP_9XCU::get( 'pexels_api_key' ) ); ?>"
+                                <div class="yimai-gso-input-with-action">
+                                    <input type="password" name="yimai_gso_pexels_api_key" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'pexels_api_key' ) ); ?>"
                                            placeholder="免费申请：pexels.com/api">
                                     <button type="button" class="button" id="test-img-api">测试连接</button>
                                 </div>
                                 <span id="test-img-result"></span>
                             </div>
-                            <div class="wpaip-field-group" id="unsplash-key-row">
+                            <div class="yimai-gso-field-group" id="unsplash-key-row">
                                 <label>Unsplash Access Key</label>
-                                <div class="wpaip-input-with-action">
-                                    <input type="password" name="wpaip_unsplash_api_key" class="large-text"
-                                           value="<?php echo esc_attr( WPAIP_9XCU::get( 'unsplash_api_key' ) ); ?>"
+                                <div class="yimai-gso-input-with-action">
+                                    <input type="password" name="yimai_gso_unsplash_api_key" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'unsplash_api_key' ) ); ?>"
                                            placeholder="免费申请：unsplash.com/developers">
                                     <button type="button" class="button" id="test-img-api">测试连接</button>
                                 </div>
                                 <span id="test-img-result"></span>
                             </div>
-                            <div class="wpaip-field-group" id="pixabay-key-row">
+                            <div class="yimai-gso-field-group" id="pixabay-key-row">
                                 <label>Pixabay API Key</label>
-                                <div class="wpaip-input-with-action">
-                                    <input type="password" name="wpaip_image_api_key" class="large-text"
-                                           value="<?php echo esc_attr( WPAIP_9XCU::get( 'image_api_key' ) ); ?>"
+                                <div class="yimai-gso-input-with-action">
+                                    <input type="password" name="yimai_gso_image_api_key" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'image_api_key' ) ); ?>"
                                            placeholder="免费申请：pixabay.com/api/docs">
                                     <button type="button" class="button" id="test-img-api">测试连接</button>
                                 </div>
                                 <span id="test-img-result"></span>
                             </div>
-                            <div class="wpaip-field-group" id="flickr-key-row">
+                            <div class="yimai-gso-field-group" id="flickr-key-row">
                                 <label>Flickr API Key</label>
-                                <div class="wpaip-input-with-action">
-                                    <input type="password" name="wpaip_flickr_api_key" class="large-text"
-                                           value="<?php echo esc_attr( WPAIP_9XCU::get( 'flickr_api_key' ) ); ?>"
+                                <div class="yimai-gso-input-with-action">
+                                    <input type="password" name="yimai_gso_flickr_api_key" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'flickr_api_key' ) ); ?>"
                                            placeholder="免费申请：flickr.com/services/apps">
                                     <button type="button" class="button" id="test-img-api">测试连接</button>
                                 </div>
                             </div>
-                            <div class="wpaip-field-group" id="stockapi-key-row">
+                            <div class="yimai-gso-field-group" id="stockapi-key-row">
                                 <label>StockAPI Key</label>
-                                <div class="wpaip-input-with-action">
-                                    <input type="password" name="wpaip_stockapi_api_key" class="large-text"
-                                           value="<?php echo esc_attr( WPAIP_9XCU::get( 'stockapi_api_key' ) ); ?>"
+                                <div class="yimai-gso-input-with-action">
+                                    <input type="password" name="yimai_gso_stockapi_api_key" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'stockapi_api_key' ) ); ?>"
                                            placeholder="免费申请：stockapi.io">
                                     <button type="button" class="button" id="test-img-api">测试连接</button>
                                 </div>
                             </div>
-                            <div class="wpaip-field-group" id="custom-img-key-row">
+                            <div class="yimai-gso-field-group" id="custom-img-key-row">
                                 <label>自定义图片 API Key</label>
-                                <div class="wpaip-input-with-action">
-                                    <input type="password" name="wpaip_custom_img_api_key" class="large-text"
-                                           value="<?php echo esc_attr( WPAIP_9XCU::get( 'custom_img_api_key' ) ); ?>"
+                                <div class="yimai-gso-input-with-action">
+                                    <input type="password" name="yimai_gso_custom_img_api_key" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'custom_img_api_key' ) ); ?>"
                                            placeholder="填写自定义图片接口的 API Key">
                                     <button type="button" class="button" id="test-img-api">测试连接</button>
                                 </div>
                             </div>
-                            <div class="wpaip-field-group" id="custom-img-url-row">
+                            <div class="yimai-gso-field-group" id="custom-img-url-row">
                                 <label>自定义图片 API 地址</label>
-                                <input type="url" name="wpaip_custom_img_api_url" class="large-text"
-                                       value="<?php echo esc_attr( WPAIP_9XCU::get( 'custom_img_api_url' ) ); ?>"
+                                <input type="url" name="yimai_gso_custom_img_api_url" class="large-text"
+                                       value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'custom_img_api_url' ) ); ?>"
                                        placeholder="填写自定义图片接口地址">
                             </div>
-                            <div class="wpaip-field-group" id="dalle-model-row">
+                            <div class="yimai-gso-field-group" id="dalle-model-row">
                                 <label>DALL-E 模型</label>
-                                <select name="wpaip_dalle_model">
-                                    <option value="dall-e-3" <?php selected( WPAIP_9XCU::get('dalle_model'), 'dall-e-3' ); ?>>DALL-E 3</option>
-                                    <option value="dall-e-2" <?php selected( WPAIP_9XCU::get('dalle_model'), 'dall-e-2' ); ?>>DALL-E 2</option>
+                                <select name="yimai_gso_dalle_model">
+                                    <option value="dall-e-3" <?php selected( YIMAI_GSO_Settings::get('dalle_model'), 'dall-e-3' ); ?>>DALL-E 3</option>
+                                    <option value="dall-e-2" <?php selected( YIMAI_GSO_Settings::get('dalle_model'), 'dall-e-2' ); ?>>DALL-E 2</option>
                                 </select>
-                                <small class="wpaip-field-hint">使用 OpenAI API Key，会产生额外费用</small>
+                                <small class="yimai-gso-field-hint">使用 OpenAI API Key，会产生额外费用</small>
                             </div>
 
                             <!-- ★ AI 生图配置（选择"AI生成"后显示） -->
-                            <div class="wpaip-ai-image-section" id="ai-image-section" style="display:<?php echo $img_provider === 'ai' ? 'block' : 'none'; ?>;">
-                                <div class="wpaip-settings-section-header" style="margin-top: 12px;">
+                            <div class="yimai-gso-ai-image-section" id="ai-image-section" style="display:<?php echo $img_provider === 'ai' ? 'block' : 'none'; ?>;">
+                                <div class="yimai-gso-settings-section-header" style="margin-top: 12px;">
                                     <h3>🤖 AI 生图配置</h3>
                                 </div>
-                                <div class="wpaip-field-group">
+                                <div class="yimai-gso-field-group">
                                     <label>AI 生图服务商</label>
-                                    <select name="wpaip_ai_image_provider" id="setting-ai-img-provider">
-                                        <option value="doubao" <?php selected( WPAIP_9XCU::get( 'ai_image_provider', 'doubao' ), 'doubao' ); ?>>豆包/即梦 Seedream（推荐）</option>
-                                        <option value="zhipu" <?php selected( WPAIP_9XCU::get( 'ai_image_provider' ), 'zhipu' ); ?>>智谱 CogView-4</option>
-                                        <option value="wanxiang" <?php selected( WPAIP_9XCU::get( 'ai_image_provider' ), 'wanxiang' ); ?>>通义万相 wan2.6</option>
+                                    <select name="yimai_gso_ai_image_provider" id="setting-ai-img-provider">
+                                        <option value="doubao" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_provider', 'doubao' ), 'doubao' ); ?>>豆包/即梦 Seedream（推荐）</option>
+                                        <option value="zhipu" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_provider' ), 'zhipu' ); ?>>智谱 CogView-4</option>
+                                        <option value="wanxiang" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_provider' ), 'wanxiang' ); ?>>通义万相 wan2.6</option>
                                     </select>
-                                    <small class="wpaip-field-hint">选择 AI 生图服务商后，下方会显示对应的 API Key 配置</small>
+                                    <small class="yimai-gso-field-hint">选择 AI 生图服务商后，下方会显示对应的 API Key 配置</small>
                                 </div>
 
                                 <!-- 豆包/即梦 API Key -->
-                                <div class="wpaip-field-group ai-img-key-row" id="ai-key-row-doubao" data-provider="doubao">
+                                <div class="yimai-gso-field-group ai-img-key-row" id="ai-key-row-doubao" data-provider="doubao">
                                     <label>豆包/即梦 API Key</label>
-                                    <div class="wpaip-input-with-action">
-                                        <input type="password" name="wpaip_ai_image_doubao_key" class="large-text"
-                                               value="<?php echo esc_attr( WPAIP_9XCU::get( 'ai_image_doubao_key' ) ); ?>"
+                                    <div class="yimai-gso-input-with-action">
+                                        <input type="password" name="yimai_gso_ai_image_doubao_key" class="large-text"
+                                               value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'ai_image_doubao_key' ) ); ?>"
                                                placeholder="前往火山方舟控制台获取 API Key">
-                                        <button type="button" class="button wpaip-test-ai-img-btn" data-provider="doubao">测试连接</button>
+                                        <button type="button" class="button yimai-gso-test-ai-img-btn" data-provider="doubao">测试连接</button>
                                     </div>
-                                    <span class="wpaip-test-ai-img-result"></span>
-                                    <small class="wpaip-field-hint">前往 <a href="https://console.volcengine.com/ark/region:ark+cn-beijing/apikey" target="_blank">火山方舟控制台</a> 获取 API Key</small>
+                                    <span class="yimai-gso-test-ai-img-result"></span>
+                                    <small class="yimai-gso-field-hint">前往 <a href="https://console.volcengine.com/ark/region:ark+cn-beijing/apikey" target="_blank">火山方舟控制台</a> 获取 API Key</small>
                                 </div>
 
                                 <!-- 智谱 API Key -->
-                                <div class="wpaip-field-group ai-img-key-row" id="ai-key-row-zhipu" data-provider="zhipu" style="display:none;">
+                                <div class="yimai-gso-field-group ai-img-key-row" id="ai-key-row-zhipu" data-provider="zhipu" style="display:none;">
                                     <label>智谱 API Key</label>
-                                    <div class="wpaip-input-with-action">
-                                        <input type="password" name="wpaip_ai_image_zhipu_key" class="large-text"
-                                               value="<?php echo esc_attr( WPAIP_9XCU::get( 'ai_image_zhipu_key' ) ); ?>"
+                                    <div class="yimai-gso-input-with-action">
+                                        <input type="password" name="yimai_gso_ai_image_zhipu_key" class="large-text"
+                                               value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'ai_image_zhipu_key' ) ); ?>"
                                                placeholder="前往智谱AI开放平台获取 API Key">
-                                        <button type="button" class="button wpaip-test-ai-img-btn" data-provider="zhipu">测试连接</button>
+                                        <button type="button" class="button yimai-gso-test-ai-img-btn" data-provider="zhipu">测试连接</button>
                                     </div>
-                                    <span class="wpaip-test-ai-img-result"></span>
-                                    <small class="wpaip-field-hint">前往 <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank">智谱AI开放平台</a> 获取 API Key</small>
+                                    <span class="yimai-gso-test-ai-img-result"></span>
+                                    <small class="yimai-gso-field-hint">前往 <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank">智谱AI开放平台</a> 获取 API Key</small>
                                 </div>
 
                                 <!-- 通义万相 API Key -->
-                                <div class="wpaip-field-group ai-img-key-row" id="ai-key-row-wanxiang" data-provider="wanxiang" style="display:none;">
+                                <div class="yimai-gso-field-group ai-img-key-row" id="ai-key-row-wanxiang" data-provider="wanxiang" style="display:none;">
                                     <label>通义万相 API Key</label>
-                                    <div class="wpaip-input-with-action">
-                                        <input type="password" name="wpaip_ai_image_wanxiang_key" class="large-text"
-                                               value="<?php echo esc_attr( WPAIP_9XCU::get( 'ai_image_wanxiang_key' ) ); ?>"
+                                    <div class="yimai-gso-input-with-action">
+                                        <input type="password" name="yimai_gso_ai_image_wanxiang_key" class="large-text"
+                                               value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'ai_image_wanxiang_key' ) ); ?>"
                                                placeholder="前往阿里云百炼控制台获取 API Key">
-                                        <button type="button" class="button wpaip-test-ai-img-btn" data-provider="wanxiang">测试连接</button>
+                                        <button type="button" class="button yimai-gso-test-ai-img-btn" data-provider="wanxiang">测试连接</button>
                                     </div>
-                                    <span class="wpaip-test-ai-img-result"></span>
-                                    <small class="wpaip-field-hint">前往 <a href="https://bailian.console.aliyun.com/#/api-key" target="_blank">阿里云百炼控制台</a> 获取 API Key</small>
+                                    <span class="yimai-gso-test-ai-img-result"></span>
+                                    <small class="yimai-gso-field-hint">前往 <a href="https://bailian.console.aliyun.com/#/api-key" target="_blank">阿里云百炼控制台</a> 获取 API Key</small>
                                 </div>
 
                                 <!-- 模型版本 -->
-                                <div class="wpaip-field-group">
+                                <div class="yimai-gso-field-group">
                                     <label>模型名称</label>
-                                    <input type="text" name="wpaip_ai_image_model" class="large-text"
-                                           value="<?php echo esc_attr( WPAIP_9XCU::get( 'ai_image_model', 'doubao-seedream-5-0-260128' ) ); ?>"
+                                    <input type="text" name="yimai_gso_ai_image_model" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'ai_image_model', 'doubao-seedream-5-0-260128' ) ); ?>"
                                            placeholder="例如：doubao-seedream-5-0-260128">
-                                    <small class="wpaip-field-hint">自行填写模型名称，切换服务商时会自动填充对应推荐模型</small>
+                                    <small class="yimai-gso-field-hint">自行填写模型名称，切换服务商时会自动填充对应推荐模型</small>
                                 </div>
 
                                 <!-- 图片尺寸 -->
-                                <div class="wpaip-field-group">
+                                <div class="yimai-gso-field-group">
                                     <label>图片比例</label>
-                                    <select name="wpaip_ai_image_size" id="setting-ai-img-size">
-                                        <option value="2K" <?php selected( WPAIP_9XCU::get( 'ai_image_size', '2K' ), '2K' ); ?>>2K 正方形（默认）</option>
-                                        <option value="16:9" <?php selected( WPAIP_9XCU::get( 'ai_image_size' ), '16:9' ); ?>>16:9 横版宽屏</option>
-                                        <option value="4:3" <?php selected( WPAIP_9XCU::get( 'ai_image_size' ), '4:3' ); ?>>4:3 标准横版</option>
-                                        <option value="9:16" <?php selected( WPAIP_9XCU::get( 'ai_image_size' ), '9:16' ); ?>>9:16 竖版</option>
+                                    <select name="yimai_gso_ai_image_size" id="setting-ai-img-size">
+                                        <option value="2K" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_size', '2K' ), '2K' ); ?>>2K 正方形（默认）</option>
+                                        <option value="16:9" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_size' ), '16:9' ); ?>>16:9 横版宽屏</option>
+                                        <option value="4:3" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_size' ), '4:3' ); ?>>4:3 标准横版</option>
+                                        <option value="9:16" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_size' ), '9:16' ); ?>>9:16 竖版</option>
                                     </select>
-                                    <small class="wpaip-field-hint">豆包/即梦仅支持2K正方形，非正方形比例通过提示词描述实现</small>
+                                    <small class="yimai-gso-field-hint">豆包/即梦仅支持2K正方形，非正方形比例通过提示词描述实现</small>
                                 </div>
 
                                 <!-- 图片风格预设 -->
-                                <div class="wpaip-field-group">
+                                <div class="yimai-gso-field-group">
                                     <label>图片风格预设</label>
-                                    <select name="wpaip_ai_image_style" id="setting-ai-img-style">
-                                        <option value="写实摄影" <?php selected( WPAIP_9XCU::get( 'ai_image_style', '写实摄影' ), '写实摄影' ); ?>>写实摄影风格</option>
-                                        <option value="商务插画" <?php selected( WPAIP_9XCU::get( 'ai_image_style' ), '商务插画' ); ?>>商务插画风格</option>
-                                        <option value="极简扁平化" <?php selected( WPAIP_9XCU::get( 'ai_image_style' ), '极简扁平化' ); ?>>极简扁平化</option>
-                                        <option value="3D渲染" <?php selected( WPAIP_9XCU::get( 'ai_image_style' ), '3D渲染' ); ?>>3D 渲染风格</option>
+                                    <select name="yimai_gso_ai_image_style" id="setting-ai-img-style">
+                                        <option value="写实摄影" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_style', '写实摄影' ), '写实摄影' ); ?>>写实摄影风格</option>
+                                        <option value="商务插画" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_style' ), '商务插画' ); ?>>商务插画风格</option>
+                                        <option value="极简扁平化" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_style' ), '极简扁平化' ); ?>>极简扁平化</option>
+                                        <option value="3D渲染" <?php selected( YIMAI_GSO_Settings::get( 'ai_image_style' ), '3D渲染' ); ?>>3D 渲染风格</option>
                                     </select>
-                                    <small class="wpaip-field-hint">选择风格后会自动填充到下方提示词模板中</small>
+                                    <small class="yimai-gso-field-hint">选择风格后会自动填充到下方提示词模板中</small>
                                 </div>
 
                                 <!-- 自定义提示词模板 -->
-                                <div class="wpaip-field-group">
+                                <div class="yimai-gso-field-group">
                                     <label>自定义提示词模板</label>
-                                    <textarea name="wpaip_ai_image_custom_prompt" rows="4" class="large-text"
-                                              placeholder="高清晰度，专业摄影品质，大师级构图，自然光或柔光照明，光影层次丰富，画面干净无任何文字字母logo数字，色彩鲜明自然，{style}风格，中国本土化真实场景"><?php echo esc_textarea( WPAIP_9XCU::get( 'ai_image_custom_prompt' ) ); ?></textarea>
-                                    <small class="wpaip-field-hint">
+                                    <textarea name="yimai_gso_ai_image_custom_prompt" rows="4" class="large-text"
+                                              placeholder="高清晰度，专业摄影品质，大师级构图，自然光或柔光照明，光影层次丰富，画面干净无任何文字字母logo数字，色彩鲜明自然，{style}风格，中国本土化真实场景"><?php echo esc_textarea( YIMAI_GSO_Settings::get( 'ai_image_custom_prompt' ) ); ?></textarea>
+                                    <small class="yimai-gso-field-hint">
                                         可用变量：<code>{title}</code> 文章标题、<code>{keyword}</code> 关键词、<code>{section}</code> 章节标题、<code>{style}</code> 风格预设
                                     </small>
                                 </div>
                             </div>
                             <!-- ★ AI 生图配置结束 -->
 
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>默认配图数量</label>
-                                <div class="wpaip-number-input">
-                                    <input type="number" name="wpaip_image_count" min="0" max="10"
-                                           value="<?php echo esc_attr( WPAIP_9XCU::get( 'image_count', 1 ) ); ?>">
+                                <div class="yimai-gso-number-input">
+                                    <input type="number" name="yimai_gso_image_count" min="0" max="10"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'image_count', 1 ) ); ?>">
                                     <span>张</span>
                                 </div>
                             </div>
-                            <div class="wpaip-field-group" id="img-prompt-row">
+                            <div class="yimai-gso-field-group" id="img-prompt-row">
                                 <label>配图搜索提示词</label>
-                                <textarea name="wpaip_image_prompt" rows="3" class="large-text"
-                                          placeholder="留空则自动使用文章关键词搜索配图&#10;可自定义搜索风格，例如：&#10;高清商务风格，科技感背景图"><?php echo esc_textarea( WPAIP_9XCU::get( 'image_prompt' ) ); ?></textarea>
-                                <small class="wpaip-field-hint">自定义配图搜索风格提示词，留空则根据文章关键词自动搜索（AI生图模式下此设置不影响，使用上方"自定义提示词模板"）</small>
+                                <textarea name="yimai_gso_image_prompt" rows="3" class="large-text"
+                                          placeholder="留空则自动使用文章关键词搜索配图&#10;可自定义搜索风格，例如：&#10;高清商务风格，科技感背景图"><?php echo esc_textarea( YIMAI_GSO_Settings::get( 'image_prompt' ) ); ?></textarea>
+                                <small class="yimai-gso-field-hint">自定义配图搜索风格提示词，留空则根据文章关键词自动搜索（AI生图模式下此设置不影响，使用上方"自定义提示词模板"）</small>
                             </div>
 
                             <!-- 我的图片库配置（仅配图来源=local 时显示） -->
                             <?php
-                            $local_img_config_raw = WPAIP_9XCU::get( 'local_image_config', '' );
+                            $local_img_config_raw = YIMAI_GSO_Settings::get( 'local_image_config', '' );
                             $local_img_config = array();
                             if ( is_string( $local_img_config_raw ) && ! empty( $local_img_config_raw ) ) {
                                 $local_img_config = json_decode( $local_img_config_raw, true );
@@ -5980,15 +5980,15 @@ class WPAIP_NC8O {
                             }
                             // 获取图片库分组列表
                             $local_groups_list = array();
-                            if ( class_exists( 'WPAIP_UY9D' ) ) {
-                                $local_groups_list = WPAIP_UY9D::get_groups_flat();
+                            if ( class_exists( 'YIMAI_GSO_Image_Library' ) ) {
+                                $local_groups_list = YIMAI_GSO_Image_Library::get_groups_flat();
                             }
                             ?>
-                            <div class="wpaip-field-group" id="local-img-config-section" style="display:none;">
+                            <div class="yimai-gso-field-group" id="local-img-config-section" style="display:none;">
                                 <h3 style="margin:8px 0 4px;">📁 我的图片库筛选配置</h3>
-                                <div class="wpaip-field-group" style="margin-top:8px;">
+                                <div class="yimai-gso-field-group" style="margin-top:8px;">
                                     <label>限定图片分组</label>
-                                    <select name="wpaip_local_image_group_id">
+                                    <select name="yimai_gso_local_image_group_id">
                                         <option value="0">全部分组</option>
                                         <?php foreach ( $local_groups_list as $g ) : ?>
                                             <option value="<?php echo esc_attr( $g['id'] ); ?>" <?php selected( $local_img_config['group_id'] ?? 0, $g['id'] ); ?>>
@@ -5996,13 +5996,13 @@ class WPAIP_NC8O {
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <small class="wpaip-field-hint">只从指定分组中选取配图，选"全部分组"则从整个图片库选取</small>
+                                    <small class="yimai-gso-field-hint">只从指定分组中选取配图，选"全部分组"则从整个图片库选取</small>
                                 </div>
-                                <div class="wpaip-field-group">
+                                <div class="yimai-gso-field-group">
                                     <label>最小权重</label>
-                                    <input type="number" name="wpaip_local_image_min_weight" min="1" max="10"
+                                    <input type="number" name="yimai_gso_local_image_min_weight" min="1" max="10"
                                            value="<?php echo esc_attr( $local_img_config['min_weight'] ?? 1 ); ?>">
-                                    <small class="wpaip-field-hint">仅选取权重 ≥ 此值的图片（1-10，默认1），权重越高的图片越优先被选用</small>
+                                    <small class="yimai-gso-field-hint">仅选取权重 ≥ 此值的图片（1-10，默认1），权重越高的图片越优先被选用</small>
                                 </div>
                             </div>
 
@@ -6014,113 +6014,113 @@ class WPAIP_NC8O {
 
                 <!-- 发布设置 -->
 
-                <div class="wpaip-settings-panel <?php echo $settings_subtab === 'publish' ? 'active' : ''; ?>" data-tab="publish">
-                    <div class="wpaip-settings-section">
-                        <div class="wpaip-settings-section-header">
+                <div class="yimai-gso-settings-panel <?php echo $settings_subtab === 'publish' ? 'active' : ''; ?>" data-tab="publish">
+                    <div class="yimai-gso-settings-section">
+                        <div class="yimai-gso-settings-section-header">
                             <h2>📤 发布默认设置</h2>
                         </div>
-                        <div class="wpaip-settings-fields">
-                            <div class="wpaip-field-group">
+                        <div class="yimai-gso-settings-fields">
+                            <div class="yimai-gso-field-group">
                                 <label>默认分类</label>
-                                <select name="wpaip_default_category" class="wpaip-select-full">
+                                <select name="yimai_gso_default_category" class="yimai-gso-select-full">
                                     <?php foreach ( $categories as $cat ) : ?>
-                                        <option value="<?php echo $cat->term_id; ?>" <?php selected( WPAIP_9XCU::get( 'default_category', 1 ), $cat->term_id ); ?>>
+                                        <option value="<?php echo $cat->term_id; ?>" <?php selected( YIMAI_GSO_Settings::get( 'default_category', 1 ), $cat->term_id ); ?>>
                                             <?php echo esc_html( $cat->name ); ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>文章语言</label>
-                                <select name="wpaip_article_language">
-                                    <option value="zh_CN" <?php selected( WPAIP_9XCU::get('article_language'), 'zh_CN' ); ?>>🇨🇳 中文</option>
-                                    <option value="en_US" <?php selected( WPAIP_9XCU::get('article_language'), 'en_US' ); ?>>🇺🇸 English</option>
+                                <select name="yimai_gso_article_language">
+                                    <option value="zh_CN" <?php selected( YIMAI_GSO_Settings::get('article_language'), 'zh_CN' ); ?>>🇨🇳 中文</option>
+                                    <option value="en_US" <?php selected( YIMAI_GSO_Settings::get('article_language'), 'en_US' ); ?>>🇺🇸 English</option>
                                 </select>
                             </div>
                         </div>
                     </div>
 
                     <!-- 发布时间策略 -->
-                    <div class="wpaip-settings-section" style="margin-top:20px;">
-                        <div class="wpaip-settings-section-header">
+                    <div class="yimai-gso-settings-section" style="margin-top:20px;">
+                        <div class="yimai-gso-settings-section-header">
                             <h2>🕐 发布时间策略</h2>
                             <p class="description">模拟人工发布节奏，防止被搜索引擎识别为机器发布</p>
                         </div>
-                        <div class="wpaip-settings-fields">
-                            <div class="wpaip-field-group">
+                        <div class="yimai-gso-settings-fields">
+                            <div class="yimai-gso-field-group">
                                 <label>时间随机偏移</label>
-                                <div class="wpaip-radio-group">
-                                    <label class="wpaip-radio">
-                                        <input type="radio" name="wpaip_publish_time_jitter" value="0" <?php checked( WPAIP_9XCU::get( 'publish_time_jitter', '0' ), '0' ); ?>>
+                                <div class="yimai-gso-radio-group">
+                                    <label class="yimai-gso-radio">
+                                        <input type="radio" name="yimai_gso_publish_time_jitter" value="0" <?php checked( YIMAI_GSO_Settings::get( 'publish_time_jitter', '0' ), '0' ); ?>>
                                         <span>关闭</span>
                                     </label>
-                                    <label class="wpaip-radio">
-                                        <input type="radio" name="wpaip_publish_time_jitter" value="300" <?php checked( WPAIP_9XCU::get( 'publish_time_jitter', '0' ), '300' ); ?>>
+                                    <label class="yimai-gso-radio">
+                                        <input type="radio" name="yimai_gso_publish_time_jitter" value="300" <?php checked( YIMAI_GSO_Settings::get( 'publish_time_jitter', '0' ), '300' ); ?>>
                                         <span>±5 分钟</span>
                                     </label>
-                                    <label class="wpaip-radio">
-                                        <input type="radio" name="wpaip_publish_time_jitter" value="900" <?php checked( WPAIP_9XCU::get( 'publish_time_jitter', '0' ), '900' ); ?>>
+                                    <label class="yimai-gso-radio">
+                                        <input type="radio" name="yimai_gso_publish_time_jitter" value="900" <?php checked( YIMAI_GSO_Settings::get( 'publish_time_jitter', '0' ), '900' ); ?>>
                                         <span>±15 分钟</span>
                                     </label>
-                                    <label class="wpaip-radio">
-                                        <input type="radio" name="wpaip_publish_time_jitter" value="1800" <?php checked( WPAIP_9XCU::get( 'publish_time_jitter', '0' ), '1800' ); ?>>
+                                    <label class="yimai-gso-radio">
+                                        <input type="radio" name="yimai_gso_publish_time_jitter" value="1800" <?php checked( YIMAI_GSO_Settings::get( 'publish_time_jitter', '0' ), '1800' ); ?>>
                                         <span>±30 分钟</span>
                                     </label>
-                                    <label class="wpaip-radio">
-                                        <input type="radio" name="wpaip_publish_time_jitter" value="3600" <?php checked( WPAIP_9XCU::get( 'publish_time_jitter', '0' ), '3600' ); ?>>
+                                    <label class="yimai-gso-radio">
+                                        <input type="radio" name="yimai_gso_publish_time_jitter" value="3600" <?php checked( YIMAI_GSO_Settings::get( 'publish_time_jitter', '0' ), '3600' ); ?>>
                                         <span>±1 小时</span>
                                     </label>
                                 </div>
-                                <small class="wpaip-field-hint">开启后，批量发布/定时发布时每篇文章的发布时间会在设定基础上随机偏移，让发布时间更自然</small>
+                                <small class="yimai-gso-field-hint">开启后，批量发布/定时发布时每篇文章的发布时间会在设定基础上随机偏移，让发布时间更自然</small>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>仅在工作时间发布</label>
-                                <label class="wpaip-radio">
-                                    <input type="checkbox" name="wpaip_publish_work_hours_only" value="1" <?php checked( WPAIP_9XCU::get( 'publish_work_hours_only', 0 ), 1 ); ?>>
+                                <label class="yimai-gso-radio">
+                                    <input type="checkbox" name="yimai_gso_publish_work_hours_only" value="1" <?php checked( YIMAI_GSO_Settings::get( 'publish_work_hours_only', 0 ), 1 ); ?>>
                                     <span>限制在 8:00 - 23:00 发布</span>
                                 </label>
-                                <small class="wpaip-field-hint">开启后，定时发布时间如果落在非工作时间，会自动顺延到下一个工作时段</small>
+                                <small class="yimai-gso-field-hint">开启后，定时发布时间如果落在非工作时间，会自动顺延到下一个工作时段</small>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>发布日跳过</label>
-                                <div class="wpaip-checkbox-group">
+                                <div class="yimai-gso-checkbox-group">
                                     <?php
-                                    $skip_days = WPAIP_9XCU::get( 'publish_skip_days', array() );
+                                    $skip_days = YIMAI_GSO_Settings::get( 'publish_skip_days', array() );
                                     if ( ! is_array( $skip_days ) ) $skip_days = array();
                                     $weekdays = array( 1 => '周一', 2 => '周二', 3 => '周三', 4 => '周四', 5 => '周五', 6 => '周六', 0 => '周日' );
                                     foreach ( $weekdays as $day_num => $day_label ) :
                                     ?>
-                                    <label class="wpaip-radio" style="display:inline-flex;margin-right:8px;">
-                                        <input type="checkbox" name="wpaip_publish_skip_days[]" value="<?php echo $day_num; ?>" <?php checked( in_array( $day_num, $skip_days ) ); ?>>
+                                    <label class="yimai-gso-radio" style="display:inline-flex;margin-right:8px;">
+                                        <input type="checkbox" name="yimai_gso_publish_skip_days[]" value="<?php echo $day_num; ?>" <?php checked( in_array( $day_num, $skip_days ) ); ?>>
                                         <span><?php echo $day_label; ?></span>
                                     </label>
                                     <?php endforeach; ?>
                                 </div>
-                                <small class="wpaip-field-hint">勾选的日期不会安排发布，定时文章会自动跳过这些日期</small>
+                                <small class="yimai-gso-field-hint">勾选的日期不会安排发布，定时文章会自动跳过这些日期</small>
                             </div>
                         </div>
                     </div>
 
                     <!-- 运行模式 -->
-                    <div class="wpaip-settings-section" style="margin-top:20px;">
-                        <div class="wpaip-settings-section-header">
+                    <div class="yimai-gso-settings-section" style="margin-top:20px;">
+                        <div class="yimai-gso-settings-section-header">
                             <h2>⚙️ 运行模式</h2>
                             <p class="description">选择定时发布和永动发布的触发方式</p>
                         </div>
-                        <div class="wpaip-settings-fields">
-                            <div class="wpaip-field-group">
+                        <div class="yimai-gso-settings-fields">
+                            <div class="yimai-gso-field-group">
                                 <label>触发模式</label>
-                                <?php $current_mode = WPAIP_9XCU::get( 'operation_mode', 'default' ); ?>
-                                <div class="wpaip-radio-group wpaip-radio-group-stack">
-                                    <label class="wpaip-radio">
-                                        <input type="radio" name="wpaip_operation_mode" value="default" <?php checked( $current_mode, 'default' ); ?>>
+                                <?php $current_mode = YIMAI_GSO_Settings::get( 'operation_mode', 'default' ); ?>
+                                <div class="yimai-gso-radio-group yimai-gso-radio-group-stack">
+                                    <label class="yimai-gso-radio">
+                                        <input type="radio" name="yimai_gso_operation_mode" value="default" <?php checked( $current_mode, 'default' ); ?>>
                                         <span><strong>默认模式（访客触发）</strong></span>
                                     </label>
                                     <div style="margin:4px 0 0 24px;font-size:12px;color:#64748b;">
                                         插件安装后默认工作方式。当有访客访问网站时，WP-Cron 顺带触发执行定时发布和永动发布任务。无需额外配置，适合有稳定访问量的站点。
                                     </div>
-                                    <label class="wpaip-radio" style="margin-top:16px;">
-                                        <input type="radio" name="wpaip_operation_mode" value="precise" <?php checked( $current_mode, 'precise' ); ?>>
+                                    <label class="yimai-gso-radio" style="margin-top:16px;">
+                                        <input type="radio" name="yimai_gso_operation_mode" value="precise" <?php checked( $current_mode, 'precise' ); ?>>
                                         <span><strong>精准模式（系统Cron）</strong></span>
                                     </label>
                                     <div style="margin:4px 0 0 24px;font-size:12px;color:#64748b;">
@@ -6137,73 +6137,73 @@ class WPAIP_NC8O {
                     </div>
 
                     <!-- 前端摘要显示 -->
-                    <div class="wpaip-settings-section" style="margin-top:20px;">
-                        <div class="wpaip-settings-section-header">
+                    <div class="yimai-gso-settings-section" style="margin-top:20px;">
+                        <div class="yimai-gso-settings-section-header">
                             <h2>📖 前端摘要显示</h2>
                             <p class="description">在文章页正文上方显示AI生成的摘要内容</p>
                         </div>
-                        <div class="wpaip-settings-fields">
-                            <div class="wpaip-field-group">
+                        <div class="yimai-gso-settings-fields">
+                            <div class="yimai-gso-field-group">
                                 <label>文章页显示摘要</label>
-                                <label class="wpaip-radio">
-                                    <input type="checkbox" name="wpaip_frontend_excerpt_enabled" value="1" <?php checked( WPAIP_9XCU::get( 'frontend_excerpt_enabled', 0 ), 1 ); ?>>
+                                <label class="yimai-gso-radio">
+                                    <input type="checkbox" name="yimai_gso_frontend_excerpt_enabled" value="1" <?php checked( YIMAI_GSO_Settings::get( 'frontend_excerpt_enabled', 0 ), 1 ); ?>>
                                     <span>在文章页正文上方显示摘要</span>
                                 </label>
-                                <small class="wpaip-field-hint">开启后，已生成摘要的文章会在正文上方显示一个摘要卡片</small>
+                                <small class="yimai-gso-field-hint">开启后，已生成摘要的文章会在正文上方显示一个摘要卡片</small>
                             </div>
-                            <div class="wpaip-field-group">
+                            <div class="yimai-gso-field-group">
                                 <label>摘要标签文字</label>
-                                <input type="text" name="wpaip_frontend_excerpt_label" class="regular-text"
-                                       value="<?php echo esc_attr( WPAIP_9XCU::get( 'frontend_excerpt_label', '文章摘要' ) ); ?>"
+                                <input type="text" name="yimai_gso_frontend_excerpt_label" class="regular-text"
+                                       value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'frontend_excerpt_label', '文章摘要' ) ); ?>"
                                        placeholder="文章摘要">
-                                <small class="wpaip-field-hint">摘要框上方显示的标题文字，默认为【文章摘要】</small>
+                                <small class="yimai-gso-field-hint">摘要框上方显示的标题文字，默认为【文章摘要】</small>
                             </div>
                         </div>
                     </div>
 
                     <!-- 索引控制 (noindex) -->
-                    <div class="wpaip-settings-section" style="margin-top:20px;">
-                        <div class="wpaip-settings-section-header">
+                    <div class="yimai-gso-settings-section" style="margin-top:20px;">
+                        <div class="yimai-gso-settings-section-header">
                             <h2>🔍 索引控制 (noindex)</h2>
                             <p class="description">控制哪些内容类型的页面不被搜索引擎收录</p>
                         </div>
-                        <div class="wpaip-settings-fields">
-                            <div class="wpaip-field-group">
+                        <div class="yimai-gso-settings-fields">
+                            <div class="yimai-gso-field-group">
                                 <label>不索引的文章类型</label>
-                                <div class="wpaip-checkbox-group">
+                                <div class="yimai-gso-checkbox-group">
                                     <?php
-                                    $noindex_types = WPAIP_9XCU::get( 'noindex_post_types', '' );
+                                    $noindex_types = YIMAI_GSO_Settings::get( 'noindex_post_types', '' );
                                     $noindex_list  = array_filter( array_map( 'trim', explode( ',', $noindex_types ) ) );
-                                    $supported     = WPAIP_B7PQ::get_supported();
+                                    $supported     = YIMAI_GSO_Post_Type_Helper::get_supported();
                                     foreach ( $supported as $pt ) :
                                         $pt_obj = get_post_type_object( $pt );
                                         $pt_label = $pt_obj ? $pt_obj->labels->name : $pt;
                                     ?>
-                                    <label class="wpaip-radio" style="display:inline-flex;margin-right:12px;margin-bottom:6px;">
-                                        <input type="checkbox" name="wpaip_noindex_types[]" value="<?php echo esc_attr( $pt ); ?>"
+                                    <label class="yimai-gso-radio" style="display:inline-flex;margin-right:12px;margin-bottom:6px;">
+                                        <input type="checkbox" name="yimai_gso_noindex_types[]" value="<?php echo esc_attr( $pt ); ?>"
                                                <?php checked( in_array( $pt, $noindex_list, true ) ); ?>>
                                         <span><?php echo esc_html( $pt_label ); ?> (<?php echo esc_html( $pt ); ?>)</span>
                                     </label>
                                     <?php endforeach; ?>
                                 </div>
-                                <small class="wpaip-field-hint">勾选的文章类型将在全站范围内添加 noindex 标签。单篇文章可在编辑页的"索引状态"元数据框中单独覆盖。</small>
+                                <small class="yimai-gso-field-hint">勾选的文章类型将在全站范围内添加 noindex 标签。单篇文章可在编辑页的"索引状态"元数据框中单独覆盖。</small>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- GEO实体设置 -->
-                <div class="wpaip-settings-panel <?php echo $settings_subtab === 'geo' ? 'active' : ''; ?>" data-tab="geo">
+                <div class="yimai-gso-settings-panel <?php echo $settings_subtab === 'geo' ? 'active' : ''; ?>" data-tab="geo">
                     <?php $this->render_geo_entity_settings(); ?>
                 </div>
 
                 <!-- 爬虫策略设置 -->
-                <div class="wpaip-settings-panel <?php echo $settings_subtab === 'crawler' ? 'active' : ''; ?>" data-tab="crawler">
+                <div class="yimai-gso-settings-panel <?php echo $settings_subtab === 'crawler' ? 'active' : ''; ?>" data-tab="crawler">
                     <?php $this->render_crawler_editor_settings(); ?>
                 </div>
 
                 <!-- 作者档案管理 -->
-                <div class="wpaip-settings-panel <?php echo $settings_subtab === 'authors' ? 'active' : ''; ?>" data-tab="authors">
+                <div class="yimai-gso-settings-panel <?php echo $settings_subtab === 'authors' ? 'active' : ''; ?>" data-tab="authors">
                     <?php $this->render_author_profiles_page(); ?>
                 </div>
 
@@ -6218,8 +6218,8 @@ class WPAIP_NC8O {
 
 
                     <?php if ( in_array( $settings_subtab, array( 'ai', 'image', 'publish' ), true ) ) : ?>
-                    <div class="wpaip-settings-footer">
-                        <button type="submit" name="wpaip_save_settings" class="wpaip-save-btn">
+                    <div class="yimai-gso-settings-footer">
+                        <button type="submit" name="yimai_gso_save_settings" class="yimai-gso-save-btn">
                             <span class="dashicons dashicons-yes"></span>
                             保存设置
                         </button>
@@ -6228,7 +6228,7 @@ class WPAIP_NC8O {
                 </form>
 
                 <!-- 品牌资料与知识检索（独立表单，避免嵌套 multipart 表单） -->
-                <div class="wpaip-settings-panel <?php echo $settings_subtab === 'knowledge' ? 'active' : ''; ?>" data-tab="knowledge">
+                <div class="yimai-gso-settings-panel <?php echo $settings_subtab === 'knowledge' ? 'active' : ''; ?>" data-tab="knowledge">
                     <?php if ( class_exists( 'YIMAI_GSO_Knowledge_Center' ) ) : ?>
                         <?php YIMAI_GSO_Knowledge_Center::get_instance()->render_embedded_panel(); ?>
                     <?php endif; ?>
@@ -6240,7 +6240,7 @@ class WPAIP_NC8O {
 
             /* ===== AI内容助手主框架样式（侧边栏布局） ===== */
 
-            .wpaip-center-wrap {
+            .yimai-gso-center-wrap {
 
                 max-width: 100%;
 
@@ -6250,7 +6250,7 @@ class WPAIP_NC8O {
 
             /* 侧边栏布局 */
 
-            .wpaip-sidebar-layout {
+            .yimai-gso-sidebar-layout {
 
                 display: flex;
 
@@ -6264,7 +6264,7 @@ class WPAIP_NC8O {
 
             /* 左侧边栏 */
 
-            .wpaip-sidebar {
+            .yimai-gso-sidebar {
 
                 width: 240px;
 
@@ -6272,7 +6272,7 @@ class WPAIP_NC8O {
 
                 background: #fff;
 
-                border-right: 1px solid var(--wpaip-border);
+                border-right: 1px solid var(--yimai-gso-border);
 
                 display: flex;
 
@@ -6282,13 +6282,13 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-sidebar-header {
+            .yimai-gso-sidebar-header {
                 padding: 24px 20px 20px;
                 background: linear-gradient(135deg, #6366f1 0%, #7c3aed 50%, #8b5cf6 100%);
                 border-bottom: none;
                 text-align: center;
             }
-            .wpaip-sidebar-brand-icon {
+            .yimai-gso-sidebar-brand-icon {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
@@ -6300,20 +6300,20 @@ class WPAIP_NC8O {
                 margin-bottom: 14px;
                 border: 1px solid rgba(251,191,36,.3);
             }
-            .wpaip-sidebar-brand-icon .dashicons {
+            .yimai-gso-sidebar-brand-icon .dashicons {
                 font-size: 26px;
                 width: 26px;
                 height: 26px;
                 color: #fbbf24;
             }
-            .wpaip-sidebar-brand-text h2 {
+            .yimai-gso-sidebar-brand-text h2 {
                 font-size: 16px;
                 font-weight: 700;
                 color: #fff;
                 letter-spacing: 0.5px;
                 margin: 0 0 6px 0;
             }
-            .wpaip-sidebar-brand-text p {
+            .yimai-gso-sidebar-brand-text p {
                 font-size: 12px;
                 color: rgba(255,255,255,.65);
                 font-weight: 500;
@@ -6321,7 +6321,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-sidebar-nav {
+            .yimai-gso-sidebar-nav {
 
                 display: flex;
 
@@ -6337,7 +6337,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-sidebar-tab {
+            .yimai-gso-sidebar-tab {
 
                 display: flex;
 
@@ -6371,7 +6371,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-sidebar-tab .dashicons {
+            .yimai-gso-sidebar-tab .dashicons {
 
                 font-size: 18px;
 
@@ -6385,7 +6385,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-sidebar-tab:hover {
+            .yimai-gso-sidebar-tab:hover {
 
                 background: #f1f5f9;
 
@@ -6395,7 +6395,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-sidebar-tab.active {
+            .yimai-gso-sidebar-tab.active {
 
                 background: linear-gradient(135deg, #6366f1, #8b5cf6);
 
@@ -6409,7 +6409,7 @@ class WPAIP_NC8O {
 
             /* 主内容区 */
 
-            .wpaip-main-content {
+            .yimai-gso-main-content {
 
                 flex: 1;
 
@@ -6417,7 +6417,7 @@ class WPAIP_NC8O {
 
                 overflow-y: auto;
 
-                background: var(--wpaip-bg);
+                background: var(--yimai-gso-bg);
 
             }
 
@@ -6425,7 +6425,7 @@ class WPAIP_NC8O {
 
             /* 主面板 */
 
-            .wpaip-main-panel {
+            .yimai-gso-main-panel {
 
                 display: none;
 
@@ -6433,7 +6433,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-main-panel.active {
+            .yimai-gso-main-panel.active {
 
                 display: block;
 
@@ -6445,23 +6445,23 @@ class WPAIP_NC8O {
 
             @media (max-width: 960px) {
 
-                .wpaip-sidebar-layout {
+                .yimai-gso-sidebar-layout {
 
                     flex-direction: column;
 
                 }
 
-                .wpaip-sidebar {
+                .yimai-gso-sidebar {
 
                     width: 100%;
 
                     border-right: none;
 
-                    border-bottom: 1px solid var(--wpaip-border);
+                    border-bottom: 1px solid var(--yimai-gso-border);
 
                 }
 
-                .wpaip-sidebar-nav {
+                .yimai-gso-sidebar-nav {
 
                     flex-direction: row;
 
@@ -6471,7 +6471,7 @@ class WPAIP_NC8O {
 
                 }
 
-                .wpaip-sidebar-tab {
+                .yimai-gso-sidebar-tab {
 
                     flex: 1;
 
@@ -6481,7 +6481,7 @@ class WPAIP_NC8O {
 
                 }
 
-                .wpaip-main-content {
+                .yimai-gso-main-content {
 
                     padding: 20px;
 
@@ -6497,7 +6497,7 @@ class WPAIP_NC8O {
 
             /* Schema Generator / SEO Scorer / Heading Analyzer 公共样式 */
 
-            .wpaip-schema-desc, .wpaip-seo-score-desc, .wpaip-heading-desc {
+            .yimai-gso-schema-desc, .yimai-gso-seo-score-desc, .yimai-gso-heading-desc {
 
                 color: #64748b;
 
@@ -6509,7 +6509,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-seo-score-stats-row {
+            .yimai-gso-seo-score-stats-row {
 
                 display: grid;
 
@@ -6521,11 +6521,11 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-seo-score-stat-card {
+            .yimai-gso-seo-score-stat-card {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 12px;
 
@@ -6541,7 +6541,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-seo-score-stat-icon {
+            .yimai-gso-seo-score-stat-icon {
 
                 width: 48px;
 
@@ -6559,7 +6559,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-seo-score-stat-icon .dashicons {
+            .yimai-gso-seo-score-stat-icon .dashicons {
 
                 font-size: 24px;
 
@@ -6571,7 +6571,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-seo-score-stat-value {
+            .yimai-gso-seo-score-stat-value {
 
                 font-size: 28px;
 
@@ -6583,7 +6583,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-seo-score-stat-label {
+            .yimai-gso-seo-score-stat-label {
 
                 font-size: 13px;
 
@@ -6593,7 +6593,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-schema-type-toggles {
+            .yimai-gso-schema-type-toggles {
 
                 display: grid;
 
@@ -6603,7 +6603,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-schema-toggle {
+            .yimai-gso-schema-toggle {
 
                 display: flex;
 
@@ -6615,7 +6615,7 @@ class WPAIP_NC8O {
 
                 padding: 12px 16px;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 8px;
 
@@ -6625,7 +6625,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-schema-toggle:hover {
+            .yimai-gso-schema-toggle:hover {
 
                 border-color: #6366f1;
 
@@ -6633,7 +6633,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-schema-toggle input[type="checkbox"] {
+            .yimai-gso-schema-toggle input[type="checkbox"] {
 
                 width: 18px;
 
@@ -6641,7 +6641,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-schema-toggle-label {
+            .yimai-gso-schema-toggle-label {
 
                 font-weight: 600;
 
@@ -6651,7 +6651,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-schema-toggle small {
+            .yimai-gso-schema-toggle small {
 
                 width: 100%;
 
@@ -6667,7 +6667,7 @@ class WPAIP_NC8O {
 
             /* SEO Score Detail Modal */
 
-            .wpaip-ss-detail-overlay {
+            .yimai-gso-ss-detail-overlay {
 
                 position: fixed;
 
@@ -6679,7 +6679,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-detail-content {
+            .yimai-gso-ss-detail-content {
 
                 position: fixed;
 
@@ -6707,7 +6707,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-detail-header {
+            .yimai-gso-ss-detail-header {
 
                 display: flex;
 
@@ -6719,11 +6719,11 @@ class WPAIP_NC8O {
 
                 padding-bottom: 16px;
 
-                border-bottom: 1px solid var(--wpaip-border);
+                border-bottom: 1px solid var(--yimai-gso-border);
 
             }
 
-            .wpaip-ss-detail-header h2 {
+            .yimai-gso-ss-detail-header h2 {
 
                 margin: 0;
 
@@ -6731,7 +6731,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-score-ring {
+            .yimai-gso-ss-score-ring {
 
                 width: 100px;
 
@@ -6755,7 +6755,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-dim-row {
+            .yimai-gso-ss-dim-row {
 
                 display: flex;
 
@@ -6769,7 +6769,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-dim-icon {
+            .yimai-gso-ss-dim-icon {
 
                 width: 32px;
 
@@ -6789,7 +6789,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-dim-icon .dashicons {
+            .yimai-gso-ss-dim-icon .dashicons {
 
                 font-size: 16px;
 
@@ -6801,7 +6801,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-dim-label {
+            .yimai-gso-ss-dim-label {
 
                 flex: 1;
 
@@ -6813,7 +6813,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-dim-score {
+            .yimai-gso-ss-dim-score {
 
                 font-size: 16px;
 
@@ -6825,7 +6825,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-dim-bar {
+            .yimai-gso-ss-dim-bar {
 
                 width: 100%;
 
@@ -6839,7 +6839,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-dim-bar-fill {
+            .yimai-gso-ss-dim-bar-fill {
 
                 height: 100%;
 
@@ -6849,7 +6849,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-dim-tips {
+            .yimai-gso-ss-dim-tips {
 
                 padding: 8px 0 4px;
 
@@ -6861,13 +6861,13 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ss-dim-tips li {
+            .yimai-gso-ss-dim-tips li {
 
                 margin-bottom: 4px;
 
             }
 
-            .wpaip-grade-badge {
+            .yimai-gso-grade-badge {
 
                 display: inline-block;
 
@@ -6887,7 +6887,7 @@ class WPAIP_NC8O {
 
             /* Heading Analyzer */
 
-            .wpaip-ha-heading-list {
+            .yimai-gso-ha-heading-list {
 
                 list-style: none;
 
@@ -6897,7 +6897,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ha-heading-item {
+            .yimai-gso-ha-heading-item {
 
                 display: flex;
 
@@ -6913,7 +6913,7 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ha-heading-level {
+            .yimai-gso-ha-heading-level {
 
                 padding: 2px 8px;
 
@@ -6929,31 +6929,31 @@ class WPAIP_NC8O {
 
             }
 
-            .wpaip-ha-heading-level.h2 { background: #6366f1; }
+            .yimai-gso-ha-heading-level.h2 { background: #6366f1; }
 
-            .wpaip-ha-heading-level.h3 { background: #3b82f6; }
+            .yimai-gso-ha-heading-level.h3 { background: #3b82f6; }
 
-            .wpaip-ha-heading-kw { color: #22c55e; font-size: 12px; }
+            .yimai-gso-ha-heading-kw { color: #22c55e; font-size: 12px; }
 
 
 
             @media (max-width: 768px) {
 
-                .wpaip-seo-score-stats-row { grid-template-columns: repeat(2, 1fr); }
+                .yimai-gso-seo-score-stats-row { grid-template-columns: repeat(2, 1fr); }
 
-                .wpaip-schema-type-toggles { grid-template-columns: 1fr; }
+                .yimai-gso-schema-type-toggles { grid-template-columns: 1fr; }
 
-                .wpaip-ss-detail-content { width: 95%; padding: 20px; }
+                .yimai-gso-ss-detail-content { width: 95%; padding: 20px; }
 
             }
 
 
 
-            .wpaip-dashboard-wrap,
+            .yimai-gso-dashboard-wrap,
 
-            .wpaip-generate-wrap,
+            .yimai-gso-generate-wrap,
 
-            .wpaip-history-wrap {
+            .yimai-gso-history-wrap {
 
                 max-width: 1400px;
 
@@ -6961,7 +6961,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-page-title {
+            .yimai-gso-page-title {
 
                 display: flex;
 
@@ -6983,7 +6983,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-dashboard-header {
+            .yimai-gso-dashboard-header {
 
                 display: flex;
 
@@ -6995,13 +6995,13 @@ class WPAIP_NC8O {
 
                 padding-bottom: 24px;
 
-                border-bottom: 1px solid var(--wpaip-border);
+                border-bottom: 1px solid var(--yimai-gso-border);
 
             }
 
 
 
-            .wpaip-dashboard-welcome h1 {
+            .yimai-gso-dashboard-welcome h1 {
 
                 font-size: 28px;
 
@@ -7015,7 +7015,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-dashboard-welcome p {
+            .yimai-gso-dashboard-welcome p {
 
                 font-size: 14px;
 
@@ -7031,7 +7031,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-dashboard-stats {
+            .yimai-gso-dashboard-stats {
 
                 display: grid;
 
@@ -7045,11 +7045,11 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-card {
+            .yimai-gso-stat-card {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 16px;
 
@@ -7069,7 +7069,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-card:hover {
+            .yimai-gso-stat-card:hover {
 
                 transform: translateY(-3px);
 
@@ -7079,7 +7079,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-icon {
+            .yimai-gso-stat-icon {
 
                 width: 52px;
 
@@ -7101,17 +7101,17 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-primary .wpaip-stat-icon { background: linear-gradient(135deg, #667eea, #764ba2); }
+            .yimai-gso-stat-primary .yimai-gso-stat-icon { background: linear-gradient(135deg, #667eea, #764ba2); }
 
-            .wpaip-stat-success .wpaip-stat-icon { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+            .yimai-gso-stat-success .yimai-gso-stat-icon { background: linear-gradient(135deg, #43e97b, #38f9d7); }
 
-            .wpaip-stat-info .wpaip-stat-icon { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+            .yimai-gso-stat-info .yimai-gso-stat-icon { background: linear-gradient(135deg, #4facfe, #00f2fe); }
 
-            .wpaip-stat-warning .wpaip-stat-icon { background: linear-gradient(135deg, #fa709a, #fee140); }
+            .yimai-gso-stat-warning .yimai-gso-stat-icon { background: linear-gradient(135deg, #fa709a, #fee140); }
 
 
 
-            .wpaip-stat-content {
+            .yimai-gso-stat-content {
 
                 flex: 1;
 
@@ -7119,7 +7119,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-card .wpaip-stat-num {
+            .yimai-gso-stat-card .yimai-gso-stat-num {
 
                 font-size: 32px;
 
@@ -7133,7 +7133,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-card .wpaip-stat-label {
+            .yimai-gso-stat-card .yimai-gso-stat-label {
 
                 font-size: 13px;
 
@@ -7145,7 +7145,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-dashboard-quick-actions {
+            .yimai-gso-dashboard-quick-actions {
 
                 margin-bottom: 32px;
 
@@ -7153,7 +7153,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-section-title {
+            .yimai-gso-section-title {
 
                 font-size: 18px;
 
@@ -7167,7 +7167,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-actions-grid {
+            .yimai-gso-quick-actions-grid {
 
                 display: grid;
 
@@ -7179,7 +7179,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-action {
+            .yimai-gso-quick-action {
 
                 display: flex;
 
@@ -7191,7 +7191,7 @@ class WPAIP_NC8O {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 16px;
 
@@ -7205,7 +7205,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-action:hover {
+            .yimai-gso-quick-action:hover {
 
                 border-color: #6366f1;
 
@@ -7215,7 +7215,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-action-primary {
+            .yimai-gso-quick-action-primary {
 
                 background: linear-gradient(135deg, #6366f1, #8b5cf6);
 
@@ -7227,7 +7227,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-action-primary:hover {
+            .yimai-gso-quick-action-primary:hover {
 
                 background: linear-gradient(135deg, #5558e3, #7c4ef0);
 
@@ -7239,7 +7239,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-icon {
+            .yimai-gso-quick-icon {
 
                 width: 44px;
 
@@ -7263,7 +7263,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-action:not(.wpaip-quick-action-primary) .wpaip-quick-icon {
+            .yimai-gso-quick-action:not(.yimai-gso-quick-action-primary) .yimai-gso-quick-icon {
 
                 background: #f1f5f9;
 
@@ -7271,7 +7271,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-info {
+            .yimai-gso-quick-info {
 
                 flex: 1;
 
@@ -7279,7 +7279,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-title {
+            .yimai-gso-quick-title {
 
                 font-size: 15px;
 
@@ -7293,7 +7293,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-action:not(.wpaip-quick-action-primary) .wpaip-quick-title {
+            .yimai-gso-quick-action:not(.yimai-gso-quick-action-primary) .yimai-gso-quick-title {
 
                 color: #1e293b;
 
@@ -7301,7 +7301,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-desc {
+            .yimai-gso-quick-desc {
 
                 font-size: 12px;
 
@@ -7311,7 +7311,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-action:not(.wpaip-quick-action-primary) .wpaip-quick-desc {
+            .yimai-gso-quick-action:not(.yimai-gso-quick-action-primary) .yimai-gso-quick-desc {
 
                 color: #64748b;
 
@@ -7319,7 +7319,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-quick-action .dashicons {
+            .yimai-gso-quick-action .dashicons {
 
                 font-size: 18px;
 
@@ -7333,11 +7333,11 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-dashboard-recent {
+            .yimai-gso-dashboard-recent {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 16px;
 
@@ -7349,7 +7349,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-dashboard-recent-header {
+            .yimai-gso-dashboard-recent-header {
 
                 display: flex;
 
@@ -7363,11 +7363,11 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-view-all {
+            .yimai-gso-view-all {
 
                 font-size: 13px;
 
-                color: var(--wpaip-primary);
+                color: var(--yimai-gso-primary);
 
                 text-decoration: none;
 
@@ -7383,7 +7383,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-view-all:hover {
+            .yimai-gso-view-all:hover {
 
                 text-decoration: underline;
 
@@ -7393,7 +7393,7 @@ class WPAIP_NC8O {
 
             /* 生成页面 */
 
-            .wpaip-generate-header {
+            .yimai-gso-generate-header {
 
                 margin-bottom: 24px;
 
@@ -7403,7 +7403,7 @@ class WPAIP_NC8O {
 
             /* 批量标题/批量文章 Tab 切换 */
 
-            .wpaip-batch-tabs {
+            .yimai-gso-batch-tabs {
 
                 display: flex;
 
@@ -7413,7 +7413,7 @@ class WPAIP_NC8O {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 14px;
 
@@ -7425,7 +7425,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-batch-tab {
+            .yimai-gso-batch-tab {
 
                 flex: 1;
 
@@ -7459,7 +7459,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-batch-tab:hover {
+            .yimai-gso-batch-tab:hover {
 
                 background: #f8fafc;
 
@@ -7469,7 +7469,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-batch-tab.active {
+            .yimai-gso-batch-tab.active {
 
                 background: linear-gradient(135deg, #6366f1, #8b5cf6);
 
@@ -7481,7 +7481,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-step-content {
+            .yimai-gso-step-content {
 
                 display: none;
 
@@ -7489,7 +7489,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-step-content.active {
+            .yimai-gso-step-content.active {
 
                 display: block;
 
@@ -7499,7 +7499,7 @@ class WPAIP_NC8O {
 
             /* 历史页面 */
 
-            .wpaip-history-header {
+            .yimai-gso-history-header {
 
                 display: flex;
 
@@ -7513,11 +7513,11 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-filters {
+            .yimai-gso-history-filters {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 16px;
 
@@ -7529,7 +7529,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-filter-row {
+            .yimai-gso-filter-row {
 
                 display: flex;
 
@@ -7543,13 +7543,13 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-filter-row select,
+            .yimai-gso-filter-row select,
 
-            .wpaip-filter-row input {
+            .yimai-gso-filter-row input {
 
                 padding: 8px 12px;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 8px;
 
@@ -7559,7 +7559,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-filter-actions {
+            .yimai-gso-filter-actions {
 
                 display: flex;
 
@@ -7569,11 +7569,11 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-list {
+            .yimai-gso-history-list {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 16px;
 
@@ -7583,7 +7583,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-loading-state {
+            .yimai-gso-loading-state {
 
                 text-align: center;
 
@@ -7597,7 +7597,7 @@ class WPAIP_NC8O {
 
             /* 设置页面 */
 
-            .wpaip-settings-header {
+            .yimai-gso-settings-header {
 
                 display: flex;
 
@@ -7611,7 +7611,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-tabs {
+            .yimai-gso-settings-tabs {
 
                 display: flex;
 
@@ -7621,7 +7621,7 @@ class WPAIP_NC8O {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 12px;
 
@@ -7633,7 +7633,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-tab {
+            .yimai-gso-settings-tab {
 
                 display: flex;
 
@@ -7663,7 +7663,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-tab:hover {
+            .yimai-gso-settings-tab:hover {
 
                 background: #f8fafc;
 
@@ -7673,7 +7673,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-tab.active {
+            .yimai-gso-settings-tab.active {
 
                 background: linear-gradient(135deg, #6366f1, #8b5cf6);
 
@@ -7683,7 +7683,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-tab .dashicons {
+            .yimai-gso-settings-tab .dashicons {
 
                 font-size: 16px;
 
@@ -7695,7 +7695,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-panel {
+            .yimai-gso-settings-panel {
 
                 display: none;
 
@@ -7703,7 +7703,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-panel.active {
+            .yimai-gso-settings-panel.active {
 
                 display: block;
 
@@ -7711,11 +7711,11 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-section {
+            .yimai-gso-settings-section {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 16px;
 
@@ -7727,19 +7727,19 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-section-header {
+            .yimai-gso-settings-section-header {
 
                 margin-bottom: 20px;
 
                 padding-bottom: 16px;
 
-                border-bottom: 1px solid var(--wpaip-border);
+                border-bottom: 1px solid var(--yimai-gso-border);
 
             }
 
 
 
-            .wpaip-settings-section-header h2 {
+            .yimai-gso-settings-section-header h2 {
 
                 font-size: 18px;
 
@@ -7753,7 +7753,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-desc {
+            .yimai-gso-settings-desc {
 
                 font-size: 13px;
 
@@ -7765,7 +7765,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-settings-fields {
+            .yimai-gso-settings-fields {
 
                 display: flex;
 
@@ -7777,7 +7777,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-field-group {
+            .yimai-gso-field-group {
 
                 display: flex;
 
@@ -7789,7 +7789,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-field-group label {
+            .yimai-gso-field-group label {
 
                 font-size: 14px;
 
@@ -7801,7 +7801,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-field-group .required {
+            .yimai-gso-field-group .required {
 
                 color: #ef4444;
 
@@ -7809,13 +7809,13 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-field-group input,
+            .yimai-gso-field-group input,
 
-            .wpaip-field-group select {
+            .yimai-gso-field-group select {
 
                 padding: 10px 14px;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 8px;
 
@@ -7827,19 +7827,19 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-field-group input:focus,
+            .yimai-gso-field-group input:focus,
 
-            .wpaip-field-group select:focus {
+            .yimai-gso-field-group select:focus {
 
                 outline: none;
 
-                border-color: var(--wpaip-primary);
+                border-color: var(--yimai-gso-primary);
 
             }
 
 
 
-            .wpaip-field-group small {
+            .yimai-gso-field-group small {
 
                 font-size: 12px;
 
@@ -7854,7 +7854,7 @@ class WPAIP_NC8O {
 
             /* ===== 卡片式生成记录页面 ===== */
 
-            .wpaip-history-wrap {
+            .yimai-gso-history-wrap {
 
                 max-width: 1200px;
 
@@ -7862,7 +7862,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-header {
+            .yimai-gso-history-header {
 
                 display: flex;
 
@@ -7876,7 +7876,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-header-actions {
+            .yimai-gso-history-header-actions {
 
                 display: flex;
 
@@ -7888,7 +7888,7 @@ class WPAIP_NC8O {
 
             /* 统计迷你卡片 */
 
-            .wpaip-history-stats-mini {
+            .yimai-gso-history-stats-mini {
 
                 display: flex;
 
@@ -7900,7 +7900,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-mini {
+            .yimai-gso-stat-mini {
 
                 flex: 1;
 
@@ -7914,7 +7914,7 @@ class WPAIP_NC8O {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 12px;
 
@@ -7926,9 +7926,9 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-mini:hover {
+            .yimai-gso-stat-mini:hover {
 
-                border-color: var(--wpaip-primary);
+                border-color: var(--yimai-gso-primary);
 
                 background: #f8faff;
 
@@ -7936,9 +7936,9 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-mini.active {
+            .yimai-gso-stat-mini.active {
 
-                border-color: var(--wpaip-primary);
+                border-color: var(--yimai-gso-primary);
 
                 background: #eef2ff;
 
@@ -7946,7 +7946,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-today {
+            .yimai-gso-stat-today {
 
                 background: linear-gradient(135deg, #667eea, #764ba2);
 
@@ -7956,7 +7956,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-today:hover {
+            .yimai-gso-stat-today:hover {
 
                 background: linear-gradient(135deg, #5a70e0, #6a42d9);
 
@@ -7966,7 +7966,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-mini .wpaip-stat-mini-num {
+            .yimai-gso-stat-mini .yimai-gso-stat-mini-num {
 
                 font-size: 28px;
 
@@ -7980,7 +7980,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-today .wpaip-stat-mini-num {
+            .yimai-gso-stat-today .yimai-gso-stat-mini-num {
 
                 color: #fff;
 
@@ -7988,7 +7988,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-mini .wpaip-stat-mini-label {
+            .yimai-gso-stat-mini .yimai-gso-stat-mini-label {
 
                 font-size: 12px;
 
@@ -8002,7 +8002,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-stat-today .wpaip-stat-mini-label {
+            .yimai-gso-stat-today .yimai-gso-stat-mini-label {
 
                 color: rgba(255,255,255,.8);
 
@@ -8012,7 +8012,7 @@ class WPAIP_NC8O {
 
             /* 筛选栏 */
 
-            .wpaip-history-filter-bar {
+            .yimai-gso-history-filter-bar {
 
                 display: flex;
 
@@ -8024,7 +8024,7 @@ class WPAIP_NC8O {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 12px;
 
@@ -8036,7 +8036,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-search {
+            .yimai-gso-history-search {
 
                 display: flex;
 
@@ -8048,7 +8048,7 @@ class WPAIP_NC8O {
 
                 background: #f8fafc;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 8px;
 
@@ -8060,7 +8060,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-search .dashicons {
+            .yimai-gso-history-search .dashicons {
 
                 color: #94a3b8;
 
@@ -8074,7 +8074,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-search input {
+            .yimai-gso-history-search input {
 
                 flex: 1;
 
@@ -8092,7 +8092,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-search input::placeholder {
+            .yimai-gso-history-search input::placeholder {
 
                 color: #94a3b8;
 
@@ -8100,7 +8100,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-filter-group {
+            .yimai-gso-history-filter-group {
 
                 display: flex;
 
@@ -8112,13 +8112,13 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-filter-group select,
+            .yimai-gso-history-filter-group select,
 
-            .wpaip-history-filter-group .wpaip-date-input {
+            .yimai-gso-history-filter-group .yimai-gso-date-input {
 
                 padding: 8px 12px;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 8px;
 
@@ -8132,7 +8132,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-date-sep {
+            .yimai-gso-date-sep {
 
                 color: #94a3b8;
 
@@ -8142,7 +8142,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-filter-actions {
+            .yimai-gso-history-filter-actions {
 
                 display: flex;
 
@@ -8156,7 +8156,7 @@ class WPAIP_NC8O {
 
             /* 卡片列表 */
 
-            .wpaip-history-cards {
+            .yimai-gso-history-cards {
 
                 display: grid;
 
@@ -8168,7 +8168,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-loading {
+            .yimai-gso-history-loading {
 
                 grid-column: 1 / -1;
 
@@ -8188,7 +8188,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-empty {
+            .yimai-gso-history-empty {
 
                 grid-column: 1 / -1;
 
@@ -8202,7 +8202,7 @@ class WPAIP_NC8O {
 
                 background: #fff;
 
-                border: 1px dashed var(--wpaip-border);
+                border: 1px dashed var(--yimai-gso-border);
 
                 border-radius: 16px;
 
@@ -8212,7 +8212,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-empty .dashicons {
+            .yimai-gso-history-empty .dashicons {
 
                 font-size: 56px;
 
@@ -8228,7 +8228,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-empty h3 {
+            .yimai-gso-history-empty h3 {
 
                 font-size: 16px;
 
@@ -8242,7 +8242,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-history-empty p {
+            .yimai-gso-history-empty p {
 
                 font-size: 13px;
 
@@ -8256,11 +8256,11 @@ class WPAIP_NC8O {
 
             /* 文章卡片 */
 
-            .wpaip-article-card {
+            .yimai-gso-article-card {
 
                 background: #fff;
 
-                border: 1px solid var(--wpaip-border);
+                border: 1px solid var(--yimai-gso-border);
 
                 border-radius: 16px;
 
@@ -8272,9 +8272,9 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-article-card:hover {
+            .yimai-gso-article-card:hover {
 
-                border-color: var(--wpaip-primary);
+                border-color: var(--yimai-gso-primary);
 
                 box-shadow: 0 8px 24px rgba(0,0,0,.08);
 
@@ -8284,7 +8284,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-thumb {
+            .yimai-gso-card-thumb {
 
                 position: relative;
 
@@ -8298,7 +8298,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-thumb img {
+            .yimai-gso-card-thumb img {
 
                 width: 100%;
 
@@ -8310,7 +8310,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-thumb-placeholder {
+            .yimai-gso-card-thumb-placeholder {
 
                 width: 100%;
 
@@ -8330,7 +8330,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-status {
+            .yimai-gso-card-status {
 
                 position: absolute;
 
@@ -8352,19 +8352,19 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-status.publish { background: #dcfce7; color: #16a34a; }
+            .yimai-gso-card-status.publish { background: #dcfce7; color: #16a34a; }
 
-            .wpaip-card-status.draft { background: #f1f5f9; color: #64748b; }
+            .yimai-gso-card-status.draft { background: #f1f5f9; color: #64748b; }
 
-            .wpaip-card-status.future { background: #dbeafe; color: #2563eb; }
+            .yimai-gso-card-status.future { background: #dbeafe; color: #2563eb; }
 
-            .wpaip-card-status.pending { background: #fef9c3; color: #ca8a04; }
+            .yimai-gso-card-status.pending { background: #fef9c3; color: #ca8a04; }
 
-            .wpaip-card-status.trash { background: #fef2f2; color: #dc2626; }
+            .yimai-gso-card-status.trash { background: #fef2f2; color: #dc2626; }
 
 
 
-            .wpaip-card-body {
+            .yimai-gso-card-body {
 
                 padding: 16px;
 
@@ -8372,7 +8372,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-title {
+            .yimai-gso-card-title {
 
                 font-size: 15px;
 
@@ -8396,15 +8396,15 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-title:hover {
+            .yimai-gso-card-title:hover {
 
-                color: var(--wpaip-primary);
+                color: var(--yimai-gso-primary);
 
             }
 
 
 
-            .wpaip-card-meta {
+            .yimai-gso-card-meta {
 
                 display: flex;
 
@@ -8418,7 +8418,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-meta-item {
+            .yimai-gso-card-meta-item {
 
                 display: inline-flex;
 
@@ -8434,7 +8434,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-meta-item .dashicons {
+            .yimai-gso-card-meta-item .dashicons {
 
                 font-size: 14px;
 
@@ -8446,7 +8446,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-source {
+            .yimai-gso-card-source {
 
                 display: inline-block;
 
@@ -8466,13 +8466,13 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-source.manual { background: #ecfdf5; color: #059669; }
+            .yimai-gso-card-source.manual { background: #ecfdf5; color: #059669; }
 
-            .wpaip-card-source.rewrite { background: #fef3c7; color: #d97706; }
+            .yimai-gso-card-source.rewrite { background: #fef3c7; color: #d97706; }
 
 
 
-            .wpaip-card-actions {
+            .yimai-gso-card-actions {
 
                 display: flex;
 
@@ -8486,7 +8486,7 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-actions .button {
+            .yimai-gso-card-actions .button {
 
                 flex: 1;
 
@@ -8500,11 +8500,11 @@ class WPAIP_NC8O {
 
 
 
-            .wpaip-card-actions .button:first-child {
+            .yimai-gso-card-actions .button:first-child {
 
-                background: var(--wpaip-primary) !important;
+                background: var(--yimai-gso-primary) !important;
 
-                border-color: var(--wpaip-primary) !important;
+                border-color: var(--yimai-gso-primary) !important;
 
                 color: #fff !important;
 
@@ -8516,13 +8516,13 @@ class WPAIP_NC8O {
 
             @media (max-width: 768px) {
 
-                .wpaip-history-stats-mini {
+                .yimai-gso-history-stats-mini {
 
                     flex-wrap: wrap;
 
                 }
 
-                .wpaip-stat-mini {
+                .yimai-gso-stat-mini {
 
                     flex: none;
 
@@ -8530,13 +8530,13 @@ class WPAIP_NC8O {
 
                 }
 
-                .wpaip-history-cards {
+                .yimai-gso-history-cards {
 
                     grid-template-columns: 1fr;
 
                 }
 
-                .wpaip-history-filter-bar {
+                .yimai-gso-history-filter-bar {
 
                     flex-direction: column;
 
@@ -8544,13 +8544,13 @@ class WPAIP_NC8O {
 
                 }
 
-                .wpaip-history-filter-group {
+                .yimai-gso-history-filter-group {
 
                     flex-wrap: wrap;
 
                 }
 
-                .wpaip-history-filter-actions {
+                .yimai-gso-history-filter-actions {
 
                     margin-left: 0;
 
@@ -8561,36 +8561,36 @@ class WPAIP_NC8O {
             }
         </style>
 
-            <?php if ( class_exists( 'WPAIP_QCRE' ) && WPAIP_QCRE::is_available() ) : ?>
-            <?php WPAIP_QCRE::output_page_assets(); ?>
+            <?php if ( class_exists( 'YIMAI_GSO_L5_Dashboard' ) && YIMAI_GSO_L5_Dashboard::is_available() ) : ?>
+            <?php YIMAI_GSO_L5_Dashboard::output_page_assets(); ?>
             <!-- ==================== L5-综合仪表盘 ==================== -->
-            <div class="wpaip-main-panel <?php echo $active_tab === 'l5-overview' ? 'active' : ''; ?>" data-tab="l5-overview">
-                <?php WPAIP_QCRE::get_instance()->render_overview_tab(); ?>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'l5-overview' ? 'active' : ''; ?>" data-tab="l5-overview">
+                <?php YIMAI_GSO_L5_Dashboard::get_instance()->render_overview_tab(); ?>
             </div>
 
             <!-- ==================== L5-AI爬虫追踪 ==================== -->
-            <div class="wpaip-main-panel <?php echo $active_tab === 'l5-crawler' ? 'active' : ''; ?>" data-tab="l5-crawler">
-                <?php WPAIP_QCRE::get_instance()->render_crawler_tab(); ?>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'l5-crawler' ? 'active' : ''; ?>" data-tab="l5-crawler">
+                <?php YIMAI_GSO_L5_Dashboard::get_instance()->render_crawler_tab(); ?>
             </div>
 
             <!-- ==================== L5-爬虫友好度诊断 ==================== -->
-            <div class="wpaip-main-panel <?php echo $active_tab === 'l5-diagnosis' ? 'active' : ''; ?>" data-tab="l5-diagnosis">
-                <?php WPAIP_QCRE::get_instance()->render_diagnosis_tab(); ?>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'l5-diagnosis' ? 'active' : ''; ?>" data-tab="l5-diagnosis">
+                <?php YIMAI_GSO_L5_Dashboard::get_instance()->render_diagnosis_tab(); ?>
             </div>
 
             <!-- ==================== L5-实时预警 ==================== -->
-            <div class="wpaip-main-panel <?php echo $active_tab === 'l5-alerts' ? 'active' : ''; ?>" data-tab="l5-alerts">
-                <?php WPAIP_QCRE::get_instance()->render_alerts_tab(); ?>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'l5-alerts' ? 'active' : ''; ?>" data-tab="l5-alerts">
+                <?php YIMAI_GSO_L5_Dashboard::get_instance()->render_alerts_tab(); ?>
             </div>
             <?php endif; ?>
 
             <!-- ==================== 新鲜度监控 ==================== -->
-            <div class="wpaip-main-panel <?php echo $active_tab === 'freshness' ? 'active' : ''; ?>" data-tab="freshness">
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-update"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">内容新鲜度监控</h2>
-                        <p class="wpaip-card-desc">追踪文章更新状态，识别陈旧内容并及时刷新，保持 AI 搜索引擎对网站的信任度</p>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'freshness' ? 'active' : ''; ?>" data-tab="freshness">
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-update"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">内容新鲜度监控</h2>
+                        <p class="yimai-gso-card-desc">追踪文章更新状态，识别陈旧内容并及时刷新，保持 AI 搜索引擎对网站的信任度</p>
                     </div>
                 </div>
 
@@ -8599,76 +8599,76 @@ class WPAIP_NC8O {
                 <?php endif; ?>
 
                 <!-- 统计卡片 -->
-                <div class="wpaip-dashboard-stats" id="wpaip-freshness-stats">
-                    <div class="wpaip-stat-card wpaip-stat-success">
-                        <div class="wpaip-stat-icon">🟢</div>
-                        <div class="wpaip-stat-content">
-                            <div class="wpaip-stat-num" data-stat="fresh">-</div>
-                            <div class="wpaip-stat-label">新鲜 (&lt;30天)</div>
+                <div class="yimai-gso-dashboard-stats" id="yimai-gso-freshness-stats">
+                    <div class="yimai-gso-stat-card yimai-gso-stat-success">
+                        <div class="yimai-gso-stat-icon">🟢</div>
+                        <div class="yimai-gso-stat-content">
+                            <div class="yimai-gso-stat-num" data-stat="fresh">-</div>
+                            <div class="yimai-gso-stat-label">新鲜 (&lt;30天)</div>
                         </div>
                     </div>
-                    <div class="wpaip-stat-card wpaip-stat-info">
-                        <div class="wpaip-stat-icon">🔵</div>
-                        <div class="wpaip-stat-content">
-                            <div class="wpaip-stat-num" data-stat="normal">-</div>
-                            <div class="wpaip-stat-label">正常 (1-6月)</div>
+                    <div class="yimai-gso-stat-card yimai-gso-stat-info">
+                        <div class="yimai-gso-stat-icon">🔵</div>
+                        <div class="yimai-gso-stat-content">
+                            <div class="yimai-gso-stat-num" data-stat="normal">-</div>
+                            <div class="yimai-gso-stat-label">正常 (1-6月)</div>
                         </div>
                     </div>
-                    <div class="wpaip-stat-card wpaip-stat-warning">
-                        <div class="wpaip-stat-icon">🟠</div>
-                        <div class="wpaip-stat-content">
-                            <div class="wpaip-stat-num" data-stat="stale">-</div>
-                            <div class="wpaip-stat-label">可能过时 (6-12月)</div>
+                    <div class="yimai-gso-stat-card yimai-gso-stat-warning">
+                        <div class="yimai-gso-stat-icon">🟠</div>
+                        <div class="yimai-gso-stat-content">
+                            <div class="yimai-gso-stat-num" data-stat="stale">-</div>
+                            <div class="yimai-gso-stat-label">可能过时 (6-12月)</div>
                         </div>
                     </div>
-                    <div class="wpaip-stat-card wpaip-stat-danger">
-                        <div class="wpaip-stat-icon">🔴</div>
-                        <div class="wpaip-stat-content">
-                            <div class="wpaip-stat-num" data-stat="old">-</div>
-                            <div class="wpaip-stat-label">已过时 (&gt;12月)</div>
+                    <div class="yimai-gso-stat-card yimai-gso-stat-danger">
+                        <div class="yimai-gso-stat-icon">🔴</div>
+                        <div class="yimai-gso-stat-content">
+                            <div class="yimai-gso-stat-num" data-stat="old">-</div>
+                            <div class="yimai-gso-stat-label">已过时 (&gt;12月)</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 全局新鲜度条 -->
-                <div class="wpaip-freshness-bar-wrap">
-                    <div class="wpaip-freshness-bar-label">
+                <div class="yimai-gso-freshness-bar-wrap">
+                    <div class="yimai-gso-freshness-bar-label">
                         <span>整体新鲜度</span>
-                        <strong id="wpaip-freshness-pct">-</strong>
+                        <strong id="yimai-gso-freshness-pct">-</strong>
                     </div>
-                    <div class="wpaip-freshness-bar">
-                        <div class="wpaip-freshness-bar-fill" id="wpaip-freshness-bar-fill" style="width: 0%;"></div>
+                    <div class="yimai-gso-freshness-bar">
+                        <div class="yimai-gso-freshness-bar-fill" id="yimai-gso-freshness-bar-fill" style="width: 0%;"></div>
                     </div>
                 </div>
 
                 <!-- 筛选区 -->
-                <div class="wpaip-history-filters">
-                    <div class="wpaip-filter-row" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
-                        <select id="wpaip-f-level">
+                <div class="yimai-gso-history-filters">
+                    <div class="yimai-gso-filter-row" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
+                        <select id="yimai-gso-f-level">
                             <option value="">全部等级</option>
                             <option value="stale">可能过时</option>
                             <option value="old">已过时</option>
                             <option value="normal">正常</option>
                             <option value="fresh">新鲜</option>
                         </select>
-                        <input type="search" id="wpaip-f-search" class="wpaip-search-input" placeholder="搜索标题...">
-                        <button id="wpaip-f-search-btn" class="button">搜索</button>
-                        <button id="wpaip-f-reset-btn" class="button">重置</button>
-                        <span class="wpaip-batch-info" id="wpaip-f-batch-info" style="margin-left:auto;display:none">已选 <strong id="wpaip-f-selected-count">0</strong> 篇</span>
-                        <button id="wpaip-f-select-all" class="button" style="margin-left:8px">全选当前页</button>
-                        <button id="wpaip-f-batch-fresh" class="button button-primary">标记为已审核</button>
+                        <input type="search" id="yimai-gso-f-search" class="yimai-gso-search-input" placeholder="搜索标题...">
+                        <button id="yimai-gso-f-search-btn" class="button">搜索</button>
+                        <button id="yimai-gso-f-reset-btn" class="button">重置</button>
+                        <span class="yimai-gso-batch-info" id="yimai-gso-f-batch-info" style="margin-left:auto;display:none">已选 <strong id="yimai-gso-f-selected-count">0</strong> 篇</span>
+                        <button id="yimai-gso-f-select-all" class="button" style="margin-left:8px">全选当前页</button>
+                        <button id="yimai-gso-f-batch-fresh" class="button button-primary">标记为已审核</button>
                     </div>
                 </div>
 
                 <!-- 文章列表 -->
-                <div class="wpaip-history-list" id="wpaip-freshness-list">
-                    <div class="wpaip-loading-state">
-                        <span class="wpaip-loading"></span>加载中...
+                <div class="yimai-gso-history-list" id="yimai-gso-freshness-list">
+                    <div class="yimai-gso-loading-state">
+                        <span class="yimai-gso-loading"></span>加载中...
                     </div>
                 </div>
 
                 <!-- 分页 -->
-                <div class="wpaip-history-pagination" id="wpaip-freshness-pagination"></div>
+                <div class="yimai-gso-history-pagination" id="yimai-gso-freshness-pagination"></div>
             </div>
 
         </main>
@@ -8682,30 +8682,30 @@ class WPAIP_NC8O {
      * 渲染 GEO 实体设置子页面
      */
     private function render_geo_entity_settings() {
-        $entity       = WPAIP_PY7N::get_entity_data();
+        $entity       = YIMAI_GSO_GEO_Entity::get_entity_data();
         $feature_ok   = true;
-        $entity_types = WPAIP_PY7N::ENTITY_TYPES;
-        $platforms    = WPAIP_PY7N::SAMEAS_PLATFORMS;
+        $entity_types = YIMAI_GSO_GEO_Entity::ENTITY_TYPES;
+        $platforms    = YIMAI_GSO_GEO_Entity::SAMEAS_PLATFORMS;
         ?>
-        <div class="wpaip-settings-section">
-            <div class="wpaip-settings-section-header">
+        <div class="yimai-gso-settings-section">
+            <div class="yimai-gso-settings-section-header">
                 <h2>🏢 实体信息定义</h2>
                 <p class="description">定义网站/品牌的实体信息，用于 Knowledge Graph 和所有 Schema 标记</p>
             </div>
             <?php if ( ! $feature_ok ) : ?>
-            <div class="wpaip-feature-locked" style="background:#fef3c7;padding:14px 18px;border-radius:8px;margin-bottom:14px;">
+            <div class="yimai-gso-feature-locked" style="background:#fef3c7;padding:14px 18px;border-radius:8px;margin-bottom:14px;">
                 <p style="margin:0;color:#166534;"><span class="dashicons dashicons-yes-alt"></span> GEO 实体优化功能已由本地版本启用</p>
             </div>
             <?php endif; ?>
-            <div class="wpaip-settings-fields">
-                <div class="wpaip-field-group">
+            <div class="yimai-gso-settings-fields">
+                <div class="yimai-gso-field-group">
                     <label>实体名称</label>
                     <input type="text" id="geo-entity-name" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_name'] ); ?>"
                            placeholder="例如：白雀科技"
                            <?php disabled( ! $feature_ok ); ?>>
                 </div>
-                <div class="wpaip-field-group">
+                <div class="yimai-gso-field-group">
                     <label>实体类型</label>
                     <select id="geo-entity-type" <?php disabled( ! $feature_ok ); ?>>
                         <?php foreach ( $entity_types as $key => $label ) : ?>
@@ -8714,36 +8714,36 @@ class WPAIP_NC8O {
                         </option>
                         <?php endforeach; ?>
                     </select>
-                    <small class="wpaip-field-hint">选择最匹配您网站/品牌的类型。Organization 适用于公司，Person 适用于个人博主，LocalBusiness 适用于本地商家</small>
+                    <small class="yimai-gso-field-hint">选择最匹配您网站/品牌的类型。Organization 适用于公司，Person 适用于个人博主，LocalBusiness 适用于本地商家</small>
                 </div>
-                <div class="wpaip-field-group">
+                <div class="yimai-gso-field-group">
                     <label>实体 Logo URL</label>
                     <input type="text" id="geo-entity-logo" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_logo'] ); ?>"
                            placeholder="留空则使用主题Logo"
                            <?php disabled( ! $feature_ok ); ?>>
-                    <small class="wpaip-field-hint">建议尺寸 512×512，留空则自动使用站点图标(site icon)或自定义Logo</small>
+                    <small class="yimai-gso-field-hint">建议尺寸 512×512，留空则自动使用站点图标(site icon)或自定义Logo</small>
                 </div>
-                <div class="wpaip-field-group">
+                <div class="yimai-gso-field-group">
                     <label>实体描述</label>
                     <textarea id="geo-entity-description" rows="3" class="large-text"
                               placeholder="简要描述您的公司/品牌"
                               <?php disabled( ! $feature_ok ); ?>><?php echo esc_textarea( $entity['entity_description'] ); ?></textarea>
                 </div>
-                <div class="wpaip-field-group">
+                <div class="yimai-gso-field-group">
                     <label>联系邮箱</label>
                     <input type="email" id="geo-entity-email" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_email'] ); ?>"
                            <?php disabled( ! $feature_ok ); ?>>
                 </div>
-                <div class="wpaip-field-group">
+                <div class="yimai-gso-field-group">
                     <label>联系电话</label>
                     <input type="text" id="geo-entity-phone" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_phone'] ); ?>"
                            <?php disabled( ! $feature_ok ); ?>>
                 </div>
                 <?php if ( 'LocalBusiness' === $entity['entity_type'] ) : ?>
-                <div class="wpaip-field-group">
+                <div class="yimai-gso-field-group">
                     <label>实体地址</label>
                     <input type="text" id="geo-entity-address" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_address'] ); ?>"
@@ -8754,13 +8754,13 @@ class WPAIP_NC8O {
             </div>
         </div>
 
-        <div class="wpaip-settings-section" style="margin-top:20px;">
-            <div class="wpaip-settings-section-header">
+        <div class="yimai-gso-settings-section" style="margin-top:20px;">
+            <div class="yimai-gso-settings-section-header">
                 <h2>🔗 sameAs 身份验证链接</h2>
                 <p class="description">添加您在各大平台的官方页面链接，帮助 AI 搜索引擎验证您的实体身份</p>
             </div>
-            <div class="wpaip-settings-fields">
-                <div class="wpaip-field-group">
+            <div class="yimai-gso-settings-fields">
+                <div class="yimai-gso-field-group">
                     <label>快速添加平台</label>
                     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
                         <?php foreach ( $platforms as $key => $plat ) : ?>
@@ -8773,7 +8773,7 @@ class WPAIP_NC8O {
                         <?php endforeach; ?>
                     </div>
                 </div>
-                <div class="wpaip-field-group">
+                <div class="yimai-gso-field-group">
                     <label>sameAs 链接列表</label>
                     <div id="geo-sameas-list" style="display:flex;flex-direction:column;gap:8px;">
                         <?php
@@ -8806,13 +8806,13 @@ class WPAIP_NC8O {
                     <button type="button" class="button" id="geo-add-row-btn" <?php disabled( ! $feature_ok ); ?>>
                         <span class="dashicons dashicons-plus"></span> 添加链接
                     </button>
-                    <small class="wpaip-field-hint">建议添加 3-5 个权威平台的官方链接，AI 通过这些链接交叉验证您的实体身份</small>
+                    <small class="yimai-gso-field-hint">建议添加 3-5 个权威平台的官方链接，AI 通过这些链接交叉验证您的实体身份</small>
                 </div>
             </div>
         </div>
 
-        <div class="wpaip-settings-footer" style="margin-top:24px;">
-            <button type="button" id="geo-save-btn" class="wpaip-save-btn" <?php disabled( ! $feature_ok ); ?>>
+        <div class="yimai-gso-settings-footer" style="margin-top:24px;">
+            <button type="button" id="geo-save-btn" class="yimai-gso-save-btn" <?php disabled( ! $feature_ok ); ?>>
                 <span class="dashicons dashicons-yes"></span>
                 保存实体配置
             </button>
@@ -8870,8 +8870,8 @@ class WPAIP_NC8O {
                 if (!url) { statusEl.html('<span style="color:#f59e0b;">URL为空</span>'); return; }
                 statusEl.html('<span style="color:#6b7280;">检测中...</span>');
                 $.post(ajaxurl, {
-                    action: 'wpaip_geo_entity_check_link',
-                    nonce: '<?php echo wp_create_nonce( 'wpaip_nonce' ); ?>',
+                    action: 'yimai_gso_geo_entity_check_link',
+                    nonce: '<?php echo wp_create_nonce( 'yimai_gso_nonce' ); ?>',
                     url: url
                 }, function(res) {
                     if (res.success) {
@@ -8901,8 +8901,8 @@ class WPAIP_NC8O {
                 });
 
                 $.post(ajaxurl, {
-                    action: 'wpaip_geo_entity_save',
-                    nonce: '<?php echo wp_create_nonce( 'wpaip_nonce' ); ?>',
+                    action: 'yimai_gso_geo_entity_save',
+                    nonce: '<?php echo wp_create_nonce( 'yimai_gso_nonce' ); ?>',
                     entity_name: $('#geo-entity-name').val(),
                     entity_type: $('#geo-entity-type').val(),
                     entity_logo: $('#geo-entity-logo').val(),
@@ -8933,25 +8933,25 @@ class WPAIP_NC8O {
      * 渲染 AI 爬虫策略编辑器
      */
     private function render_crawler_editor_settings() {
-        $rules     = WPAIP_9IIH::get_rules();
-        $crawlers  = WPAIP_9IIH::CRAWLERS;
-        $templates = WPAIP_9IIH::TEMPLATES;
+        $rules     = YIMAI_GSO_Crawler_Editor::get_rules();
+        $crawlers  = YIMAI_GSO_Crawler_Editor::CRAWLERS;
+        $templates = YIMAI_GSO_Crawler_Editor::TEMPLATES;
         $feature_ok = true && true;
         ?>
-        <div class="wpaip-settings-section">
-            <div class="wpaip-settings-section-header">
+        <div class="yimai-gso-settings-section">
+            <div class="yimai-gso-settings-section-header">
                 <h2><span class="dashicons dashicons-visibility"></span> AI 爬虫访问策略</h2>
                 <p class="description">控制哪些 AI 平台的爬虫可以访问您的网站内容。在 robots.txt 中动态生成对应规则</p>
             </div>
             <?php if ( ! $feature_ok ) : ?>
-            <div class="wpaip-feature-locked" style="background:#fef3c7;padding:14px 18px;border-radius:8px;margin-bottom:14px;">
+            <div class="yimai-gso-feature-locked" style="background:#fef3c7;padding:14px 18px;border-radius:8px;margin-bottom:14px;">
                 <p style="margin:0;color:#166534;"><span class="dashicons dashicons-yes-alt"></span> AI 爬虫管理已由本地版本启用</p>
             </div>
             <?php endif; ?>
 
             <!-- 策略模板 -->
-            <div class="wpaip-settings-fields">
-                <div class="wpaip-field-group">
+            <div class="yimai-gso-settings-fields">
+                <div class="yimai-gso-field-group">
                     <label>快速策略模板</label>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
                         <?php foreach ( $templates as $key => $tmpl ) : ?>
@@ -8962,13 +8962,13 @@ class WPAIP_NC8O {
                         </button>
                         <?php endforeach; ?>
                     </div>
-                    <small class="wpaip-field-hint">点击模板一键应用。修改下方的单个爬虫开关后，模板按钮不会自动切换</small>
+                    <small class="yimai-gso-field-hint">点击模板一键应用。修改下方的单个爬虫开关后，模板按钮不会自动切换</small>
                 </div>
             </div>
         </div>
 
-        <div class="wpaip-settings-section" style="margin-top:20px;">
-            <div class="wpaip-settings-section-header">
+        <div class="yimai-gso-settings-section" style="margin-top:20px;">
+            <div class="yimai-gso-settings-section-header">
                 <h2>📋 单个爬虫控制</h2>
                 <p class="description">开启 → 允许访问，关闭 → 阻止访问。 
                     <span style="display:inline-flex;align-items:center;gap:6px;margin-left:8px;">
@@ -8978,7 +8978,7 @@ class WPAIP_NC8O {
                     </span>
                 </p>
             </div>
-            <div class="wpaip-settings-fields">
+            <div class="yimai-gso-settings-fields">
                 <table style="width:100%;font-size:13px;border-collapse:collapse;">
                     <thead>
                         <tr style="border-bottom:1px solid #e5e7eb;">
@@ -8993,8 +8993,8 @@ class WPAIP_NC8O {
                         <?php foreach ( $crawlers as $key => $name ) : 
                             $family_key = '';
                             $crawler_type = '';
-                            if ( class_exists( 'WPAIP_9W9L' ) ) {
-                                $crawlers_map = WPAIP_9W9L::KNOWN_CRAWLERS;
+                            if ( class_exists( 'YIMAI_GSO_Crawler_Tracker' ) ) {
+                                $crawlers_map = YIMAI_GSO_Crawler_Tracker::KNOWN_CRAWLERS;
                                 $family_key   = isset( $crawlers_map[ $key ] ) ? $crawlers_map[ $key ]['family'] : '';
                                 $crawler_type = isset( $crawlers_map[ $key ] ) ? ( $crawlers_map[ $key ]['type'] ?? '' ) : '';
                             }
@@ -9046,8 +9046,8 @@ class WPAIP_NC8O {
             </div>
         </div>
 
-        <div class="wpaip-settings-footer" style="margin-top:24px;">
-            <button type="button" id="crawler-save-btn" class="wpaip-save-btn" <?php disabled( ! $feature_ok ); ?>>
+        <div class="yimai-gso-settings-footer" style="margin-top:24px;">
+            <button type="button" id="crawler-save-btn" class="yimai-gso-save-btn" <?php disabled( ! $feature_ok ); ?>>
                 <span class="dashicons dashicons-yes"></span>
                 保存爬虫策略
             </button>
@@ -9062,8 +9062,8 @@ class WPAIP_NC8O {
                 if (!confirm('应用"' + $(this).text().trim() + '"模板？这将覆盖当前的爬虫设置。')) return;
                 $(this).prop('disabled', true).text('应用���...');
                 $.post(ajaxurl, {
-                    action: 'wpaip_crawler_save_rules',
-                    nonce: '<?php echo wp_create_nonce( "wpaip_nonce" ); ?>',
+                    action: 'yimai_gso_crawler_save_rules',
+                    nonce: '<?php echo wp_create_nonce( "yimai_gso_nonce" ); ?>',
                     template: tmpl
                 }, function(res) {
                     $('.crawler-template-btn').prop('disabled', false).each(function() {
@@ -9101,8 +9101,8 @@ class WPAIP_NC8O {
                 });
 
                 $.post(ajaxurl, {
-                    action: 'wpaip_crawler_save_rules',
-                    nonce: '<?php echo wp_create_nonce( "wpaip_nonce" ); ?>',
+                    action: 'yimai_gso_crawler_save_rules',
+                    nonce: '<?php echo wp_create_nonce( "yimai_gso_nonce" ); ?>',
                     rules: rules
                 }, function(res) {
                     btn.prop('disabled', false);
@@ -9128,8 +9128,8 @@ class WPAIP_NC8O {
     private function render_author_profiles_page() {
         $users = get_users( array( 'capability' => 'edit_posts', 'orderby' => 'display_name' ) );
         ?>
-        <div class="wpaip-settings-section">
-            <div class="wpaip-settings-section-header">
+        <div class="yimai-gso-settings-section">
+            <div class="yimai-gso-settings-section-header">
                 <h2>👤 作者专业档案</h2>
                 <p class="description">为每位作者填写专业信息，生成 Person Schema 和 EEAT 信号。作者在 WordPress 用户编辑页也可以单独修改</p>
             </div>
@@ -9148,9 +9148,9 @@ class WPAIP_NC8O {
             </thead>
             <tbody>
                 <?php foreach ( $users as $user ) :
-                    $title     = get_user_meta( $user->ID, 'wpaip_author_title', true );
-                    $expertise = get_user_meta( $user->ID, 'wpaip_author_expertise', true );
-                    $years     = get_user_meta( $user->ID, 'wpaip_author_years', true );
+                    $title     = get_user_meta( $user->ID, 'yimai_gso_author_title', true );
+                    $expertise = get_user_meta( $user->ID, 'yimai_gso_author_expertise', true );
+                    $years     = get_user_meta( $user->ID, 'yimai_gso_author_years', true );
                     $has_data  = ( ! empty( $title ) || ! empty( $expertise ) || ! empty( $years ) );
                 ?>
                 <tr class="author-row" data-user-id="<?php echo $user->ID; ?>">
@@ -9235,8 +9235,8 @@ class WPAIP_NC8O {
                 var btn = $(this);
                 btn.prop('disabled', true).text('保存中...');
                 $.post(ajaxurl, {
-                    action: 'wpaip_save_author_profile',
-                    nonce: '<?php echo wp_create_nonce("wpaip_nonce"); ?>',
+                    action: 'yimai_gso_save_author_profile',
+                    nonce: '<?php echo wp_create_nonce("yimai_gso_nonce"); ?>',
                     user_id: uid,
                     title: $('#author-edit-title').val(),
                     expertise: $('#author-edit-expertise').val(),
@@ -9279,7 +9279,7 @@ class WPAIP_NC8O {
             'operation_mode',
         );
         foreach ( $fields as $field ) {
-            $prefixed_key = 'wpaip_' . $field;
+            $prefixed_key = 'yimai_gso_' . $field;
             $raw_key = $field;
 
             if ( isset( $_POST[ $prefixed_key ] ) ) {
@@ -9288,69 +9288,69 @@ class WPAIP_NC8O {
                     : sanitize_text_field( $_POST[ $prefixed_key ] );
 
                 // API Key 掩码保护：如果提交的是掩码占位符（****xxx），跳过更新保留原Key
-                if ( in_array( $field, array( 'ai_api_key', 'ai_image_doubao_key', 'ai_image_zhipu_key', 'ai_image_wanxiang_key' ), true ) && WPAIP_9XCU::is_masked_value( $val ) ) {
+                if ( in_array( $field, array( 'ai_api_key', 'ai_image_doubao_key', 'ai_image_zhipu_key', 'ai_image_wanxiang_key' ), true ) && YIMAI_GSO_Settings::is_masked_value( $val ) ) {
                     continue;
                 }
 
-                WPAIP_9XCU::set( $field, $val );
+                YIMAI_GSO_Settings::set( $field, $val );
             } elseif ( isset( $_POST[ $raw_key ] ) ) {
                 $val = in_array( $field, array( 'system_prompt', 'user_prompt', 'image_prompt', 'ai_image_custom_prompt' ) )
                     ? sanitize_textarea_field( wp_unslash( $_POST[ $raw_key ] ) )
                     : sanitize_text_field( $_POST[ $raw_key ] );
 
                 // AI API Key 掩码保护
-                if ( 'ai_api_key' === $field && WPAIP_9XCU::is_masked_value( $val ) ) {
+                if ( 'ai_api_key' === $field && YIMAI_GSO_Settings::is_masked_value( $val ) ) {
                     continue;
                 }
 
-                WPAIP_9XCU::set( $field, $val );
+                YIMAI_GSO_Settings::set( $field, $val );
             } elseif ( 'auto_image_alt_enabled' === $field ) {
-                $marker_present = isset( $_POST['wpaip_auto_image_alt_enabled_present'] ) || isset( $_POST['auto_image_alt_enabled_present'] );
-                if ( $marker_present && ! isset( $_POST['wpaip_auto_image_alt_enabled'] ) && ! isset( $_POST['auto_image_alt_enabled'] ) ) {
-                    update_option( 'wpaip_auto_image_alt_enabled', 0 );
+                $marker_present = isset( $_POST['yimai_gso_auto_image_alt_enabled_present'] ) || isset( $_POST['auto_image_alt_enabled_present'] );
+                if ( $marker_present && ! isset( $_POST['yimai_gso_auto_image_alt_enabled'] ) && ! isset( $_POST['auto_image_alt_enabled'] ) ) {
+                    update_option( 'yimai_gso_auto_image_alt_enabled', 0 );
                 }
             } elseif ( 'frontend_excerpt_enabled' === $field ) {
-                if ( ! isset( $_POST[ 'wpaip_frontend_excerpt_enabled' ] ) && ! isset( $_POST[ 'frontend_excerpt_enabled' ] ) ) {
-                    update_option( 'wpaip_frontend_excerpt_enabled', 0 );
+                if ( ! isset( $_POST[ 'yimai_gso_frontend_excerpt_enabled' ] ) && ! isset( $_POST[ 'frontend_excerpt_enabled' ] ) ) {
+                    update_option( 'yimai_gso_frontend_excerpt_enabled', 0 );
                 }
             }
         }
 
         // 发布时间策略 - 仅工作时间 checkbox
-        $work_hours_key = 'wpaip_publish_work_hours_only';
-        update_option( 'wpaip_publish_work_hours_only', isset( $_POST[ $work_hours_key ] ) ? 1 : 0 );
+        $work_hours_key = 'yimai_gso_publish_work_hours_only';
+        update_option( 'yimai_gso_publish_work_hours_only', isset( $_POST[ $work_hours_key ] ) ? 1 : 0 );
 
         // 发布时间策略 - 跳过日期数组
-        $skip_days = isset( $_POST['wpaip_publish_skip_days'] ) && is_array( $_POST['wpaip_publish_skip_days'] )
-            ? array_map( 'absint', $_POST['wpaip_publish_skip_days'] )
+        $skip_days = isset( $_POST['yimai_gso_publish_skip_days'] ) && is_array( $_POST['yimai_gso_publish_skip_days'] )
+            ? array_map( 'absint', $_POST['yimai_gso_publish_skip_days'] )
             : array();
-        update_option( 'wpaip_publish_skip_days', $skip_days );
+        update_option( 'yimai_gso_publish_skip_days', $skip_days );
 
         // Schema 类型开关（数组类型，需要特殊处理）
-        if ( isset( $_POST['wpaip_schema_enabled_types'] ) && is_array( $_POST['wpaip_schema_enabled_types'] ) ) {
-            $schema_types = array_map( 'sanitize_text_field', $_POST['wpaip_schema_enabled_types'] );
-            update_option( 'wpaip_schema_enabled_types', $schema_types );
+        if ( isset( $_POST['yimai_gso_schema_enabled_types'] ) && is_array( $_POST['yimai_gso_schema_enabled_types'] ) ) {
+            $schema_types = array_map( 'sanitize_text_field', $_POST['yimai_gso_schema_enabled_types'] );
+            update_option( 'yimai_gso_schema_enabled_types', $schema_types );
         }
 
         // 本地图片库配置（JSON 编码）
-        $local_group_id = isset( $_POST['wpaip_local_image_group_id'] ) ? absint( $_POST['wpaip_local_image_group_id'] ) : 0;
-        $local_min_w    = isset( $_POST['wpaip_local_image_min_weight'] ) ? max( 1, min( 10, absint( $_POST['wpaip_local_image_min_weight'] ) ) ) : 1;
-        WPAIP_9XCU::set( 'local_image_config', json_encode( array(
+        $local_group_id = isset( $_POST['yimai_gso_local_image_group_id'] ) ? absint( $_POST['yimai_gso_local_image_group_id'] ) : 0;
+        $local_min_w    = isset( $_POST['yimai_gso_local_image_min_weight'] ) ? max( 1, min( 10, absint( $_POST['yimai_gso_local_image_min_weight'] ) ) ) : 1;
+        YIMAI_GSO_Settings::set( 'local_image_config', json_encode( array(
             'group_id'   => $local_group_id,
             'min_weight' => $local_min_w,
         ), JSON_UNESCAPED_UNICODE ) );
 
         // 索引控制 - noindex_post_types 数组（仅在发布设置Tab提交时处理）
-        $current_subtab = isset( $_POST['wpaip_current_subtab'] ) ? sanitize_text_field( $_POST['wpaip_current_subtab'] ) : 'ai';
+        $current_subtab = isset( $_POST['yimai_gso_current_subtab'] ) ? sanitize_text_field( $_POST['yimai_gso_current_subtab'] ) : 'ai';
         if ( 'publish' === $current_subtab ) {
-            $noindex_types = isset( $_POST['wpaip_noindex_types'] ) && is_array( $_POST['wpaip_noindex_types'] )
-                ? implode( ',', array_map( 'sanitize_text_field', $_POST['wpaip_noindex_types'] ) )
+            $noindex_types = isset( $_POST['yimai_gso_noindex_types'] ) && is_array( $_POST['yimai_gso_noindex_types'] )
+                ? implode( ',', array_map( 'sanitize_text_field', $_POST['yimai_gso_noindex_types'] ) )
                 : '';
-            update_option( 'wpaip_noindex_post_types', $noindex_types );
+            update_option( 'yimai_gso_noindex_post_types', $noindex_types );
         }
 
         // 清除分类缓存
-        delete_transient( 'wpaip_categories_raw' );
+        delete_transient( 'yimai_gso_categories_raw' );
     }
 
     /* ========================================================
@@ -9358,9 +9358,9 @@ class WPAIP_NC8O {
      * ======================================================== */
 
     public function ajax_image_library_list() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) { wp_send_json_error( array( 'message' => '权限不足' ) ); }
-        $result = WPAIP_UY9D::get_images( array(
+        $result = YIMAI_GSO_Image_Library::get_images( array(
             'page'     => absint( $_POST['page'] ?? 1 ),
             'per_page' => absint( $_POST['per_page'] ?? 20 ),
             'search'   => sanitize_text_field( $_POST['search'] ?? '' ),
@@ -9372,19 +9372,19 @@ class WPAIP_NC8O {
     }
 
     public function ajax_image_library_upload() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) { wp_send_json_error( array( 'message' => '权限不足' ) ); }
         $attachment_id = absint( $_POST['attachment_id'] ?? 0 );
         $group_id = absint( $_POST['group_id'] ?? 0 );
         if ( $attachment_id > 0 ) {
-            $result = WPAIP_UY9D::add_attachment_to_library( $attachment_id, $group_id );
+            $result = YIMAI_GSO_Image_Library::add_attachment_to_library( $attachment_id, $group_id );
         } elseif ( ! empty( $_FILES['file'] ) ) {
             require_once ABSPATH . 'wp-admin/includes/image.php';
             require_once ABSPATH . 'wp-admin/includes/file.php';
             require_once ABSPATH . 'wp-admin/includes/media.php';
             $result = media_handle_upload( 'file', 0 );
             if ( is_wp_error( $result ) ) { wp_send_json_error( array( 'message' => '上传失败：' . $result->get_error_message() ) ); }
-            $result = WPAIP_UY9D::add_attachment_to_library( $result, $group_id );
+            $result = YIMAI_GSO_Image_Library::add_attachment_to_library( $result, $group_id );
         } else {
             wp_send_json_error( array( 'message' => '请选择要上传的图片' ) );
         }
@@ -9398,26 +9398,26 @@ class WPAIP_NC8O {
             'filename' => basename( wp_get_attachment_url( $result ) ),
             'date' => current_time( 'mysql' ),
         );
-        $groups = wp_get_object_terms( $result, WPAIP_UY9D::TAXONOMY, array( 'fields' => 'names' ) );
+        $groups = wp_get_object_terms( $result, YIMAI_GSO_Image_Library::TAXONOMY, array( 'fields' => 'names' ) );
         $img['groups'] = is_wp_error( $groups ) ? array() : $groups;
         wp_send_json_success( array( 'image' => $img ) );
     }
 
     public function ajax_image_library_update() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) { wp_send_json_error( array( 'message' => '权限不足' ) ); }
         $id = absint( $_POST['id'] ?? 0 ); $data = array();
         if ( isset( $_POST['weight'] ) )   $data['weight'] = absint( $_POST['weight'] );
         if ( isset( $_POST['keywords'] ) ) $data['keywords'] = sanitize_text_field( $_POST['keywords'] );
         if ( isset( $_POST['group_id'] ) ) $data['group_id'] = absint( $_POST['group_id'] );
         if ( empty( $data ) ) wp_send_json_error( array( 'message' => '没有需要更新的数据' ) );
-        $result = WPAIP_UY9D::update_image( $id, $data );
+        $result = YIMAI_GSO_Image_Library::update_image( $id, $data );
         if ( is_wp_error( $result ) ) wp_send_json_error( array( 'message' => $result->get_error_message() ) );
         wp_send_json_success( array( 'message' => '更新成功' ) );
     }
 
     public function ajax_image_library_batch_update() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) { wp_send_json_error( array( 'message' => '权限不足' ) ); }
         $ids = isset( $_POST['ids'] ) ? array_map( 'absint', (array) $_POST['ids'] ) : array();
         $data = array();
@@ -9425,51 +9425,51 @@ class WPAIP_NC8O {
         if ( isset( $_POST['keywords'] ) ) $data['keywords'] = sanitize_text_field( $_POST['keywords'] );
         if ( isset( $_POST['group_id'] ) ) $data['group_id'] = absint( $_POST['group_id'] );
         if ( empty( $ids ) || empty( $data ) ) wp_send_json_error( array( 'message' => '请选择图片和要修改的属性' ) );
-        $updated = WPAIP_UY9D::batch_update( $ids, $data );
+        $updated = YIMAI_GSO_Image_Library::batch_update( $ids, $data );
         wp_send_json_success( array( 'message' => '已更新 ' . $updated . ' 张图片', 'updated' => $updated ) );
     }
 
     public function ajax_image_library_delete() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'delete_posts' ) ) { wp_send_json_error( array( 'message' => '权限不足' ) ); }
         $ids = isset( $_POST['ids'] ) ? array_map( 'absint', (array) $_POST['ids'] ) : array();
         if ( empty( $ids ) ) wp_send_json_error( array( 'message' => '请选择要删除的图片' ) );
-        $deleted = WPAIP_UY9D::delete_images( $ids );
+        $deleted = YIMAI_GSO_Image_Library::delete_images( $ids );
         wp_send_json_success( array( 'message' => '已删除 ' . $deleted . ' 张图片', 'deleted' => $deleted ) );
     }
 
     public function ajax_image_library_stats() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) { wp_send_json_error( array( 'message' => '权限不足' ) ); }
-        wp_send_json_success( WPAIP_UY9D::get_stats() );
+        wp_send_json_success( YIMAI_GSO_Image_Library::get_stats() );
     }
 
     public function ajax_image_library_groups() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) { wp_send_json_error( array( 'message' => '权限不足' ) ); }
-        wp_send_json_success( array( 'groups' => WPAIP_UY9D::get_groups( 0 ) ) );
+        wp_send_json_success( array( 'groups' => YIMAI_GSO_Image_Library::get_groups( 0 ) ) );
     }
 
     public function ajax_image_library_group_create() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) { wp_send_json_error( array( 'message' => '权限不足' ) ); }
-        $result = WPAIP_UY9D::create_group( sanitize_text_field( $_POST['name'] ?? '' ), absint( $_POST['parent_id'] ?? 0 ) );
+        $result = YIMAI_GSO_Image_Library::create_group( sanitize_text_field( $_POST['name'] ?? '' ), absint( $_POST['parent_id'] ?? 0 ) );
         if ( is_wp_error( $result ) ) wp_send_json_error( array( 'message' => $result->get_error_message() ) );
         wp_send_json_success( array( 'group' => $result, 'message' => '分组创建成功' ) );
     }
 
     public function ajax_image_library_group_rename() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) { wp_send_json_error( array( 'message' => '权限不足' ) ); }
-        $result = WPAIP_UY9D::rename_group( absint( $_POST['term_id'] ?? 0 ), sanitize_text_field( $_POST['name'] ?? '' ) );
+        $result = YIMAI_GSO_Image_Library::rename_group( absint( $_POST['term_id'] ?? 0 ), sanitize_text_field( $_POST['name'] ?? '' ) );
         if ( is_wp_error( $result ) ) wp_send_json_error( array( 'message' => $result->get_error_message() ) );
         wp_send_json_success( array( 'message' => '分组已重命名' ) );
     }
 
     public function ajax_image_library_group_delete() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'upload_files' ) ) { wp_send_json_error( array( 'message' => '权限不足' ) ); }
-        $result = WPAIP_UY9D::delete_group( absint( $_POST['term_id'] ?? 0 ) );
+        $result = YIMAI_GSO_Image_Library::delete_group( absint( $_POST['term_id'] ?? 0 ) );
         if ( is_wp_error( $result ) ) wp_send_json_error( array( 'message' => $result->get_error_message() ) );
         wp_send_json_success( array( 'message' => '分组已删除' ) );
     }
@@ -9478,88 +9478,88 @@ class WPAIP_NC8O {
      * AJAX：关闭 Cron 系统提示，7天内不再显示
      */
     public function ajax_dismiss_cron_notice() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
-        set_transient( 'wpaip_cron_system_notice_dismissed', 1, 7 * DAY_IN_SECONDS );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
+        set_transient( 'yimai_gso_cron_system_notice_dismissed', 1, 7 * DAY_IN_SECONDS );
         wp_send_json_success();
     }
     private function render_llms_txt_panel( $active_tab ) {
         $feature_meta = $this->get_feature_meta( 'llms_txt' );
-        $settings = get_option( 'wpaip_llms_txt_settings', array() );
-        $generator_available = class_exists( 'WPAIP_K3FC' ) && WPAIP_K3FC::is_available();
+        $settings = get_option( 'yimai_gso_llms_txt_settings', array() );
+        $generator_available = class_exists( 'YIMAI_GSO_LLMs_Txt_Generator' ) && YIMAI_GSO_LLMs_Txt_Generator::is_available();
 
         ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'llms-txt' ? 'active' : ''; ?>" data-tab="llms-txt">
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-media-text"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">LLMs生成</h2>
-                        <p class="wpaip-card-desc">一键生成 llms.txt / llms-full.txt，为 AI 搜索引擎和 LLMs 提供结构化站点内容</p>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'llms-txt' ? 'active' : ''; ?>" data-tab="llms-txt">
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-media-text"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">LLMs生成</h2>
+                        <p class="yimai-gso-card-desc">一键生成 llms.txt / llms-full.txt，为 AI 搜索引擎和 LLMs 提供结构化站点内容</p>
                     </div>
                 </div>
 
-            <div class="wpaip-panel" style="margin-bottom:20px;">
+            <div class="yimai-gso-panel" style="margin-bottom:20px;">
                 <p style="margin:0;color:#64748b;font-size:13px;">
                     为 AI 大模型生成友好的网站内容文件，提升 AI 搜索引用率（GEO 优化）
                 </p>
             </div>
 
-            <div class="wpaip-layout" style="display:grid;grid-template-columns:1fr 300px;gap:20px;margin-top:20px;">
-                <div class="wpaip-panel<?php echo ! $feature_meta['available'] ? ' wpaip-llms-locked-overlay' : ''; ?>">
-                    <form method="post" action="<?php echo esc_url( add_query_arg( array( 'page' => 'wpaip-center', 'tab' => 'llms-txt' ), admin_url( 'admin.php' ) ) ); ?>">
-                        <?php wp_nonce_field( 'wpaip_llms_txt_save_nonce' ); ?>
+            <div class="yimai-gso-layout" style="display:grid;grid-template-columns:1fr 300px;gap:20px;margin-top:20px;">
+                <div class="yimai-gso-panel<?php echo ! $feature_meta['available'] ? ' yimai-gso-llms-locked-overlay' : ''; ?>">
+                    <form method="post" action="<?php echo esc_url( add_query_arg( array( 'page' => 'yimai-gso-center', 'tab' => 'llms-txt' ), admin_url( 'admin.php' ) ) ); ?>">
+                        <?php wp_nonce_field( 'yimai_gso_llms_txt_save_nonce' ); ?>
 
                         <table class="form-table">
                             <tr>
                                 <th scope="row">网站简介</th>
                                 <td>
-                                    <textarea name="wpaip_llms_txt_settings[intro]" rows="2" cols="80" class="large-text"<?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>><?php echo esc_textarea( $settings['intro'] ?? '' ); ?></textarea>
+                                    <textarea name="yimai_gso_llms_txt_settings[intro]" rows="2" cols="80" class="large-text"<?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>><?php echo esc_textarea( $settings['intro'] ?? '' ); ?></textarea>
                                     <p class="description">一句话介绍你的网站（会出现在 llms.txt 的 > 引用中）</p>
                                 </td>
                             </tr>
                             <tr>
                                 <th scope="row">详细说明</th>
                                 <td>
-                                    <textarea name="wpaip_llms_txt_settings[details]" rows="4" cols="80" class="large-text"<?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>><?php echo esc_textarea( $settings['details'] ?? '' ); ?></textarea>
+                                    <textarea name="yimai_gso_llms_txt_settings[details]" rows="4" cols="80" class="large-text"<?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>><?php echo esc_textarea( $settings['details'] ?? '' ); ?></textarea>
                                     <p class="description">可选：网站的详细说明，会出现在 llms.txt 的 ## Optional 章节</p>
                                 </td>
                             </tr>
                             <tr>
                                 <th scope="row">包含分类目录</th>
                                 <td>
-                                    <input type="checkbox" name="wpaip_llms_txt_settings[include_categories]" value="1" <?php checked( ! empty( $settings['include_categories'] ) ); ?><?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
+                                    <input type="checkbox" name="yimai_gso_llms_txt_settings[include_categories]" value="1" <?php checked( ! empty( $settings['include_categories'] ) ); ?><?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
                                     <span>在 llms.txt 中列出文章分类</span>
                                 </td>
                             </tr>
                             <tr>
                                 <th scope="row">包含最近文章</th>
                                 <td>
-                                    <input type="checkbox" name="wpaip_llms_txt_settings[include_recent_posts]" value="1" <?php checked( ! empty( $settings['include_recent_posts'] ) ); ?><?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
+                                    <input type="checkbox" name="yimai_gso_llms_txt_settings[include_recent_posts]" value="1" <?php checked( ! empty( $settings['include_recent_posts'] ) ); ?><?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
                                     <span>在 llms.txt 中列出最近文章链接</span>
                                 </td>
                             </tr>
                             <tr>
                                 <th scope="row">最大文章数</th>
                                 <td>
-                                    <input type="number" name="wpaip_llms_txt_settings[max_posts]" min="10" max="500" value="<?php echo esc_attr( $settings['max_posts'] ?? 100 ); ?>" class="small-text"<?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
+                                    <input type="number" name="yimai_gso_llms_txt_settings[max_posts]" min="10" max="500" value="<?php echo esc_attr( $settings['max_posts'] ?? 100 ); ?>" class="small-text"<?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
                                     <span>llms-full.txt 中包含的最大文章数</span>
                                 </td>
                             </tr>
                             <tr>
                                 <th scope="row">AI 使用政策</th>
                                 <td>
-                                    <input type="text" name="wpaip_llms_txt_settings[ai_policy]" value="<?php echo esc_attr( $settings['ai_policy'] ?? '' ); ?>" class="regular-text"<?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
+                                    <input type="text" name="yimai_gso_llms_txt_settings[ai_policy]" value="<?php echo esc_attr( $settings['ai_policy'] ?? '' ); ?>" class="regular-text"<?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
                                     <p class="description">例如："允许 AI 训练和引用本站内容，请注明出处"</p>
                                 </td>
                             </tr>
                         </table>
 
                         <p class="submit">
-                            <input type="submit" name="wpaip_llms_txt_save" class="button-primary" value="保存设置"<?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
+                            <input type="submit" name="yimai_gso_llms_txt_save" class="button-primary" value="保存设置"<?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
                         </p>
                     </form>
                 </div>
 
-                <div class="wpaip-panel">
+                <div class="yimai-gso-panel">
                     <h2>预览与测试</h2>
                     <div id="llms-txt-notice-area" style="display:none;"></div>
                     <p>
@@ -9567,8 +9567,8 @@ class WPAIP_NC8O {
                         <a href="<?php echo home_url( '/llms-full.txt' ); ?>" target="_blank" class="button">预览 llms-full.txt</a>
                     </p>
                     <p>
-                        <button type="button" id="wpaip-flush-rewrite-rules-btn" class="button">刷新固定链接</button>
-                        <span id="wpaip-flush-rewrite-result" style="display:none;margin-left:8px;font-size:13px;"></span>
+                        <button type="button" id="yimai-gso-flush-rewrite-rules-btn" class="button">刷新固定链接</button>
+                        <span id="yimai-gso-flush-rewrite-result" style="display:none;margin-left:8px;font-size:13px;"></span>
                     </p>
 
                     <h3>规范说明</h3>
@@ -9601,45 +9601,45 @@ class WPAIP_NC8O {
         if ( ! $feature_meta['available'] ) {
             return;
         }
-        $report = get_option( 'wpaip_geo_audit_report', array() );
+        $report = get_option( 'yimai_gso_geo_audit_report', array() );
         ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'geo-audit' ? 'active' : ''; ?>" data-tab="geo-audit">
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-chart-bar"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">AI 就绪度审计 <span class="wpaip-audit-beta-badge">Beta</span></h2>
-                        <p class="wpaip-card-desc">整站级别 AI 就绪度扫描 — 4 大类 22 因子，产出优先级改进清单</p>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'geo-audit' ? 'active' : ''; ?>" data-tab="geo-audit">
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-chart-bar"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">AI 就绪度审计 <span class="yimai-gso-audit-beta-badge">Beta</span></h2>
+                        <p class="yimai-gso-card-desc">整站级别 AI 就绪度扫描 — 4 大类 22 因子，产出优先级改进清单</p>
                     </div>
                 </div>
 
-                <div class="wpaip-panel" style="margin-bottom:20px;">
+                <div class="yimai-gso-panel" style="margin-bottom:20px;">
                     <p style="margin:0;color:#64748b;font-size:13px;">
                         扫描网站的技术基础、内容质量、实体完整度和 AI 爬虫友好度，帮助你发现影响 AI 搜索引用的改进项
                     </p>
                 </div>
 
-                <button type="button" class="wpaip-audit-btn" id="wpaip-run-audit-btn">
+                <button type="button" class="yimai-gso-audit-btn" id="yimai-gso-run-audit-btn">
                     <span class="dashicons dashicons-update" style="font-size:16px;width:16px;height:16px;vertical-align:text-bottom;"></span>
                     <?php echo empty( $report['status'] ) || $report['status'] === 'completed' ? '运行审计' : '重新审计'; ?>
                 </button>
 
                 <!-- 进度提示 -->
-                <div class="wpaip-audit-progress" id="wpaip-audit-progress" style="display:none;">
+                <div class="yimai-gso-audit-progress" id="yimai-gso-audit-progress" style="display:none;">
                     <span class="spinner is-active" style="float:none;margin:0;vertical-align:middle;"></span>
-                    <span id="wpaip-audit-progress-text">审计进行中...</span>
+                    <span id="yimai-gso-audit-progress-text">审计进行中...</span>
                 </div>
 
                 <!-- 审计结果区域 -->
-                <div id="wpaip-audit-results">
+                <div id="yimai-gso-audit-results">
                     <?php if ( ! empty( $report ) && 'completed' === $report['status'] ) : ?>
                         <?php $this->render_audit_results( $report ); ?>
                     <?php elseif ( ! empty( $report ) && 'running' === $report['status'] ) : ?>
-                        <div class="wpaip-audit-progress">
+                        <div class="yimai-gso-audit-progress">
                             <span class="spinner is-active" style="float:none;margin:0;vertical-align:middle;"></span>
                             <span>审计进行中，请稍候...</span>
                         </div>
                         <script>
-                        (function(){var auditNonce='<?php echo wp_create_nonce("wpaip_ajax_nonce"); ?>';var s=setInterval(function(){var d=new FormData();d.append('action','wpaip_audit_status');d.append('security',auditNonce);fetch(ajaxurl,{method:'POST',body:d}).then(function(r){return r.json()}).then(function(res){if(res.success&&res.data.report&&res.data.report.status==='completed'){clearInterval(s);location.reload();}});},5000);})();
+                        (function(){var auditNonce='<?php echo wp_create_nonce("yimai_gso_ajax_nonce"); ?>';var s=setInterval(function(){var d=new FormData();d.append('action','yimai_gso_audit_status');d.append('security',auditNonce);fetch(ajaxurl,{method:'POST',body:d}).then(function(r){return r.json()}).then(function(res){if(res.success&&res.data.report&&res.data.report.status==='completed'){clearInterval(s);location.reload();}});},5000);})();
                         </script>
                     <?php else : ?>
                         <div style="text-align:center;padding:40px;color:#9ca3af;font-size:0.85rem;">
@@ -9652,22 +9652,22 @@ class WPAIP_NC8O {
 
             <script>
             (function(){
-                var btn = document.getElementById('wpaip-run-audit-btn');
+                var btn = document.getElementById('yimai-gso-run-audit-btn');
                 if (!btn) return;
-                var auditNonce = '<?php echo wp_create_nonce( "wpaip_ajax_nonce" ); ?>';
+                var auditNonce = '<?php echo wp_create_nonce( "yimai_gso_ajax_nonce" ); ?>';
                 btn.addEventListener('click', function(){
                     if (btn.disabled) return;
                     btn.disabled = true;
                     btn.innerHTML = '<span class="spinner is-active" style="float:none;margin:0 4px 0 0;vertical-align:middle;"></span>正在审计...';
 
-                    var progress = document.getElementById('wpaip-audit-progress');
-                    var progressText = document.getElementById('wpaip-audit-progress-text');
-                    var results = document.getElementById('wpaip-audit-results');
+                    var progress = document.getElementById('yimai-gso-audit-progress');
+                    var progressText = document.getElementById('yimai-gso-audit-progress-text');
+                    var results = document.getElementById('yimai-gso-audit-results');
                     if (progress) progress.style.display = 'flex';
                     if (results) results.innerHTML = '';
 
                     var data = new FormData();
-                    data.append('action', 'wpaip_run_audit');
+                    data.append('action', 'yimai_gso_run_audit');
                     data.append('security', auditNonce);
 
                     fetch(ajaxurl, { method: 'POST', body: data })
@@ -9677,7 +9677,7 @@ class WPAIP_NC8O {
                                 if (progressText) progressText.textContent = '审计已启动，正在分析内容数据...';
                                 var poll = setInterval(function(){
                                     var d = new FormData();
-                                    d.append('action', 'wpaip_audit_status');
+                                    d.append('action', 'yimai_gso_audit_status');
                                     d.append('security', auditNonce);
                                     fetch(ajaxurl, { method: 'POST', body: d })
                                         .then(function(r) { return r.json(); })
@@ -9741,13 +9741,13 @@ class WPAIP_NC8O {
             'R3' => array( 'tab' => 'l5-crawler', 'label' => '去查看' ),
             'R4' => array( 'tab' => 'seo-push', 'label' => '去配置' ),
         );
-        $audit_base_url = admin_url( 'admin.php?page=wpaip-center' );
+        $audit_base_url = admin_url( 'admin.php?page=yimai-gso-center' );
         ?>
         <!-- 总览 -->
-        <div class="wpaip-audit-overview">
-            <div class="wpaip-audit-score-card">
-                <div class="wpaip-audit-big-score" style="color:<?php echo $color; ?>"><?php echo $overall; ?></div>
-                <div class="wpaip-audit-label">AI 就绪度总分</div>
+        <div class="yimai-gso-audit-overview">
+            <div class="yimai-gso-audit-score-card">
+                <div class="yimai-gso-audit-big-score" style="color:<?php echo $color; ?>"><?php echo $overall; ?></div>
+                <div class="yimai-gso-audit-label">AI 就绪度总分</div>
             </div>
             <?php
             $cat_labels = array( 'technical' => '技术', 'content' => '内容', 'entity' => '实体', 'crawler' => '爬虫' );
@@ -9757,29 +9757,29 @@ class WPAIP_NC8O {
                 $ct = isset( $report['categories'][ $ck ]['total'] ) ? (int) $report['categories'][ $ck ]['total'] : 0;
                 $cc = $cs >= 80 ? '#22c55e' : ( $cs >= 60 ? '#3b82f6' : ( $cs >= 40 ? '#f59e0b' : '#ef4444' ) );
             ?>
-            <div class="wpaip-audit-score-card">
-                <div class="wpaip-audit-big-score" style="color:<?php echo $cc; ?>"><?php echo $cs; ?></div>
-                <div class="wpaip-audit-label"><?php echo $cl; ?> (<?php echo $cp; ?>/<?php echo $ct; ?>)</div>
+            <div class="yimai-gso-audit-score-card">
+                <div class="yimai-gso-audit-big-score" style="color:<?php echo $cc; ?>"><?php echo $cs; ?></div>
+                <div class="yimai-gso-audit-label"><?php echo $cl; ?> (<?php echo $cp; ?>/<?php echo $ct; ?>)</div>
             </div>
             <?php endforeach; ?>
         </div>
 
         <!-- 4 类因子详情 -->
-        <div class="wpaip-audit-categories">
+        <div class="yimai-gso-audit-categories">
             <?php foreach ( $cat_labels as $ck => $cl ) :
                 if ( empty( $report['categories'][ $ck ]['factors'] ) ) continue;
                 $cat = $report['categories'][ $ck ];
                 $cat_color = $cat['score'] >= 80 ? '#22c55e' : ( $cat['score'] >= 60 ? '#3b82f6' : '#f59e0b' );
             ?>
-            <div class="wpaip-audit-cat-card">
+            <div class="yimai-gso-audit-cat-card">
                 <h4>
                     <?php echo $cl; ?> 就绪度
-                    <span class="wpaip-audit-cat-score" style="color:<?php echo $cat_color; ?>"><?php echo $cat['score']; ?> 分</span>
+                    <span class="yimai-gso-audit-cat-score" style="color:<?php echo $cat_color; ?>"><?php echo $cat['score']; ?> 分</span>
                 </h4>
                 <?php foreach ( $cat['factors'] as $fid => $f ) : ?>
-                <div class="wpaip-audit-factor" title="<?php echo esc_attr( $f['detail'] ); ?>">
-                    <span class="wpaip-audit-factor-label"><?php echo esc_html( $f['label'] ); ?></span>
-                    <span class="wpaip-audit-factor-status">
+                <div class="yimai-gso-audit-factor" title="<?php echo esc_attr( $f['detail'] ); ?>">
+                    <span class="yimai-gso-audit-factor-label"><?php echo esc_html( $f['label'] ); ?></span>
+                    <span class="yimai-gso-audit-factor-status">
                         <?php if ( $f['pass'] ) : ?>
                             <span style="color:#22c55e">✓</span>
                         <?php else : ?>
@@ -9794,7 +9794,7 @@ class WPAIP_NC8O {
 
         <!-- 优先级改进清单 -->
         <?php if ( ! empty( $report['top_priorities'] ) ) : ?>
-        <div class="wpaip-audit-priorities">
+        <div class="yimai-gso-audit-priorities">
             <h4>优先改进清单（按紧急度排序）</h4>
             <?php foreach ( $report['top_priorities'] as $p ) :
                 $fid   = $p['id'] ?? '';
@@ -9809,14 +9809,14 @@ class WPAIP_NC8O {
                     $label = $act['label'];
                 }
             ?>
-            <div class="wpaip-audit-priority-item">
-                <span class="wpaip-audit-priority-id"><?php echo esc_html( $fid ); ?></span>
-                <span class="wpaip-audit-priority-text">
+            <div class="yimai-gso-audit-priority-item">
+                <span class="yimai-gso-audit-priority-id"><?php echo esc_html( $fid ); ?></span>
+                <span class="yimai-gso-audit-priority-text">
                     <strong><?php echo esc_html( $p['label'] ); ?></strong>
                     <span style="color:#6b7280;margin-left:4px;">— <?php echo esc_html( $p['detail'] ); ?></span>
                 </span>
                 <?php if ( $href && $label ) : ?>
-                <a href="<?php echo esc_url( $href ); ?>" class="wpaip-audit-action-btn" title="前往<?php echo esc_attr( $label ); ?>">
+                <a href="<?php echo esc_url( $href ); ?>" class="yimai-gso-audit-action-btn" title="前往<?php echo esc_attr( $label ); ?>">
                     <?php echo esc_html( $label ); ?>
                 </a>
                 <?php endif; ?>
@@ -9832,11 +9832,11 @@ class WPAIP_NC8O {
     }
 
     /**
-     * 仪表盘 AJAX 数据端点 — v2.9.17 改版
+     * 仪表盘 AJAX 数据端点 —  改版
      * 聚合并返回双引擎评分、系统状态、健康雷达、爬虫趋势等全部仪表盘数据
      */
     public function ajax_dashboard_data() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -9853,7 +9853,7 @@ class WPAIP_NC8O {
 
         try {
             // ── KPI 统计 ──
-            $pt_list = class_exists( 'WPAIP_B7PQ' ) ? WPAIP_B7PQ::sql_type_list() : "'post','page'";
+            $pt_list = class_exists( 'YIMAI_GSO_Post_Type_Helper' ) ? YIMAI_GSO_Post_Type_Helper::sql_type_list() : "'post','page'";
             $post_count = (int) $wpdb->get_var(
                 "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_type IN ({$pt_list})"
             );
@@ -9861,7 +9861,7 @@ class WPAIP_NC8O {
             $data['kpi']['scheduled']    = (int) $wpdb->get_var(
                 "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'future' AND post_type IN ({$pt_list})"
             );
-            if ( class_exists( 'WPAIP_9W9L' ) ) {
+            if ( class_exists( 'YIMAI_GSO_Crawler_Tracker' ) ) {
                 $today = current_time( 'Y-m-d' );
                 $data['kpi']['crawler_today'] = (int) $wpdb->get_var( $wpdb->prepare(
                     "SELECT COUNT(*) FROM {$wpdb->prefix}geo_crawler_logs WHERE DATE(visit_time) = %s", $today
@@ -9871,11 +9871,11 @@ class WPAIP_NC8O {
             $schema_total = (int) $wpdb->get_var(
                 "SELECT COUNT(DISTINCT pm.post_id) FROM {$wpdb->postmeta} pm
                  INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id AND p.post_status = 'publish'
-                 WHERE pm.meta_key = 'wpaip_schema_type' AND pm.meta_value != '' AND p.post_type IN ({$pt_list})"
+                 WHERE pm.meta_key = 'yimai_gso_schema_type' AND pm.meta_value != '' AND p.post_type IN ({$pt_list})"
             );
             $data['kpi']['schema_rate'] = $post_count > 0 ? (int) round( ( $schema_total / $post_count ) * 100 ) : 0;
-            if ( class_exists( 'WPAIP_4BA2' ) ) {
-                $referral_table = $wpdb->prefix . 'wpaip_referral_logs';
+            if ( class_exists( 'YIMAI_GSO_Referral_Tracker' ) ) {
+                $referral_table = $wpdb->prefix . 'yimai_gso_referral_logs';
                 $referral_table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$referral_table}'" );
                 if ( $referral_table_exists ) {
                     $data['kpi']['referral_30d'] = (int) $wpdb->get_var(
@@ -9883,29 +9883,29 @@ class WPAIP_NC8O {
                     );
                 }
             }
-            if ( class_exists( 'WPAIP_OULA' ) ) {
-                $data['kpi']['active_alerts'] = WPAIP_OULA::get_active_critical_count();
+            if ( class_exists( 'YIMAI_GSO_Alert_Engine' ) ) {
+                $data['kpi']['active_alerts'] = YIMAI_GSO_Alert_Engine::get_active_critical_count();
             }
 
             // ── 爬虫趋势（5 分钟缓存） ──
-            $trend_cache = get_transient( 'wpaip_d5_crawler_trend' );
+            $trend_cache = get_transient( 'yimai_gso_d5_crawler_trend' );
             if ( false === $trend_cache || ! is_array( $trend_cache ) ) {
                 $trend_cache = array(
                     '7'  => $this->_get_crawler_trend_data(7),
                     '30' => $this->_get_crawler_trend_data(30),
                     '90' => $this->_get_crawler_trend_data(90),
                 );
-                set_transient( 'wpaip_d5_crawler_trend', $trend_cache, 5 * MINUTE_IN_SECONDS );
+                set_transient( 'yimai_gso_d5_crawler_trend', $trend_cache, 5 * MINUTE_IN_SECONDS );
             }
             $data['crawler_trend'] = $trend_cache;
 
             // ── Schema 覆盖（DISTINCT 去重，防止 revision 重复计数）──
-            if ( class_exists( 'WPAIP_T6G5' ) ) {
+            if ( class_exists( 'YIMAI_GSO_Schema_Generator' ) ) {
                 $types = $wpdb->get_results(
                     "SELECT pm.meta_value AS schema_type, COUNT(DISTINCT pm.post_id) AS cnt
                      FROM {$wpdb->postmeta} pm
                      INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id AND p.post_status = 'publish'
-                     WHERE pm.meta_key = 'wpaip_schema_type' AND pm.meta_value != '' AND p.post_type IN ({$pt_list})
+                     WHERE pm.meta_key = 'yimai_gso_schema_type' AND pm.meta_value != '' AND p.post_type IN ({$pt_list})
                      GROUP BY pm.meta_value ORDER BY cnt DESC LIMIT 8"
                 );
                 if ( is_array( $types ) ) {
@@ -9928,20 +9928,20 @@ class WPAIP_NC8O {
             // ── 健康雷达 ──
             // 读取各数据源评分
             $audit_score = 0;
-            $audit_report = get_option( 'wpaip_geo_audit_report', array() );
+            $audit_report = get_option( 'yimai_gso_geo_audit_report', array() );
             if ( ! empty( $audit_report['overall_score'] ) ) {
                 $audit_score = (int) $audit_report['overall_score'];
             }
             $ag = $audit_score >= 85 ? 'A' : ( $audit_score >= 70 ? 'B' : ( $audit_score >= 50 ? 'C' : 'D' ) );
 
             $crawl_score = 0;
-            $diag_cached = get_transient( 'wpaip_l5_diagnosis_result' );
+            $diag_cached = get_transient( 'yimai_gso_l5_diagnosis_result' );
             if ( is_array( $diag_cached ) && isset( $diag_cached['overall_score'] ) ) {
                 $crawl_score = (int) $diag_cached['overall_score'];
-            } elseif ( class_exists( 'WPAIP_6G4F' ) ) {
+            } elseif ( class_exists( 'YIMAI_GSO_Crawler_Diagnosis' ) ) {
                 // 缓存不存在时主动计算，避免仪表盘显示 0
                 try {
-                    $fresh_diag = WPAIP_6G4F::get_instance()->get_diagnosis_result( false );
+                    $fresh_diag = YIMAI_GSO_Crawler_Diagnosis::get_instance()->get_diagnosis_result( false );
                     if ( is_array( $fresh_diag ) && isset( $fresh_diag['overall_score'] ) ) {
                         $crawl_score = (int) $fresh_diag['overall_score'];
                     }
@@ -10078,16 +10078,16 @@ class WPAIP_NC8O {
      * 调用内容新鲜度监控模块的 get_summary_stats() 获取整体新鲜度百分比
      */
     private function _get_freshness_score() {
-        if ( ! class_exists( 'WPAIP_SDZH' ) ) return 0;
-        $stats = WPAIP_SDZH::get_instance()->get_summary_stats();
+        if ( ! class_exists( 'YIMAI_GSO_Content_Freshness' ) ) return 0;
+        $stats = YIMAI_GSO_Content_Freshness::get_instance()->get_summary_stats();
         return isset( $stats['fresh_pct'] ) ? (int) round( $stats['fresh_pct'] ) : 0;
     }
 
     private function _get_freshness_detail( $score = null ) {
         if ( null === $score ) $score = $this->_get_freshness_score();
         if ( $score >= 80 ) return "{$score}%新鲜";
-        if ( ! class_exists( 'WPAIP_SDZH' ) ) return '暂无数据';
-        $stats = WPAIP_SDZH::get_instance()->get_summary_stats();
+        if ( ! class_exists( 'YIMAI_GSO_Content_Freshness' ) ) return '暂无数据';
+        $stats = YIMAI_GSO_Content_Freshness::get_instance()->get_summary_stats();
         $stale = ( $stats['stale'] ?? 0 ) + ( $stats['old'] ?? 0 );
         if ( $stale > 0 ) return "{$stale}篇需更新";
         return '内容新鲜';
@@ -10097,21 +10097,21 @@ class WPAIP_NC8O {
      * llms.txt 状态（带缓存，5分钟）
      */
     private function _get_llms_status_score() {
-        $cached = get_transient( 'wpaip_d5_llms_status' );
+        $cached = get_transient( 'yimai_gso_d5_llms_status' );
         if ( false !== $cached ) return (int) $cached;
 
         $llms_url = home_url( '/llms.txt' );
         $response = wp_remote_head( $llms_url, array( 'timeout' => 5 ) );
         $score = ( ! is_wp_error( $response ) && 200 === (int) wp_remote_retrieve_response_code( $response ) ) ? 100 : 0;
 
-        set_transient( 'wpaip_d5_llms_status', $score, 5 * MINUTE_IN_SECONDS );
+        set_transient( 'yimai_gso_d5_llms_status', $score, 5 * MINUTE_IN_SECONDS );
         return $score;
     }
 
     private function _get_llms_status_detail( $score = null ) {
         if ( null === $score ) $score = $this->_get_llms_status_score();
         if ( $score >= 100 ) {
-            $ts = get_option( 'wpaip_llms_txt_updated', 0 );
+            $ts = get_option( 'yimai_gso_llms_txt_updated', 0 );
             $ago = $ts ? human_time_diff( $ts, current_time( 'timestamp' ) ) . '前更新' : '已生成';
             return $ago;
         }
@@ -10122,9 +10122,9 @@ class WPAIP_NC8O {
      * AI引荐流量健康度
      */
     private function _get_referral_health_score() {
-        if ( ! class_exists( 'WPAIP_4BA2' ) ) return 0;
+        if ( ! class_exists( 'YIMAI_GSO_Referral_Tracker' ) ) return 0;
         global $wpdb;
-        $table = $wpdb->prefix . 'wpaip_referral_logs';
+        $table = $wpdb->prefix . 'yimai_gso_referral_logs';
         $table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" );
         if ( ! $table_exists ) return 0;
 
@@ -10172,9 +10172,9 @@ class WPAIP_NC8O {
      * 最新预警 — 使用 Alert Engine 的公共方法获取活跃严重预警
      */
     private function _get_recent_alerts() {
-        if ( ! class_exists( 'WPAIP_OULA' ) ) return array();
+        if ( ! class_exists( 'YIMAI_GSO_Alert_Engine' ) ) return array();
 
-        $rows = WPAIP_OULA::get_active_critical_alerts( 8 );
+        $rows = YIMAI_GSO_Alert_Engine::get_active_critical_alerts( 8 );
         if ( empty( $rows ) ) return array();
 
         $data = array();
@@ -10192,7 +10192,7 @@ class WPAIP_NC8O {
     }
     
     /**
-     * SEO-GEO 桥接管理面板（v3.0.0）
+     * SEO-GEO 桥接管理面板
      */
     private function render_seo_geo_bridge_panel( $active_tab ) {
         $feature_meta = $this->get_feature_meta( 'seo_geo_bridge' );
@@ -10200,98 +10200,98 @@ class WPAIP_NC8O {
             return;
         }
         ?>
-            <div class="wpaip-main-panel <?php echo $active_tab === 'seo-geo-bridge' ? 'active' : ''; ?>" data-tab="seo-geo-bridge">
-                <div class="wpaip-page-card-header">
-                    <div class="wpaip-card-icon"><span class="dashicons dashicons-admin-links"></span></div>
-                    <div class="wpaip-card-body">
-                        <h2 class="wpaip-card-title">SEO-GEO 桥接</h2>
-                        <p class="wpaip-card-desc">自动与主流 SEO 插件集成，确保 SEO 和 GEO 元数据一致，避免两个体系的设置互相冲突</p>
+            <div class="yimai-gso-main-panel <?php echo $active_tab === 'seo-geo-bridge' ? 'active' : ''; ?>" data-tab="seo-geo-bridge">
+                <div class="yimai-gso-page-card-header">
+                    <div class="yimai-gso-card-icon"><span class="dashicons dashicons-admin-links"></span></div>
+                    <div class="yimai-gso-card-body">
+                        <h2 class="yimai-gso-card-title">SEO-GEO 桥接</h2>
+                        <p class="yimai-gso-card-desc">自动与主流 SEO 插件集成，确保 SEO 和 GEO 元数据一致，避免两个体系的设置互相冲突</p>
                     </div>
                 </div>
 
                 <!-- ① SEO 插件兼容状态 -->
-                <div class="wpaip-panel" style="margin-bottom:20px;">
+                <div class="yimai-gso-panel" style="margin-bottom:20px;">
                     <h3 style="margin:0 0 12px;font-size:14px;font-weight:600;">已安装 SEO 插件</h3>
-                    <div id="wpaip-bridge-plugin-cards" style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <div id="yimai-gso-bridge-plugin-cards" style="display:flex;gap:12px;flex-wrap:wrap;">
                         <div style="padding:16px;color:#94a3b8;font-size:0.85rem;">检测中...</div>
                     </div>
-                    <div id="wpaip-bridge-no-plugin" style="display:none;padding:16px;text-align:center;color:#64748b;font-size:0.85rem;">
+                    <div id="yimai-gso-bridge-no-plugin" style="display:none;padding:16px;text-align:center;color:#64748b;font-size:0.85rem;">
                         <span class="dashicons dashicons-info-outline" style="vertical-align:text-bottom;"></span>
                         未检测到 SEO 插件，桥接功能无需干预即可正常运行
                     </div>
                 </div>
 
                 <!-- ② 5 项桥接能力仪表盘 -->
-                <div class="wpaip-panel" style="margin-bottom:20px;">
+                <div class="yimai-gso-panel" style="margin-bottom:20px;">
                     <h3 style="margin:0 0 12px;font-size:14px;font-weight:600;">桥接能力状态</h3>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;" id="wpaip-bridge-status-cards">
-                        <div class="wpaip-bridge-stat-card" id="wpaip-bridge-stat-meta">
-                            <div class="wpaip-bridge-stat-icon">🔗</div>
-                            <div class="wpaip-bridge-stat-label">Meta 一致性</div>
-                            <div class="wpaip-bridge-stat-value">--</div>
-                            <div class="wpaip-bridge-stat-sub">已检查文章数</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;" id="yimai-gso-bridge-status-cards">
+                        <div class="yimai-gso-bridge-stat-card" id="yimai-gso-bridge-stat-meta">
+                            <div class="yimai-gso-bridge-stat-icon">🔗</div>
+                            <div class="yimai-gso-bridge-stat-label">Meta 一致性</div>
+                            <div class="yimai-gso-bridge-stat-value">--</div>
+                            <div class="yimai-gso-bridge-stat-sub">已检查文章数</div>
                         </div>
-                        <div class="wpaip-bridge-stat-card" id="wpaip-bridge-stat-robots">
-                            <div class="wpaip-bridge-stat-icon">🤖</div>
-                            <div class="wpaip-bridge-stat-label">robots.txt 协同</div>
-                            <div class="wpaip-bridge-stat-value">--</div>
-                            <div class="wpaip-bridge-stat-sub">AI 爬虫规则数</div>
+                        <div class="yimai-gso-bridge-stat-card" id="yimai-gso-bridge-stat-robots">
+                            <div class="yimai-gso-bridge-stat-icon">🤖</div>
+                            <div class="yimai-gso-bridge-stat-label">robots.txt 协同</div>
+                            <div class="yimai-gso-bridge-stat-value">--</div>
+                            <div class="yimai-gso-bridge-stat-sub">AI 爬虫规则数</div>
                         </div>
-                        <div class="wpaip-bridge-stat-card" id="wpaip-bridge-stat-sitemap">
-                            <div class="wpaip-bridge-stat-icon">🗺️</div>
-                            <div class="wpaip-bridge-stat-label">Sitemap 增强</div>
-                            <div class="wpaip-bridge-stat-value">--</div>
-                            <div class="wpaip-bridge-stat-sub">GEO 标记注入</div>
+                        <div class="yimai-gso-bridge-stat-card" id="yimai-gso-bridge-stat-sitemap">
+                            <div class="yimai-gso-bridge-stat-icon">🗺️</div>
+                            <div class="yimai-gso-bridge-stat-label">Sitemap 增强</div>
+                            <div class="yimai-gso-bridge-stat-value">--</div>
+                            <div class="yimai-gso-bridge-stat-sub">GEO 标记注入</div>
                         </div>
-                        <div class="wpaip-bridge-stat-card" id="wpaip-bridge-stat-schema">
-                            <div class="wpaip-bridge-stat-icon">🏛️</div>
-                            <div class="wpaip-bridge-stat-label">Schema 去重</div>
-                            <div class="wpaip-bridge-stat-value">--</div>
-                            <div class="wpaip-bridge-stat-sub">冲突检测</div>
+                        <div class="yimai-gso-bridge-stat-card" id="yimai-gso-bridge-stat-schema">
+                            <div class="yimai-gso-bridge-stat-icon">🏛️</div>
+                            <div class="yimai-gso-bridge-stat-label">Schema 去重</div>
+                            <div class="yimai-gso-bridge-stat-value">--</div>
+                            <div class="yimai-gso-bridge-stat-sub">冲突检测</div>
                         </div>
-                        <div class="wpaip-bridge-stat-card" id="wpaip-bridge-stat-compat">
-                            <div class="wpaip-bridge-stat-icon">📋</div>
-                            <div class="wpaip-bridge-stat-label">兼容性检测</div>
-                            <div class="wpaip-bridge-stat-value">--</div>
-                            <div class="wpaip-bridge-stat-sub">综合状态</div>
+                        <div class="yimai-gso-bridge-stat-card" id="yimai-gso-bridge-stat-compat">
+                            <div class="yimai-gso-bridge-stat-icon">📋</div>
+                            <div class="yimai-gso-bridge-stat-label">兼容性检测</div>
+                            <div class="yimai-gso-bridge-stat-value">--</div>
+                            <div class="yimai-gso-bridge-stat-sub">综合状态</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- ③ 冲突详情与操作区 -->
-                <div class="wpaip-panel" style="margin-bottom:20px;">
+                <div class="yimai-gso-panel" style="margin-bottom:20px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
                         <h3 style="margin:0;font-size:14px;font-weight:600;">冲突与建议</h3>
                         <div style="display:flex;gap:8px;">
-                            <button type="button" class="button button-primary" id="wpaip-bridge-scan-btn">
+                            <button type="button" class="button button-primary" id="yimai-gso-bridge-scan-btn">
                                 <span class="dashicons dashicons-search" style="font-size:16px;width:16px;height:16px;vertical-align:text-bottom;"></span>
                                 重新检测
                             </button>
-                            <button type="button" class="button" id="wpaip-bridge-fix-all-btn" style="display:none;">
+                            <button type="button" class="button" id="yimai-gso-bridge-fix-all-btn" style="display:none;">
                                 <span class="dashicons dashicons-admin-tools" style="font-size:16px;width:16px;height:16px;vertical-align:text-bottom;"></span>
                                 一键修复
                             </button>
                         </div>
                     </div>
-                    <div id="wpaip-bridge-conflict-list">
+                    <div id="yimai-gso-bridge-conflict-list">
                         <div style="padding:16px;color:#94a3b8;font-size:0.85rem;text-align:center;">点击「重新检测」开始分析...</div>
                     </div>
                     
                     <!-- 扫描进度 -->
-                    <div id="wpaip-bridge-scan-progress" style="display:none;margin-top:12px;">
+                    <div id="yimai-gso-bridge-scan-progress" style="display:none;margin-top:12px;">
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                             <span class="spinner is-active" style="float:none;margin:0;"></span>
-                            <span id="wpaip-bridge-scan-text">正在扫描 Meta 一致性...</span>
+                            <span id="yimai-gso-bridge-scan-text">正在扫描 Meta 一致性...</span>
                         </div>
                         <div style="background:#e2e8f0;border-radius:4px;height:6px;overflow:hidden;">
-                            <div id="wpaip-bridge-scan-bar" style="background:#3b82f6;height:100%;width:0%;transition:width 0.3s;"></div>
+                            <div id="yimai-gso-bridge-scan-bar" style="background:#3b82f6;height:100%;width:0%;transition:width 0.3s;"></div>
                         </div>
                     </div>
                 </div>
 
                 <!-- CSS -->
                 <style>
-                    .wpaip-bridge-stat-card {
+                    .yimai-gso-bridge-stat-card {
                         background:#f8fafc;
                         border:1px solid #e2e8f0;
                         border-radius:8px;
@@ -10299,16 +10299,16 @@ class WPAIP_NC8O {
                         text-align:center;
                         transition:border-color 0.2s;
                     }
-                    .wpaip-bridge-stat-card:hover { border-color:#cbd5e1; }
-                    .wpaip-bridge-stat-icon { font-size:20px; margin-bottom:6px; }
-                    .wpaip-bridge-stat-label { font-size:12px; color:#64748b; margin-bottom:4px; }
-                    .wpaip-bridge-stat-value { font-size:20px; font-weight:700; color:#1e293b; }
-                    .wpaip-bridge-stat-sub { font-size:11px; color:#94a3b8; margin-top:2px; }
-                    .wpaip-bridge-stat-card.good { border-color:#10b981; background:#ecfdf5; }
-                    .wpaip-bridge-stat-card.warn { border-color:#f59e0b; background:#fffbeb; }
-                    .wpaip-bridge-stat-card.bad { border-color:#ef4444; background:#fef2f2; }
+                    .yimai-gso-bridge-stat-card:hover { border-color:#cbd5e1; }
+                    .yimai-gso-bridge-stat-icon { font-size:20px; margin-bottom:6px; }
+                    .yimai-gso-bridge-stat-label { font-size:12px; color:#64748b; margin-bottom:4px; }
+                    .yimai-gso-bridge-stat-value { font-size:20px; font-weight:700; color:#1e293b; }
+                    .yimai-gso-bridge-stat-sub { font-size:11px; color:#94a3b8; margin-top:2px; }
+                    .yimai-gso-bridge-stat-card.good { border-color:#10b981; background:#ecfdf5; }
+                    .yimai-gso-bridge-stat-card.warn { border-color:#f59e0b; background:#fffbeb; }
+                    .yimai-gso-bridge-stat-card.bad { border-color:#ef4444; background:#fef2f2; }
                     
-                    .wpaip-bridge-plugin-card {
+                    .yimai-gso-bridge-plugin-card {
                         background:#f8fafc;
                         border:1px solid #e2e8f0;
                         border-radius:8px;
@@ -10316,43 +10316,43 @@ class WPAIP_NC8O {
                         min-width:200px;
                         flex:1;
                     }
-                    .wpaip-bridge-plugin-card .plugin-name { font-weight:600; font-size:14px; margin-bottom:2px; }
-                    .wpaip-bridge-plugin-card .plugin-version { font-size:12px; color:#94a3b8; margin-bottom:8px; }
-                    .wpaip-bridge-plugin-card .plugin-status { font-size:12px; }
-                    .wpaip-bridge-plugin-card.compatible { border-left:3px solid #10b981; }
-                    .wpaip-bridge-plugin-card.warning { border-left:3px solid #f59e0b; }
+                    .yimai-gso-bridge-plugin-card .plugin-name { font-weight:600; font-size:14px; margin-bottom:2px; }
+                    .yimai-gso-bridge-plugin-card .plugin-version { font-size:12px; color:#94a3b8; margin-bottom:8px; }
+                    .yimai-gso-bridge-plugin-card .plugin-status { font-size:12px; }
+                    .yimai-gso-bridge-plugin-card.compatible { border-left:3px solid #10b981; }
+                    .yimai-gso-bridge-plugin-card.warning { border-left:3px solid #f59e0b; }
                     
-                    .wpaip-bridge-conflict-item {
+                    .yimai-gso-bridge-conflict-item {
                         background:#f8fafc;
                         border:1px solid #e2e8f0;
                         border-radius:6px;
                         padding:12px 16px;
                         margin-bottom:8px;
                     }
-                    .wpaip-bridge-conflict-item.severity-info { border-left:3px solid #6366f1; }
-                    .wpaip-bridge-conflict-item.severity-low { border-left:3px solid #10b981; }
-                    .wpaip-bridge-conflict-item.severity-medium { border-left:3px solid #f59e0b; }
-                    .wpaip-bridge-conflict-item.severity-high { border-left:3px solid #ef4444; }
-                    .wpaip-bridge-conflict-header {
+                    .yimai-gso-bridge-conflict-item.severity-info { border-left:3px solid #6366f1; }
+                    .yimai-gso-bridge-conflict-item.severity-low { border-left:3px solid #10b981; }
+                    .yimai-gso-bridge-conflict-item.severity-medium { border-left:3px solid #f59e0b; }
+                    .yimai-gso-bridge-conflict-item.severity-high { border-left:3px solid #ef4444; }
+                    .yimai-gso-bridge-conflict-header {
                         display:flex;
                         align-items:center;
                         justify-content:space-between;
                         gap:8px;
                         flex-wrap:wrap;
                     }
-                    .wpaip-bridge-conflict-title { font-weight:600; font-size:13px; }
-                    .wpaip-bridge-conflict-desc { font-size:12px; color:#64748b; margin-top:4px; }
-                    .wpaip-bridge-severity-badge {
+                    .yimai-gso-bridge-conflict-title { font-weight:600; font-size:13px; }
+                    .yimai-gso-bridge-conflict-desc { font-size:12px; color:#64748b; margin-top:4px; }
+                    .yimai-gso-bridge-severity-badge {
                         font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600;
                     }
-                    .wpaip-bridge-severity-badge.info { background:#eef2ff; color:#6366f1; }
-                    .wpaip-bridge-severity-badge.low { background:#ecfdf5; color:#10b981; }
-                    .wpaip-bridge-severity-badge.medium { background:#fffbeb; color:#f59e0b; }
-                    .wpaip-bridge-severity-badge.high { background:#fef2f2; color:#ef4444; }
-                    .wpaip-bridge-fix-btn {
+                    .yimai-gso-bridge-severity-badge.info { background:#eef2ff; color:#6366f1; }
+                    .yimai-gso-bridge-severity-badge.low { background:#ecfdf5; color:#10b981; }
+                    .yimai-gso-bridge-severity-badge.medium { background:#fffbeb; color:#f59e0b; }
+                    .yimai-gso-bridge-severity-badge.high { background:#fef2f2; color:#ef4444; }
+                    .yimai-gso-bridge-fix-btn {
                         font-size:11px; padding:2px 10px; height:auto; line-height:1.6;
                     }
-                    .wpaip-bridge-fixed-badge {
+                    .yimai-gso-bridge-fixed-badge {
                         font-size:11px; color:#10b981; font-weight:600;
                     }
                 </style>

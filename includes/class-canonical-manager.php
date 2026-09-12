@@ -5,7 +5,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_BOQ3 {
+class YIMAI_GSO_Canonical_Manager {
 
     /**
      * 初始化：注册前端钩子和AJAX
@@ -22,8 +22,8 @@ class WPAIP_BOQ3 {
         add_action( 'save_post', array( __CLASS__, 'save_post_meta' ), 10, 2 );
 
         // AJAX
-        add_action( 'wp_ajax_wpaip_canonical_batch_scan', array( __CLASS__, 'ajax_batch_scan' ) );
-        add_action( 'wp_ajax_wpaip_canonical_save_custom', array( __CLASS__, 'ajax_save_custom' ) );
+        add_action( 'wp_ajax_yimai_gso_canonical_batch_scan', array( __CLASS__, 'ajax_batch_scan' ) );
+        add_action( 'wp_ajax_yimai_gso_canonical_save_custom', array( __CLASS__, 'ajax_save_custom' ) );
     }
 
     // ─────────── 前端 canonical 过滤 ───────────
@@ -36,7 +36,7 @@ class WPAIP_BOQ3 {
             return $canonical;
         }
 
-        $custom = get_post_meta( $post->ID, '_wpaip_custom_canonical', true );
+        $custom = get_post_meta( $post->ID, '_yimai_gso_custom_canonical', true );
         if ( ! empty( $custom ) ) {
             return esc_url( $custom );
         }
@@ -56,7 +56,7 @@ class WPAIP_BOQ3 {
             'fbclid', 'gclid', 'gclsrc', 'dclid', 'msclkid',
             '_ga', '_gl', '_gid',
             'ref', 'referrer',
-            'wpaip_source', // 插件内部跟踪参数
+            'yimai_gso_source', // 插件内部跟踪参数
         );
 
         $parsed = wp_parse_url( $url );
@@ -123,7 +123,7 @@ class WPAIP_BOQ3 {
 
     public static function add_meta_box() {
         add_meta_box(
-            'wpaip-canonical-box',
+            'yimai-gso-canonical-box',
             'Canonical URL（白雀SEO）',
             array( __CLASS__, 'render_meta_box' ),
             'post',
@@ -133,12 +133,12 @@ class WPAIP_BOQ3 {
     }
 
     public static function render_meta_box( $post ) {
-        wp_nonce_field( 'wpaip_canonical_save', 'wpaip_canonical_nonce' );
-        $custom = get_post_meta( $post->ID, '_wpaip_custom_canonical', true );
+        wp_nonce_field( 'yimai_gso_canonical_save', 'yimai_gso_canonical_nonce' );
+        $custom = get_post_meta( $post->ID, '_yimai_gso_custom_canonical', true );
         ?>
         <p style="margin-top:0">
-            <label for="wpaip-custom-canonical" style="font-weight:600;display:block;margin-bottom:4px">自定义 Canonical URL</label>
-            <input type="url" id="wpaip-custom-canonical" name="wpaip_custom_canonical"
+            <label for="yimai-gso-custom-canonical" style="font-weight:600;display:block;margin-bottom:4px">自定义 Canonical URL</label>
+            <input type="url" id="yimai-gso-custom-canonical" name="yimai_gso_custom_canonical"
                    value="<?php echo esc_attr( $custom ); ?>"
                    class="large-text" placeholder="留空则使用默认（当前文章URL）" style="width:100%">
         </p>
@@ -152,7 +152,7 @@ class WPAIP_BOQ3 {
         if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
             return;
         }
-        if ( ! isset( $_POST['wpaip_canonical_nonce'] ) || ! wp_verify_nonce( $_POST['wpaip_canonical_nonce'], 'wpaip_canonical_save' ) ) {
+        if ( ! isset( $_POST['yimai_gso_canonical_nonce'] ) || ! wp_verify_nonce( $_POST['yimai_gso_canonical_nonce'], 'yimai_gso_canonical_save' ) ) {
             return;
         }
         if ( ! current_user_can( 'edit_post', $post_id ) ) {
@@ -160,8 +160,8 @@ class WPAIP_BOQ3 {
         }
 
         $value = '';
-        if ( ! empty( $_POST['wpaip_custom_canonical'] ) ) {
-            $value = esc_url_raw( $_POST['wpaip_custom_canonical'] );
+        if ( ! empty( $_POST['yimai_gso_custom_canonical'] ) ) {
+            $value = esc_url_raw( $_POST['yimai_gso_custom_canonical'] );
             // 验证URL格式
             if ( ! filter_var( $value, FILTER_VALIDATE_URL ) ) {
                 $value = '';
@@ -169,9 +169,9 @@ class WPAIP_BOQ3 {
         }
 
         if ( empty( $value ) ) {
-            delete_post_meta( $post_id, '_wpaip_custom_canonical' );
+            delete_post_meta( $post_id, '_yimai_gso_custom_canonical' );
         } else {
-            update_post_meta( $post_id, '_wpaip_custom_canonical', $value );
+            update_post_meta( $post_id, '_yimai_gso_custom_canonical', $value );
         }
     }
 
@@ -181,7 +181,7 @@ class WPAIP_BOQ3 {
      * 批量扫描文章的 canonical 状态
      */
     public static function ajax_batch_scan() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -194,7 +194,7 @@ class WPAIP_BOQ3 {
         $cat_id   = absint( $_POST['category'] ?? 0 );
 
         $args = array(
-            'post_type'      => WPAIP_B7PQ::get_supported(),
+            'post_type'      => YIMAI_GSO_Post_Type_Helper::get_supported(),
             'post_status'    => 'publish',
             'posts_per_page' => $per_page,
             'paged'          => $page,
@@ -211,7 +211,7 @@ class WPAIP_BOQ3 {
 
         // 根据 filter 筛选
         if ( 'custom' === $filter ) {
-            $args['meta_key']   = '_wpaip_custom_canonical';
+            $args['meta_key']   = '_yimai_gso_custom_canonical';
             $args['meta_compare'] = '!=';
             $args['meta_value']   = '';
         } elseif ( 'none' === $filter ) {
@@ -228,7 +228,7 @@ class WPAIP_BOQ3 {
         }
 
         foreach ( $query->posts as $post ) {
-            $custom_canonical = get_post_meta( $post->ID, '_wpaip_custom_canonical', true );
+            $custom_canonical = get_post_meta( $post->ID, '_yimai_gso_custom_canonical', true );
             $default_url      = get_permalink( $post->ID );
             // 确保 URL 显示时解码（避免 %XX 编码在列表中显示）
         $canonical_url = ! empty( $custom_canonical ) ? $custom_canonical : $default_url;
@@ -267,7 +267,7 @@ class WPAIP_BOQ3 {
      * AJAX 保存单篇文章的自定义 canonical
      */
     public static function ajax_save_custom() {
-        check_ajax_referer( 'wpaip_seo_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
 
         if ( ! true || ! true ) {
             wp_send_json_error( array( 'message' => '当前配置不支持此操作。' ) );
@@ -288,10 +288,10 @@ class WPAIP_BOQ3 {
         }
 
         if ( empty( $value ) ) {
-            delete_post_meta( $post_id, '_wpaip_custom_canonical' );
+            delete_post_meta( $post_id, '_yimai_gso_custom_canonical' );
             $result_url = urldecode( get_permalink( $post_id ) );
         } else {
-            update_post_meta( $post_id, '_wpaip_custom_canonical', $value );
+            update_post_meta( $post_id, '_yimai_gso_custom_canonical', $value );
             $result_url = $value;
         }
 
@@ -311,14 +311,14 @@ class WPAIP_BOQ3 {
     private static function get_canonical_stats() {
         global $wpdb;
 
-        $total     = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE " . WPAIP_B7PQ::sql_in_clause() . " AND post_status='publish'" );
-        $custom    = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key='_wpaip_custom_canonical' AND meta_value != ''" );
+        $total     = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE " . YIMAI_GSO_Post_Type_Helper::sql_in_clause() . " AND post_status='publish'" );
+        $custom    = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key='_yimai_gso_custom_canonical' AND meta_value != ''" );
         $external  = 0;
 
         if ( $custom > 0 ) {
             // 查询自定义 canonical 中指向外部域名的数量
             $home_host = wp_parse_url( home_url(), PHP_URL_HOST );
-            $rows = $wpdb->get_results( "SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_key='_wpaip_custom_canonical' AND meta_value != '' LIMIT 500" );
+            $rows = $wpdb->get_results( "SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_key='_yimai_gso_custom_canonical' AND meta_value != '' LIMIT 500" );
             foreach ( $rows as $row ) {
                 $url_host = wp_parse_url( $row->meta_value, PHP_URL_HOST );
                 if ( $url_host && $url_host !== $home_host ) {

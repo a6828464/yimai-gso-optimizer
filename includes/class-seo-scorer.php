@@ -6,7 +6,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_GONE {
+class YIMAI_GSO_SEO_Scorer {
 
     private static $instance = null;
 
@@ -107,7 +107,7 @@ class WPAIP_GONE {
         $title   = $post->post_title;
         $content = $post->post_content;
         $plain   = wp_strip_all_tags( $content );
-        $excerpt = get_post_meta( $post_id, 'wpaip_excerpt', true );
+        $excerpt = get_post_meta( $post_id, 'yimai_gso_excerpt', true );
         if ( empty( $excerpt ) ) {
             $excerpt = $post->post_excerpt;
         }
@@ -119,7 +119,7 @@ class WPAIP_GONE {
             $excerpt    = $yoast_desc ?: $rm_desc ?: $zib_desc;
         }
 
-        $keywords = get_post_meta( $post_id, 'wpaip_keywords', true );
+        $keywords = get_post_meta( $post_id, 'yimai_gso_keywords', true );
         if ( ! empty( $keywords ) && is_string( $keywords ) ) {
             $keyword_arr = explode( ',', $keywords );
         } elseif ( is_array( $keywords ) ) {
@@ -139,7 +139,7 @@ class WPAIP_GONE {
             $primary_keyword = $this->extract_focus_keyword( $title, $plain );
         }
 
-        // 如果 wpaip_keywords 为空但有 Yoast/Rank Math focus keyword，也补充进来
+        // 如果 yimai_gso_keywords 为空但有 Yoast/Rank Math focus keyword，也补充进来
         if ( empty( $keyword_arr ) ) {
             $yoast_kw = get_post_meta( $post_id, '_yoast_wpseo_focuskw', true );
             if ( ! empty( $yoast_kw ) ) {
@@ -206,7 +206,7 @@ class WPAIP_GONE {
         );
 
         // 存入 post_meta
-        update_post_meta( $post_id, 'wpaip_seo_score', $result );
+        update_post_meta( $post_id, 'yimai_gso_seo_score', $result );
 
         return $result;
     }
@@ -828,14 +828,14 @@ class WPAIP_GONE {
 
     /**
      * 内容可提取性评分（GEO 维度）
-     * 调用 WPAIP_4SRU 引擎
+     * 调用 YIMAI_GSO_Content_Extractability 引擎
      */
     private function score_extractability( $post_id ) {
         $score = 0;
         $tips  = array();
 
-        if ( class_exists( 'WPAIP_4SRU' ) ) {
-            $extractor = WPAIP_4SRU::get_instance();
+        if ( class_exists( 'YIMAI_GSO_Content_Extractability' ) ) {
+            $extractor = YIMAI_GSO_Content_Extractability::get_instance();
             $data      = $extractor->get_score( $post_id );
             $raw_score = isset( $data['score'] ) ? (int) $data['score'] : 0;
 
@@ -864,14 +864,14 @@ class WPAIP_GONE {
 
     /**
      * 内容新鲜度评分（GEO 维度）
-     * 调用 WPAIP_SDZH 引擎
+     * 调用 YIMAI_GSO_Content_Freshness 引擎
      */
     private function score_freshness( $post_id ) {
         $score = 0;
         $tips  = array();
 
-        if ( class_exists( 'WPAIP_SDZH' ) ) {
-            $freshness = WPAIP_SDZH::get_instance();
+        if ( class_exists( 'YIMAI_GSO_Content_Freshness' ) ) {
+            $freshness = YIMAI_GSO_Content_Freshness::get_instance();
             $data      = $freshness->get_freshness( $post_id );
             $raw_score = isset( $data['score'] ) ? (int) $data['score'] : 3;
             $days      = isset( $data['days_since_update'] ) ? (int) $data['days_since_update'] : 0;
@@ -1102,7 +1102,7 @@ class WPAIP_GONE {
      * AJAX: 单篇分析
      */
     public static function ajax_analyze_post() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( '权限不足' );
@@ -1127,7 +1127,7 @@ class WPAIP_GONE {
      * AJAX: 批量扫描（返回评分概览列表）
      */
     public static function ajax_batch_scan() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( '权限不足' );
@@ -1142,7 +1142,7 @@ class WPAIP_GONE {
 
         $offset = ( $page - 1 ) * $per_page;
 
-        $where = WPAIP_B7PQ::sql_in_clause( 'p.post_type' ) . " AND p.post_status != 'trash'";
+        $where = YIMAI_GSO_Post_Type_Helper::sql_in_clause( 'p.post_type' ) . " AND p.post_status != 'trash'";
         if ( $status && $status !== 'any' ) {
             $where .= $wpdb->prepare( " AND p.post_status = %s", $status );
         }
@@ -1163,8 +1163,8 @@ class WPAIP_GONE {
         $posts = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT p.ID, p.post_title, p.post_date,
-                        (SELECT pm.meta_value FROM {$wpdb->postmeta} pm WHERE pm.post_id = p.ID AND pm.meta_key = 'wpaip_seo_score' LIMIT 1) AS score_meta,
-                        (SELECT pm2.meta_value FROM {$wpdb->postmeta} pm2 WHERE pm2.post_id = p.ID AND pm2.meta_key = 'wpaip_geo_score' LIMIT 1) AS geo_score_meta
+                        (SELECT pm.meta_value FROM {$wpdb->postmeta} pm WHERE pm.post_id = p.ID AND pm.meta_key = 'yimai_gso_seo_score' LIMIT 1) AS score_meta,
+                        (SELECT pm2.meta_value FROM {$wpdb->postmeta} pm2 WHERE pm2.post_id = p.ID AND pm2.meta_key = 'yimai_gso_geo_score' LIMIT 1) AS geo_score_meta
                  FROM {$wpdb->posts} p WHERE {$where}
                  ORDER BY p.post_date DESC LIMIT %d OFFSET %d",
                 $per_page, $offset
@@ -1219,7 +1219,7 @@ class WPAIP_GONE {
      * AJAX: 批量执行双擎评分（SEO + GEO）
      */
     public static function ajax_batch_analyze() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( '权限不足' );
@@ -1247,9 +1247,9 @@ class WPAIP_GONE {
             }
 
             // GEO 评分（轻量聚合，自带 24h 缓存）
-            if ( class_exists( 'WPAIP_0H70' ) ) {
+            if ( class_exists( 'YIMAI_GSO_GEO_Scorer' ) ) {
                 try {
-                    $geo = WPAIP_0H70::get_instance()->compute( $id );
+                    $geo = YIMAI_GSO_GEO_Scorer::get_instance()->compute( $id );
                     $results['geo_success']++;
                 } catch ( \Throwable $e ) {
                     error_log( '[一麦GSO] Batch GEO compute failed for post ' . $id . ': ' . $e->getMessage() );
@@ -1265,7 +1265,7 @@ class WPAIP_GONE {
 
     /**
      * 从标题中智能提取核心关键词（2-8字的短词）
-     * 用于无 wpaip_keywords 时的 fallback
+     * 用于无 yimai_gso_keywords 时的 fallback
      *
      * 策略：在正文前500字中查找出现频率最高的2-8字短词，且该短词也在标题中出现
      */

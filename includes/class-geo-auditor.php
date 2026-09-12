@@ -6,7 +6,7 @@
  *   技术就绪度 (5因子) · 内容就绪度 (7因子) · 实体就绪度 (6因子) · 爬虫就绪度 (4因子)
  *
  * Content 审计通过 WP-Cron 异步批处理执行，其他 3 类同步完成。
- * 报告存入 option: wpaip_geo_audit_report
+ * 报告存入 option: yimai_gso_geo_audit_report
  *
  * 审计面板入口：GEO优化 → AI就绪度审计
  *
@@ -15,7 +15,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_922A {
+class YIMAI_GSO_GEO_Auditor {
 
     private static $instance = null;
 
@@ -72,9 +72,9 @@ class WPAIP_922A {
     }
 
     private function __construct() {
-        add_action( 'wp_ajax_wpaip_run_audit',      array( $this, 'ajax_run_audit' ) );
-        add_action( 'wp_ajax_wpaip_audit_status',    array( $this, 'ajax_audit_status' ) );
-        add_action( 'wpaip_audit_content_batch',     array( $this, 'cron_audit_content_batch' ) );
+        add_action( 'wp_ajax_yimai_gso_run_audit',      array( $this, 'ajax_run_audit' ) );
+        add_action( 'wp_ajax_yimai_gso_audit_status',    array( $this, 'ajax_audit_status' ) );
+        add_action( 'yimai_gso_audit_content_batch',     array( $this, 'cron_audit_content_batch' ) );
     }
 
     /* ================================================
@@ -85,17 +85,17 @@ class WPAIP_922A {
      * AJAX: 开始/重新运行审计
      */
     public function ajax_run_audit() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
 
         // 检查是否有进行中的审计（防止并发）
-        $existing = get_option( 'wpaip_geo_audit_report', array() );
+        $existing = get_option( 'yimai_gso_geo_audit_report', array() );
         if ( ! empty( $existing['status'] ) && 'running' === $existing['status'] ) {
             // 取消已有的 content cron，重新开始
-            wp_clear_scheduled_hook( 'wpaip_audit_content_batch' );
+            wp_clear_scheduled_hook( 'yimai_gso_audit_content_batch' );
         }
 
         // 初始化报告骨架
@@ -114,19 +114,19 @@ class WPAIP_922A {
         $report['categories']['crawler']   = $this->audit_crawler();
 
         // 保存中间结果
-        update_option( 'wpaip_geo_audit_report', $report, false );
+        update_option( 'yimai_gso_geo_audit_report', $report, false );
 
         // Content 审计：调度 WP-Cron 批处理
         $total_posts = $this->get_total_post_count();
-        update_option( 'wpaip_audit_content_progress', array(
+        update_option( 'yimai_gso_audit_content_progress', array(
             'total'    => $total_posts,
             'processed'=> 0,
             'offset'   => 0,
         ), false );
 
         if ( $total_posts > 0 ) {
-            if ( ! wp_next_scheduled( 'wpaip_audit_content_batch' ) ) {
-                wp_schedule_single_event( time() + 5, 'wpaip_audit_content_batch' );
+            if ( ! wp_next_scheduled( 'yimai_gso_audit_content_batch' ) ) {
+                wp_schedule_single_event( time() + 5, 'yimai_gso_audit_content_batch' );
             }
         } else {
             // 无文章直接完成 content
@@ -145,10 +145,10 @@ class WPAIP_922A {
      * AJAX: 查询审计进度
      */
     public function ajax_audit_status() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
-        $report   = get_option( 'wpaip_geo_audit_report', array() );
-        $progress = get_option( 'wpaip_audit_content_progress', array() );
+        $report   = get_option( 'yimai_gso_geo_audit_report', array() );
+        $progress = get_option( 'yimai_gso_audit_content_progress', array() );
 
         wp_send_json_success( array(
             'report'   => $report,
@@ -232,7 +232,7 @@ class WPAIP_922A {
      * WP-Cron: 处理一批文章
      */
     public function cron_audit_content_batch() {
-        $progress = get_option( 'wpaip_audit_content_progress', array(
+        $progress = get_option( 'yimai_gso_audit_content_progress', array(
             'total'     => 0,
             'processed' => 0,
             'offset'    => 0,
@@ -248,8 +248,8 @@ class WPAIP_922A {
         ) );
 
         $supported_types = array( 'post', 'page' );
-        if ( class_exists( 'WPAIP_B7PQ' ) ) {
-            $supported_types = WPAIP_B7PQ::get_supported();
+        if ( class_exists( 'YIMAI_GSO_Post_Type_Helper' ) ) {
+            $supported_types = YIMAI_GSO_Post_Type_Helper::get_supported();
         }
 
         $posts = get_posts( array(
@@ -273,7 +273,7 @@ class WPAIP_922A {
 
         foreach ( $posts as $post_id ) {
             // C1: 答案前置评分
-            $seo = get_post_meta( $post_id, 'wpaip_seo_score', true );
+            $seo = get_post_meta( $post_id, 'yimai_gso_seo_score', true );
             if ( ! empty( $seo['geo']['answer_first']['score'] ) ) {
                 $agg['seo_scores'][] = (int) $seo['geo']['answer_first']['score'];
             } elseif ( ! empty( $seo['overall'] ) ) {
@@ -281,49 +281,49 @@ class WPAIP_922A {
             }
 
             // C2: 可提取性
-            $extr = get_post_meta( $post_id, 'wpaip_extractability', true );
+            $extr = get_post_meta( $post_id, 'yimai_gso_extractability', true );
             if ( ! empty( $extr['score'] ) ) {
                 $agg['extract_scores'][] = (int) $extr['score'];
-            } elseif ( class_exists( 'WPAIP_4SRU' ) ) {
+            } elseif ( class_exists( 'YIMAI_GSO_Content_Extractability' ) ) {
                 // 缓存不存在时实时计算，避免审计结果永远为 0
-                $fresh_extr = WPAIP_4SRU::get_instance()->get_score( $post_id );
+                $fresh_extr = YIMAI_GSO_Content_Extractability::get_instance()->get_score( $post_id );
                 if ( ! empty( $fresh_extr['score'] ) ) {
                     $agg['extract_scores'][] = (int) $fresh_extr['score'];
                 }
             }
 
             // C3: 新鲜度
-            $fresh = get_post_meta( $post_id, 'wpaip_content_freshness', true );
+            $fresh = get_post_meta( $post_id, 'yimai_gso_content_freshness', true );
             if ( ! empty( $fresh['level'] ) ) {
                 $agg['freshness'][] = $fresh['level'];
             }
 
-            // C5: FAQ 结构化（内联 FAQ 检测器，避免依赖未触发的 wpaip_schema_type）
-            if ( class_exists( 'WPAIP_LZDO' ) ) {
+            // C5: FAQ 结构化（内联 FAQ 检测器，避免依赖未触发的 yimai_gso_schema_type）
+            if ( class_exists( 'YIMAI_GSO_FAQ_Detector' ) ) {
                 $content = get_post_field( 'post_content', $post_id );
                 if ( $content ) {
-                    $qa_pairs = WPAIP_LZDO::get_instance()->detect_faq( $content );
+                    $qa_pairs = YIMAI_GSO_FAQ_Detector::get_instance()->detect_faq( $content );
                     if ( ! empty( $qa_pairs ) && count( $qa_pairs ) >= 2 ) {
                         $agg['has_faq_schema']++;
                     }
                 }
             } else {
-                $schema_type = get_post_meta( $post_id, 'wpaip_schema_type', true );
+                $schema_type = get_post_meta( $post_id, 'yimai_gso_schema_type', true );
                 if ( 'FAQPage' === $schema_type ) {
                     $agg['has_faq_schema']++;
                 }
             }
 
             // C6: 标题层级规范（内联标题分析器，按 score≥60 判规范）
-            if ( class_exists( 'WPAIP_VGL3' ) ) {
-                $h_res = WPAIP_VGL3::get_instance()->analyze( $post_id );
+            if ( class_exists( 'YIMAI_GSO_Heading_Analyzer' ) ) {
+                $h_res = YIMAI_GSO_Heading_Analyzer::get_instance()->analyze( $post_id );
                 if ( isset( $h_res['score'] ) && (int) $h_res['score'] >= 60 ) {
                     $agg['has_heading_ok']++;
                 }
             }
 
             // C7: 关键词
-            $keywords = get_post_meta( $post_id, 'wpaip_keywords', true );
+            $keywords = get_post_meta( $post_id, 'yimai_gso_keywords', true );
             if ( ! empty( $keywords ) ) {
                 $agg['has_keywords']++;
             }
@@ -335,13 +335,13 @@ class WPAIP_922A {
         $progress['offset']     = $progress['processed'];
         $progress['aggregates'] = $agg;
 
-        update_option( 'wpaip_audit_content_progress', $progress, false );
+        update_option( 'yimai_gso_audit_content_progress', $progress, false );
 
         if ( $progress['processed'] >= $progress['total'] ) {
             $this->finalize_content_audit( $progress );
         } else {
             // 继续下一批
-            wp_schedule_single_event( time() + 10, 'wpaip_audit_content_batch' );
+            wp_schedule_single_event( time() + 10, 'yimai_gso_audit_content_batch' );
         }
     }
 
@@ -410,13 +410,13 @@ class WPAIP_922A {
         );
 
         // 合并到总报告
-        $report = get_option( 'wpaip_geo_audit_report', array() );
+        $report = get_option( 'yimai_gso_geo_audit_report', array() );
         $report['categories']['content'] = $content_result;
         $report = $this->finalize_report( $report );
-        update_option( 'wpaip_geo_audit_report', $report, false );
+        update_option( 'yimai_gso_geo_audit_report', $report, false );
 
         // 清理进度
-        delete_option( 'wpaip_audit_content_progress' );
+        delete_option( 'yimai_gso_audit_content_progress' );
     }
 
     /* ================================================
@@ -428,8 +428,8 @@ class WPAIP_922A {
         $passed  = 0;
 
         $entity = array();
-        if ( class_exists( 'WPAIP_PY7N' ) ) {
-            $entity = WPAIP_PY7N::get_entity_data();
+        if ( class_exists( 'YIMAI_GSO_GEO_Entity' ) ) {
+            $entity = YIMAI_GSO_GEO_Entity::get_entity_data();
         }
 
         // E1: 组织实体定义
@@ -502,8 +502,8 @@ class WPAIP_922A {
 
         // R1: AI 爬虫 robots.txt（≤3个被 Disallow 视为通过，每个扣15分，底分10）
         $blocked_count = 0;
-        if ( class_exists( 'WPAIP_9IIH' ) ) {
-            $rules = WPAIP_9IIH::get_rules();
+        if ( class_exists( 'YIMAI_GSO_Crawler_Editor' ) ) {
+            $rules = YIMAI_GSO_Crawler_Editor::get_rules();
             $key_bots = array( 'GPTBot', 'ChatGPT-User', 'OAI-SearchBot', 'Google-Extended',
                 'ClaudeBot', 'PerplexityBot', 'DeepSeekBot', 'Bytespider' );
             foreach ( $key_bots as $bot ) {
@@ -530,8 +530,8 @@ class WPAIP_922A {
 
         // R3: 爬虫访问活跃度
         $crawler_active = false;
-        if ( class_exists( 'WPAIP_9W9L' ) ) {
-            $stats = WPAIP_9W9L::get_stats( 30 );
+        if ( class_exists( 'YIMAI_GSO_Crawler_Tracker' ) ) {
+            $stats = YIMAI_GSO_Crawler_Tracker::get_stats( 30 );
             $crawler_active = ! empty( $stats['total_visits'] ) && (int) $stats['total_visits'] > 0;
         }
         $factors['R3'] = $this->make_factor( 'R3', $crawler_active ? 100 : 30,
@@ -540,7 +540,7 @@ class WPAIP_922A {
 
         // R4: Sitemap
         $sitemap_ok = false;
-        if ( class_exists( 'WPAIP_NTDL' ) ) {
+        if ( class_exists( 'YIMAI_GSO_Sitemap_Generator' ) ) {
             $sitemap_url = home_url( '/wp-sitemap.xml' );
             $response    = wp_remote_head( $sitemap_url, array( 'timeout' => 5, 'sslverify' => false ) );
             $sitemap_ok  = ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response );
@@ -615,7 +615,7 @@ class WPAIP_922A {
 
         $report['top_priorities'] = array_slice( $priorities, 0, 10 );
 
-        update_option( 'wpaip_geo_audit_report', $report, false );
+        update_option( 'yimai_gso_geo_audit_report', $report, false );
 
         return $report;
     }
@@ -652,8 +652,8 @@ class WPAIP_922A {
 
     private function get_total_post_count() {
         $types = array( 'post', 'page' );
-        if ( class_exists( 'WPAIP_B7PQ' ) ) {
-            $types = WPAIP_B7PQ::get_supported();
+        if ( class_exists( 'YIMAI_GSO_Post_Type_Helper' ) ) {
+            $types = YIMAI_GSO_Post_Type_Helper::get_supported();
         }
         $count = 0;
         foreach ( $types as $type ) {
@@ -665,12 +665,12 @@ class WPAIP_922A {
 
     private function count_noindex_posts() {
         global $wpdb;
-        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = 'wpaip_noindex' AND meta_value = '1'" );
+        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = 'yimai_gso_noindex' AND meta_value = '1'" );
     }
 
     private function count_canonical_posts() {
         global $wpdb;
-        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = 'wpaip_canonical' AND meta_value != ''" );
+        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = 'yimai_gso_canonical' AND meta_value != ''" );
     }
 
     private function count_authors() {
@@ -683,20 +683,20 @@ class WPAIP_922A {
         // 与管理页口径一致：职务/擅长领域/从业年限 任一非空即视为有档案
         return (int) $wpdb->get_var(
             "SELECT COUNT(DISTINCT user_id) FROM {$wpdb->usermeta}
-             WHERE meta_key IN ('wpaip_author_title','wpaip_author_expertise','wpaip_author_years')
+             WHERE meta_key IN ('yimai_gso_author_title','yimai_gso_author_expertise','yimai_gso_author_years')
              AND meta_value != ''"
         );
     }
 
     private function count_citation_posts() {
         global $wpdb;
-        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = 'wpaip_citations' AND meta_value != '' AND meta_value != '[]'" );
+        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = 'yimai_gso_citations' AND meta_value != '' AND meta_value != '[]'" );
     }
 
     private function count_transparent_posts() {
         global $wpdb;
-        // 改查 publisher 生成文章时写入的 wpaip_generated（原 wpaip_ai_assisted 无写入端，永远 0）
-        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = 'wpaip_generated' AND meta_value = '1'" );
+        // 改查 publisher 生成文章时写入的 yimai_gso_generated（原 yimai_gso_ai_assisted 无写入端，永远 0）
+        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = 'yimai_gso_generated' AND meta_value = '1'" );
     }
 
     private function count_topic_posts() {

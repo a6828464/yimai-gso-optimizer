@@ -1,11 +1,11 @@
 <?php
 /**
- * Sitemap生成类 - v1.0.0
+ * Sitemap生成类
  * 生成符合搜索引擎要求的XML Sitemap
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_NTDL {
+class YIMAI_GSO_Sitemap_Generator {
 
     private static $instance = null;
     
@@ -22,7 +22,7 @@ class WPAIP_NTDL {
 
     private function __construct() {
         // 从统一配置读取支持的内容类型
-        $this->post_types = WPAIP_B7PQ::get_supported();
+        $this->post_types = YIMAI_GSO_Post_Type_Helper::get_supported();
         // 注册rewrite规则
         add_action( 'init', array( $this, 'add_rewrite_rules' ) );
         add_filter( 'query_vars', array( $this, 'add_query_vars' ) );
@@ -41,7 +41,7 @@ class WPAIP_NTDL {
         
         // 主动生成Sitemap文件
         add_action( 'admin_init', array( $this, 'schedule_sitemap_generation' ) );
-        add_action( 'wpaip_generate_sitemap', array( $this, 'generate_sitemap_file' ) );
+        add_action( 'yimai_gso_generate_sitemap', array( $this, 'generate_sitemap_file' ) );
         
         // 文章发布时更新Sitemap
         add_action( 'publish_post', array( $this, 'on_post_publish' ) );
@@ -52,22 +52,22 @@ class WPAIP_NTDL {
      * 添加rewrite规则
      */
     public function add_rewrite_rules() {
-        add_rewrite_rule( '^sitemap\.xml$', 'index.php?wpaip_sitemap=1', 'top' );
-        add_rewrite_rule( '^sitemap-post\.xml$', 'index.php?wpaip_sitemap_post=1', 'top' );
-        add_rewrite_rule( '^sitemap-taxonomy-(\w+)\.xml$', 'index.php?wpaip_sitemap_taxonomy=$matches[1]', 'top' );
-        add_rewrite_rule( '^sitemap\.html$', 'index.php?wpaip_sitemap_html=1', 'top' );
-        add_rewrite_rule( '^robots\.txt$', 'index.php?wpaip_robots=1', 'top' );
+        add_rewrite_rule( '^sitemap\.xml$', 'index.php?yimai_gso_sitemap=1', 'top' );
+        add_rewrite_rule( '^sitemap-post\.xml$', 'index.php?yimai_gso_sitemap_post=1', 'top' );
+        add_rewrite_rule( '^sitemap-taxonomy-(\w+)\.xml$', 'index.php?yimai_gso_sitemap_taxonomy=$matches[1]', 'top' );
+        add_rewrite_rule( '^sitemap\.html$', 'index.php?yimai_gso_sitemap_html=1', 'top' );
+        add_rewrite_rule( '^robots\.txt$', 'index.php?yimai_gso_robots=1', 'top' );
     }
     
     /**
      * 添加查询变量
      */
     public function add_query_vars( $vars ) {
-        $vars[] = 'wpaip_sitemap';
-        $vars[] = 'wpaip_sitemap_post';
-        $vars[] = 'wpaip_sitemap_taxonomy';
-        $vars[] = 'wpaip_sitemap_html';
-        $vars[] = 'wpaip_robots';
+        $vars[] = 'yimai_gso_sitemap';
+        $vars[] = 'yimai_gso_sitemap_post';
+        $vars[] = 'yimai_gso_sitemap_taxonomy';
+        $vars[] = 'yimai_gso_sitemap_html';
+        $vars[] = 'yimai_gso_robots';
         return $vars;
     }
 
@@ -75,11 +75,11 @@ class WPAIP_NTDL {
      * 版本升级后自动刷新 rewrite rules（一次性）
      */
     public function maybe_flush_rewrite_rules() {
-        $current_version = defined( 'WPAIP_VERSION' ) ? WPAIP_VERSION : '0';
-        $flush_version = get_option( 'wpaip_sitemap_flush_version', '' );
+        $current_version = defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '0';
+        $flush_version = get_option( 'yimai_gso_sitemap_flush_version', '' );
         if ( $flush_version !== $current_version ) {
             flush_rewrite_rules();
-            update_option( 'wpaip_sitemap_flush_version', $current_version, false );
+            update_option( 'yimai_gso_sitemap_flush_version', $current_version, false );
         }
     }
     
@@ -89,28 +89,28 @@ class WPAIP_NTDL {
     public function serve_sitemap() {
         global $wp_query;
         
-        if ( ! empty( $wp_query->query_vars['wpaip_sitemap'] ) ) {
+        if ( ! empty( $wp_query->query_vars['yimai_gso_sitemap'] ) ) {
             $this->render_sitemap();
             exit;
         }
         
-        if ( ! empty( $wp_query->query_vars['wpaip_sitemap_post'] ) ) {
+        if ( ! empty( $wp_query->query_vars['yimai_gso_sitemap_post'] ) ) {
             $this->render_post_sitemap();
             exit;
         }
         
-        if ( ! empty( $wp_query->query_vars['wpaip_sitemap_taxonomy'] ) ) {
-            $taxonomy = sanitize_text_field( $wp_query->query_vars['wpaip_sitemap_taxonomy'] );
+        if ( ! empty( $wp_query->query_vars['yimai_gso_sitemap_taxonomy'] ) ) {
+            $taxonomy = sanitize_text_field( $wp_query->query_vars['yimai_gso_sitemap_taxonomy'] );
             $this->render_taxonomy_sitemap( $taxonomy );
             exit;
         }
         
-        if ( ! empty( $wp_query->query_vars['wpaip_sitemap_html'] ) ) {
+        if ( ! empty( $wp_query->query_vars['yimai_gso_sitemap_html'] ) ) {
             $this->render_sitemap_html();
             exit;
         }
         
-        if ( ! empty( $wp_query->query_vars['wpaip_robots'] ) ) {
+        if ( ! empty( $wp_query->query_vars['yimai_gso_robots'] ) ) {
             $this->render_robots();
             exit;
         }
@@ -169,8 +169,8 @@ class WPAIP_NTDL {
             echo "\t\t" . '<lastmod>' . esc_html( $lastmod ) . '</lastmod>' . "\n";
             echo "\t\t" . '<changefreq>' . esc_html( $changefreq ) . '</changefreq>' . "\n";
             echo "\t\t" . '<priority>' . esc_html( $priority ) . '</priority>' . "\n";
-            // L6: SEO-GEO Bridge sitemap enhancement (v3.0.0)
-            echo apply_filters( 'wpaip_sitemap_entry_filter', '', $post_id );
+            // L6: SEO-GEO Bridge sitemap enhancement ()
+            echo apply_filters( 'yimai_gso_sitemap_entry_filter', '', $post_id );
             echo "\t" . '</url>' . "\n";
             unset( $post ); // 逐篇释放内存
         }
@@ -300,7 +300,7 @@ class WPAIP_NTDL {
      * 渲染 robots.txt
      */
     private function render_robots() {
-        $robots_content = WPAIP_9XCU::get( 'wpaip_robots_content', '' );
+        $robots_content = YIMAI_GSO_Settings::get( 'yimai_gso_robots_content', '' );
         $site_url = home_url( '/' );
         
         @header( 'Content-Type: text/plain; charset=utf-8' );
@@ -340,7 +340,7 @@ class WPAIP_NTDL {
             echo "Sitemap: " . esc_url( home_url( '/llms.txt' ) ) . "\n";
             
             // AI 爬虫规则
-            $crawler_block = apply_filters( 'wpaip_robots_crawler_block', '', $robots_content );
+            $crawler_block = apply_filters( 'yimai_gso_robots_crawler_block', '', $robots_content );
             if ( ! empty( $crawler_block ) ) {
                 echo $crawler_block;
             } else {
@@ -480,8 +480,8 @@ class WPAIP_NTDL {
      * 计划生成Sitemap
      */
     public function schedule_sitemap_generation() {
-        if ( ! wp_next_scheduled( 'wpaip_generate_sitemap' ) ) {
-            wp_schedule_event( time(), 'daily', 'wpaip_generate_sitemap' );
+        if ( ! wp_next_scheduled( 'yimai_gso_generate_sitemap' ) ) {
+            wp_schedule_event( time(), 'daily', 'yimai_gso_generate_sitemap' );
         }
     }
     
@@ -490,7 +490,7 @@ class WPAIP_NTDL {
      */
     public function on_post_publish( $post_id ) {
         // 异步生成（避免阻塞）
-        wp_schedule_single_event( time() + 5, 'wpaip_generate_sitemap' );
+        wp_schedule_single_event( time() + 5, 'yimai_gso_generate_sitemap' );
     }
     
     /**
@@ -499,10 +499,10 @@ class WPAIP_NTDL {
     public function on_post_delete( $post_id ) {
         // 仅处理插件支持的内容类型
         $post_type = get_post_type( $post_id );
-        if ( ! WPAIP_B7PQ::is_supported( $post_type ) ) {
+        if ( ! YIMAI_GSO_Post_Type_Helper::is_supported( $post_type ) ) {
             return;
         }
-        wp_schedule_single_event( time() + 5, 'wpaip_generate_sitemap' );
+        wp_schedule_single_event( time() + 5, 'yimai_gso_generate_sitemap' );
     }
     
     /**
@@ -512,10 +512,10 @@ class WPAIP_NTDL {
         // 获取上传目录
         $upload_dir = wp_upload_dir();
         $base_dir = $upload_dir['basedir'];
-        $sitemap_dir = $base_dir . '/wpaip-sitemap';
+        $sitemap_dir = $base_dir . '/yimai-gso-sitemap';
 
         // 检查缓存：如果所有 sitemap 文件都已生成且未过期（1 小时内），跳过重新生成
-        $sitemap_cache_key = 'wpaip_sitemap_generated';
+        $sitemap_cache_key = 'yimai_gso_sitemap_generated';
         $sitemap_last_gen  = get_transient( $sitemap_cache_key );
         if ( false !== $sitemap_last_gen ) {
             return true;
@@ -563,7 +563,7 @@ class WPAIP_NTDL {
         }
         
         // 更新sitemap URL记录
-        update_option( 'wpaip_sitemap_last_update', time() );
+        update_option( 'yimai_gso_sitemap_last_update', time() );
 
         // 设置 transient 缓存，1 小时内不再重新生成
         set_transient( $sitemap_cache_key, time(), HOUR_IN_SECONDS );
@@ -608,13 +608,13 @@ class WPAIP_NTDL {
      */
     public function sitemap_exists() {
         $upload_dir = wp_upload_dir();
-        return file_exists( $upload_dir['basedir'] . '/wpaip-sitemap/sitemap.xml' );
+        return file_exists( $upload_dir['basedir'] . '/yimai-gso-sitemap/sitemap.xml' );
     }
     
     /**
      * 获取Sitemap最后更新时间
      */
     public function get_last_update() {
-        return get_option( 'wpaip_sitemap_last_update', 0 );
+        return get_option( 'yimai_gso_sitemap_last_update', 0 );
     }
 }

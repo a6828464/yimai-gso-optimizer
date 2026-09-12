@@ -10,14 +10,14 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_K3FC {
+class YIMAI_GSO_LLMs_Txt_Generator {
 
     private static $instance = null;
     
-    const OPTION_KEY = 'wpaip_llms_txt_settings';
+    const OPTION_KEY = 'yimai_gso_llms_txt_settings';
     
-    const CACHE_KEY = 'wpaip_llms_txt_content';
-    const CACHE_KEY_FULL = 'wpaip_llms_full_txt_content';
+    const CACHE_KEY = 'yimai_gso_llms_txt_content';
+    const CACHE_KEY_FULL = 'yimai_gso_llms_full_txt_content';
     
     const DEFAULT_MAX_POSTS = 100;
     const DEFAULT_MAX_DESC_LENGTH = 200;
@@ -53,22 +53,22 @@ class WPAIP_K3FC {
         add_action( 'admin_init', array( $this, 'register_settings' ) );
         
         // Ajax 处理程序
-        add_action( 'wp_ajax_wpaip_generate_llms_txt_preview', array( $this, 'ajax_generate_preview' ) );
-        add_action( 'wp_ajax_wpaip_test_llms_txt_access', array( $this, 'ajax_test_access' ) );
-        add_action( 'wp_ajax_wpaip_flush_rewrite_rules', array( $this, 'ajax_flush_rewrite_rules' ) );
+        add_action( 'wp_ajax_yimai_gso_generate_llms_txt_preview', array( $this, 'ajax_generate_preview' ) );
+        add_action( 'wp_ajax_yimai_gso_test_llms_txt_access', array( $this, 'ajax_test_access' ) );
+        add_action( 'wp_ajax_yimai_gso_flush_rewrite_rules', array( $this, 'ajax_flush_rewrite_rules' ) );
     }
 
     /**
      * 添加 rewrite 规则
      */
     public function add_rewrite_rules() {
-        add_rewrite_rule( '^llms\.txt$', 'index.php?wpaip_llms_txt=1', 'top' );
-        add_rewrite_rule( '^llms-full\.txt$', 'index.php?wpaip_llms_full_txt=1', 'top' );
+        add_rewrite_rule( '^llms\.txt$', 'index.php?yimai_gso_llms_txt=1', 'top' );
+        add_rewrite_rule( '^llms-full\.txt$', 'index.php?yimai_gso_llms_full_txt=1', 'top' );
 
         // 首次注册或规则变更后自动刷新（transient 限频，避免每次请求都刷新）
-        if ( false === get_transient( 'wpaip_llms_rewrite_flushed' ) ) {
+        if ( false === get_transient( 'yimai_gso_llms_rewrite_flushed' ) ) {
             flush_rewrite_rules();
-            set_transient( 'wpaip_llms_rewrite_flushed', 1, DAY_IN_SECONDS );
+            set_transient( 'yimai_gso_llms_rewrite_flushed', 1, DAY_IN_SECONDS );
         }
     }
 
@@ -76,8 +76,8 @@ class WPAIP_K3FC {
      * 添加查询变量
      */
     public function add_query_vars( $vars ) {
-        $vars[] = 'wpaip_llms_txt';
-        $vars[] = 'wpaip_llms_full_txt';
+        $vars[] = 'yimai_gso_llms_txt';
+        $vars[] = 'yimai_gso_llms_full_txt';
         return $vars;
     }
 
@@ -87,7 +87,7 @@ class WPAIP_K3FC {
     public function serve_llms_txt() {
         global $wp_query;
         
-        if ( ! empty( $wp_query->query_vars['wpaip_llms_txt'] ) ) {
+        if ( ! empty( $wp_query->query_vars['yimai_gso_llms_txt'] ) ) {
             // 缓存优先：12 小时内命中则直接返回（save_post/settings_update 触发清除）
             $cached = get_transient( self::CACHE_KEY );
             if ( false !== $cached ) {
@@ -106,7 +106,7 @@ class WPAIP_K3FC {
             exit;
         }
         
-        if ( ! empty( $wp_query->query_vars['wpaip_llms_full_txt'] ) ) {
+        if ( ! empty( $wp_query->query_vars['yimai_gso_llms_full_txt'] ) ) {
             // 缓存优先：12 小时内命中则直接返回（save_post/settings_update 触发清除）
             $cached = get_transient( self::CACHE_KEY_FULL );
             if ( false !== $cached ) {
@@ -459,7 +459,7 @@ class WPAIP_K3FC {
      * 注册设置
      */
     public function register_settings() {
-        register_setting( 'wpaip_llms_txt_group', self::OPTION_KEY );
+        register_setting( 'yimai_gso_llms_txt_group', self::OPTION_KEY );
     }
 
     /**
@@ -494,7 +494,7 @@ class WPAIP_K3FC {
      * Ajax：生成预览
      */
     public function ajax_generate_preview() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -503,8 +503,8 @@ class WPAIP_K3FC {
         // ★ 功能权限检查（LLMs生成仅年费/终身版可用）
         // 临时保存设置（逐字段净化，防止存储型XSS）
         parse_str( $_POST['settings'] ?? '', $settings_array );
-        if ( ! empty( $settings_array['wpaip_llms_txt_settings'] ) ) {
-            $raw        = $settings_array['wpaip_llms_txt_settings'];
+        if ( ! empty( $settings_array['yimai_gso_llms_txt_settings'] ) ) {
+            $raw        = $settings_array['yimai_gso_llms_txt_settings'];
             $sanitized  = array();
             $sanitized['intro']                = sanitize_text_field( $raw['intro'] ?? '' );
             $sanitized['details']              = wp_kses_post( $raw['details'] ?? '' );
@@ -529,7 +529,7 @@ class WPAIP_K3FC {
      * Ajax：测试 llms.txt 访问
      */
     public function ajax_test_access() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -555,14 +555,14 @@ class WPAIP_K3FC {
      * Ajax：刷新固定链接
      */
     public function ajax_flush_rewrite_rules() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
 
         // 清除 transient 以便 add_rewrite_rules() 在下次 init 时重新刷新
-        delete_transient( 'wpaip_llms_rewrite_flushed' );
+        delete_transient( 'yimai_gso_llms_rewrite_flushed' );
         flush_rewrite_rules();
 
         wp_send_json_success( array( 'message' => '固定链接已刷新' ) );

@@ -7,16 +7,16 @@
  * 5 维度加权公式：答案前置 25% + 可提取性 25% + Schema 覆盖 20% + 爬虫友好 15% + 实体覆盖 15%
  *
  * 输入（全部来自缓存）：
- *   - wpaip_seo_score post_meta → 答案前置检测
- *   - wpaip_extractability post_meta → 可提取性 0-100
- *   - wpaip_schema_type post_meta → Schema 类型覆盖
- *   - wpaip_robots_crawler_rules option → AI 爬虫策略
- *   - wpaip_geo_entity_settings option → 实体完整度
+ *   - yimai_gso_seo_score post_meta → 答案前置检测
+ *   - yimai_gso_extractability post_meta → 可提取性 0-100
+ *   - yimai_gso_schema_type post_meta → Schema 类型覆盖
+ *   - yimai_gso_robots_crawler_rules option → AI 爬虫策略
+ *   - yimai_gso_geo_entity_settings option → 实体完整度
  *
  * 输出：
- *   - wpaip_geo_score post_meta → 缓存 24h
- *   - AJAX: wpaip_dual_score → 合并返回 SEO+GEO 双评分
- *   - AJAX: wpaip_synergy_suggest → AI 协同建议（按需）
+ *   - yimai_gso_geo_score post_meta → 缓存 24h
+ *   - AJAX: yimai_gso_dual_score → 合并返回 SEO+GEO 双评分
+ *   - AJAX: yimai_gso_synergy_suggest → AI 协同建议（按需）
  *   - 编辑器 Meta Box：双引擎评分面板
  *
  * @package 一麦GSO SEO-GEO
@@ -24,7 +24,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_0H70 {
+class YIMAI_GSO_GEO_Scorer {
 
     private static $instance = null;
 
@@ -67,8 +67,8 @@ class WPAIP_0H70 {
 
     private function __construct() {
         // AJAX 端点
-        add_action( 'wp_ajax_wpaip_dual_score',        array( $this, 'ajax_dual_score' ) );
-        add_action( 'wp_ajax_wpaip_synergy_suggest',    array( $this, 'ajax_synergy_suggest' ) );
+        add_action( 'wp_ajax_yimai_gso_dual_score',        array( $this, 'ajax_dual_score' ) );
+        add_action( 'wp_ajax_yimai_gso_synergy_suggest',    array( $this, 'ajax_synergy_suggest' ) );
 
         // post_save 时清除 GEO 评分缓存
         add_action( 'save_post', array( $this, 'invalidate_cache' ), 30 );
@@ -140,7 +140,7 @@ class WPAIP_0H70 {
         );
 
         // 3. 写入缓存
-        update_post_meta( $post_id, 'wpaip_geo_score', $result );
+        update_post_meta( $post_id, 'yimai_gso_geo_score', $result );
 
         return $result;
     }
@@ -154,7 +154,7 @@ class WPAIP_0H70 {
      * 数据来源：SEO Scorer 的 detect_answer_first() 结果
      */
     private function score_answer_firstness( $post_id ) {
-        $seo_score = get_post_meta( $post_id, 'wpaip_seo_score', true );
+        $seo_score = get_post_meta( $post_id, 'yimai_gso_seo_score', true );
 
         $score  = 0;
         $detail = '未检测到答案前置数据';
@@ -186,10 +186,10 @@ class WPAIP_0H70 {
 
     /**
      * 维度 2：内容可提取性（25%）
-     * 数据来源：WPAIP_4SRU → wpaip_extractability post_meta
+     * 数据来源：YIMAI_GSO_Content_Extractability → yimai_gso_extractability post_meta
      */
     private function score_extractability( $post_id ) {
-        $cached = get_post_meta( $post_id, 'wpaip_extractability', true );
+        $cached = get_post_meta( $post_id, 'yimai_gso_extractability', true );
 
         if ( ! empty( $cached ) && is_array( $cached ) && isset( $cached['score'] ) && $cached['score'] !== '' ) {
             $score  = (int) $cached['score'];
@@ -221,7 +221,7 @@ class WPAIP_0H70 {
 
     /**
      * 维度 3：Schema 结构化覆盖（20%）
-     * 数据来源：wpaip_schema_type post_meta
+     * 数据来源：yimai_gso_schema_type post_meta
      *
      * 评分规则：
      *   +40 已设置 Schema 类型
@@ -230,7 +230,7 @@ class WPAIP_0H70 {
      *   +20 有自定义 Schema 字段
      */
     private function score_schema_coverage( $post_id ) {
-        $schema_type = get_post_meta( $post_id, 'wpaip_schema_type', true );
+        $schema_type = get_post_meta( $post_id, 'yimai_gso_schema_type', true );
         $score       = 0;
         $detail_parts = array();
 
@@ -260,7 +260,7 @@ class WPAIP_0H70 {
         }
 
         // +20：检查是否有自定义 Schema 字段（custom_schema_fields meta 或 schema 生成器的自定义数据）
-        $custom_schema = get_post_meta( $post_id, 'wpaip_custom_schema', true );
+        $custom_schema = get_post_meta( $post_id, 'yimai_gso_custom_schema', true );
         if ( ! empty( $custom_schema ) ) {
             $score += 20;
             $detail_parts[] = '含自定义字段';
@@ -282,7 +282,7 @@ class WPAIP_0H70 {
 
     /**
      * 维度 4：AI 爬虫友好度（15%）
-     * 数据来源：wpaip_robots_crawler_rules option + wpaip_noindex meta
+     * 数据来源：yimai_gso_robots_crawler_rules option + yimai_gso_noindex meta
      *
      * 评分规则：
      *   +40 未被 noindex
@@ -296,7 +296,7 @@ class WPAIP_0H70 {
         $tips         = array();
 
         // 1. noindex 检测
-        $noindex = get_post_meta( $post_id, 'wpaip_noindex', true );
+        $noindex = get_post_meta( $post_id, 'yimai_gso_noindex', true );
         if ( '1' !== $noindex ) {
             $score += 40;
             $detail_parts[] = '可索引';
@@ -308,8 +308,8 @@ class WPAIP_0H70 {
         }
 
         // 2. AI 爬虫策略检测
-        if ( class_exists( 'WPAIP_9IIH' ) ) {
-            $rules = WPAIP_9IIH::get_rules();
+        if ( class_exists( 'YIMAI_GSO_Crawler_Editor' ) ) {
+            $rules = YIMAI_GSO_Crawler_Editor::get_rules();
 
             // 关键 AI 爬虫列表
             $key_crawlers = array( 'GPTBot', 'ChatGPT-User', 'OAI-SearchBot', 'Google-Extended',
@@ -339,22 +339,22 @@ class WPAIP_0H70 {
         }
 
         // 3. llms.txt 检测（使用 transient 缓存，避免每次评分都发 HTTP 请求）
-        if ( class_exists( 'WPAIP_K3FC' ) ) {
-            $llms_ok = get_transient( 'wpaip_llms_txt_available' );
-            $full_ok = get_transient( 'wpaip_llms_full_available' );
+        if ( class_exists( 'YIMAI_GSO_LLMs_Txt_Generator' ) ) {
+            $llms_ok = get_transient( 'yimai_gso_llms_txt_available' );
+            $full_ok = get_transient( 'yimai_gso_llms_full_available' );
 
             if ( false === $llms_ok ) {
                 $llms_url  = home_url( '/llms.txt' );
                 $response  = wp_remote_head( $llms_url, array( 'timeout' => 5, 'sslverify' => false ) );
                 $llms_ok   = ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ) ? 1 : 0;
-                set_transient( 'wpaip_llms_txt_available', $llms_ok, HOUR_IN_SECONDS );
+                set_transient( 'yimai_gso_llms_txt_available', $llms_ok, HOUR_IN_SECONDS );
             }
 
             if ( false === $full_ok ) {
                 $full_url  = home_url( '/llms-full.txt' );
                 $response2 = wp_remote_head( $full_url, array( 'timeout' => 5, 'sslverify' => false ) );
                 $full_ok   = ( ! is_wp_error( $response2 ) && 200 === wp_remote_retrieve_response_code( $response2 ) ) ? 1 : 0;
-                set_transient( 'wpaip_llms_full_available', $full_ok, HOUR_IN_SECONDS );
+                set_transient( 'yimai_gso_llms_full_available', $full_ok, HOUR_IN_SECONDS );
             }
 
             if ( $llms_ok ) {
@@ -380,7 +380,7 @@ class WPAIP_0H70 {
 
     /**
      * 维度 5：实体覆盖度（15%）
-     * 数据来源：wpaip_geo_entity_settings option
+     * 数据来源：yimai_gso_geo_entity_settings option
      *
      * 评分规则：
      *   +30 实体名称 + 类型已设置
@@ -394,7 +394,7 @@ class WPAIP_0H70 {
         $detail_parts = array();
         $tips         = array();
 
-        if ( ! class_exists( 'WPAIP_PY7N' ) ) {
+        if ( ! class_exists( 'YIMAI_GSO_GEO_Entity' ) ) {
             return array(
                 'score'  => 0,
                 'detail' => '实体模块未加载',
@@ -402,7 +402,7 @@ class WPAIP_0H70 {
             );
         }
 
-        $entity = WPAIP_PY7N::get_entity_data();
+        $entity = YIMAI_GSO_GEO_Entity::get_entity_data();
 
         if ( empty( $entity ) || empty( $entity['entity_name'] ) ) {
             return array(
@@ -498,7 +498,7 @@ class WPAIP_0H70 {
      * 内部方法：读取 GEO 评分缓存
      */
     private function _xCSd_internal( $post_id ) {
-        $cached = get_post_meta( $post_id, 'wpaip_geo_score', true );
+        $cached = get_post_meta( $post_id, 'yimai_gso_geo_score', true );
 
         if ( empty( $cached ) || ! is_array( $cached ) ) {
             return null;
@@ -522,7 +522,7 @@ class WPAIP_0H70 {
         if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
             return;
         }
-        delete_post_meta( $post_id, 'wpaip_geo_score' );
+        delete_post_meta( $post_id, 'yimai_gso_geo_score' );
     }
 
     /* ================================================
@@ -530,11 +530,11 @@ class WPAIP_0H70 {
      * ================================================ */
 
     /**
-     * AJAX: wpaip_dual_score
+     * AJAX: yimai_gso_dual_score
      * 一次请求返回 SEO 评分 + GEO 评分，减少 HTTP 往返
      */
     public function ajax_dual_score() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -551,11 +551,11 @@ class WPAIP_0H70 {
         }
 
         // SEO 评分（优先读缓存）
-        $seo = get_post_meta( $post_id, 'wpaip_seo_score', true );
+        $seo = get_post_meta( $post_id, 'yimai_gso_seo_score', true );
         if ( empty( $seo ) || ! is_array( $seo ) ) {
-            if ( class_exists( 'WPAIP_GONE' ) ) {
+            if ( class_exists( 'YIMAI_GSO_SEO_Scorer' ) ) {
                 try {
-                    $seo = WPAIP_GONE::get_instance()->analyze( $post_id );
+                    $seo = YIMAI_GSO_SEO_Scorer::get_instance()->analyze( $post_id );
                 } catch ( \Throwable $e ) {
                     error_log( '[一麦GSO] Geo_Scorer → SEO_Scorer.analyze() failed: ' . $e->getMessage() );
                     $seo = array( 'overall' => 0, 'grade' => array( 'letter' => '-', 'label' => 'N/A', 'color' => '#9ca3af' ), 'scores' => array() );
@@ -579,11 +579,11 @@ class WPAIP_0H70 {
      * ================================================ */
 
     /**
-     * AJAX: wpaip_synergy_suggest
+     * AJAX: yimai_gso_synergy_suggest
      * AI 驱动的双引擎协同优化建议
      */
     public function ajax_synergy_suggest() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -595,7 +595,7 @@ class WPAIP_0H70 {
         }
 
         // 1. 检查 24h 缓存
-        $cache_key = 'wpaip_synergy_' . $post_id;
+        $cache_key = 'yimai_gso_synergy_' . $post_id;
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             wp_send_json_success( $cached );
@@ -603,8 +603,8 @@ class WPAIP_0H70 {
         }
 
         // 2. 获取双引擎评分
-        $seo = get_post_meta( $post_id, 'wpaip_seo_score', true );
-        $geo = get_post_meta( $post_id, 'wpaip_geo_score', true );
+        $seo = get_post_meta( $post_id, 'yimai_gso_seo_score', true );
+        $geo = get_post_meta( $post_id, 'yimai_gso_geo_score', true );
 
         if ( empty( $geo ) ) {
             $geo = $this->compute( $post_id );
@@ -613,8 +613,8 @@ class WPAIP_0H70 {
         $seo_overall = is_array( $seo ) && isset( $seo['overall'] ) ? (int) $seo['overall'] : 0;
         $geo_overall = is_array( $geo ) && isset( $geo['overall'] ) ? (int) $geo['overall'] : 0;
 
-        // L6: 允许 SEO-GEO Bridge 注入 SEO 插件数据（v3.0.0）
-        $context = apply_filters( 'wpaip_synergy_context', array(), $post_id );
+        // L6: 允许 SEO-GEO Bridge 注入 SEO 插件数据
+        $context = apply_filters( 'yimai_gso_synergy_context', array(), $post_id );
 
         // 3. 判断是否需要协同建议（分差 > 阈值）
         $gap = abs( $seo_overall - $geo_overall );
@@ -672,12 +672,12 @@ class WPAIP_0H70 {
      */
     private function generate_ai_synergy( $post_id, $seo, $geo, $conflict_type ) {
         // 检查 AI 生成器是否可用
-        if ( ! class_exists( 'WPAIP_CGGE' ) ) {
+        if ( ! class_exists( 'YIMAI_GSO_AI_Generator' ) ) {
             return array();
         }
 
         // 检查 API Key 是否配置
-        $api_key = WPAIP_9XCU::get( 'ai_api_key', '' );
+        $api_key = YIMAI_GSO_Settings::get( 'ai_api_key', '' );
         if ( empty( $api_key ) ) {
             return array();
         }
@@ -729,7 +729,7 @@ class WPAIP_0H70 {
         );
 
         try {
-            $ai = new WPAIP_CGGE();
+            $ai = new YIMAI_GSO_AI_Generator();
             $response = $ai->call_api( array(
                 array( 'role' => 'user', 'content' => $prompt ),
             ), 300, array( 'temperature' => 0.7 ) );

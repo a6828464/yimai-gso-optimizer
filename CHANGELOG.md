@@ -1,5 +1,17 @@
 # 更新日志
 
+## 2.4.0
+
+- 品牌统一：移除底层开源项目残留代码痕迹，全部混淆类名（如 `WPAIP_9XCU`、`WPAIP_2I0E`）改为可读命名（如 `YIMAI_GSO_Settings`、`YIMAI_GSO_Publisher`）。
+- 全部标识符统一为 `yimai_gso_` / `YIMAI_GSO_` 前缀：options、post meta、数据表、cron hook、AJAX action、JS 全局变量、CSS 类名和日志前缀。
+- 新增 `includes/class-migration.php` 数据迁移：老站点升级后自动重命名 10 张自定义表、options（含 transient）、post/term/user meta，并清理旧前缀 cron 任务；迁移幂等，配置不丢失。
+- 性能优化：日志/队列/报告类大对象 option 全部改为不 autoload（404 重定向与日志、ALT 队列、标题历史、内链日志、重写日志、SEO meta 日志、GEO 审计报告与进度等），迁移会为老站点同步关闭这些 option 的 autoload，降低每个页面请求的内存加载。
+- 更新器加固：更新进行中增加并发锁防止重复执行；远端包版本低于当前版本时阻止降级安装；发布清单提供 `sha256` 字段时对 Gitee 发布包做完整性校验（GitHub codeload 归档为实时生成，无法预发布哈希，跳过校验）。
+- 安全修复：SEO-GEO 桥接 2 个只读 AJAX 接口补充 nonce 校验；删除恒真死逻辑代码。
+- 404 模块写入 .htaccess 的重定向标记改为「一麦GSO」，并兼容识别旧标记块，避免重复追加规则。
+- 清理主文件中遗留的旧版 Token REST 接口残骸注释（约 120 行畸形注释块）。
+- 清理注释中残留的原项目内部版本号与任务编号（约 90 处），文件头注释改为纯功能描述。
+
 ## 2.3.0
 
 - 修复 Schema 生成器 JobPosting 就业类型提取正则无捕获组导致 `Undefined array key 1` 警告的问题。

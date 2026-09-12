@@ -3,7 +3,7 @@
  * AI 爬虫仪表盘 — 时序统计 + 家族聚合 + Top 页面排行
  *
  * 提供所有 AJAX 端点供 l5-dashboard.js 中的 Chart.js 图表消费
- * 数据源：wp_geo_crawler_logs 表（L1层 WPAIP_9W9L 填充）
+ * 数据源：wp_geo_crawler_logs 表（L1层 YIMAI_GSO_Crawler_Tracker 填充）
  *
  * @package 一麦GSO SEO-GEO
  * @since 2.10.0
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_FWHZ {
+class YIMAI_GSO_Crawler_Dashboard {
 
     private static $instance = null;
 
@@ -23,22 +23,22 @@ class WPAIP_FWHZ {
     }
 
     private function __construct() {
-        add_action( 'wp_ajax_wpaip_l5_crawler_stats',    array( $this, 'ajax_stats' ) );
-        add_action( 'wp_ajax_wpaip_l5_crawler_trend',    array( $this, 'ajax_trend' ) );
-        add_action( 'wp_ajax_wpaip_l5_crawler_family',    array( $this, 'ajax_family' ) );
-        add_action( 'wp_ajax_wpaip_l5_crawler_ranking',   array( $this, 'ajax_ranking' ) );
-        add_action( 'wp_ajax_wpaip_l5_crawler_top_pages', array( $this, 'ajax_top_pages' ) );
-        add_action( 'wp_ajax_wpaip_l5_crawler_recent',    array( $this, 'ajax_recent' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_crawler_stats',    array( $this, 'ajax_stats' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_crawler_trend',    array( $this, 'ajax_trend' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_crawler_family',    array( $this, 'ajax_family' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_crawler_ranking',   array( $this, 'ajax_ranking' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_crawler_top_pages', array( $this, 'ajax_top_pages' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_crawler_recent',    array( $this, 'ajax_recent' ) );
     }
 
     // ==================== 统计卡片数据 ====================
 
     /**
-     * AJAX: wpaip_l5_crawler_stats
+     * AJAX: yimai_gso_l5_crawler_stats
      * 返回总览统计卡片数据
      */
     public function ajax_stats() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -46,14 +46,14 @@ class WPAIP_FWHZ {
         $days = isset( $_GET['days'] ) ? intval( $_GET['days'] ) : 30;
         $days = in_array( $days, array( 7, 30, 90 ) ) ? $days : 30;
 
-        $cache_key = 'wpaip_l5_crawler_stats_' . $days;
+        $cache_key = 'yimai_gso_l5_crawler_stats_' . $days;
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             wp_send_json_success( $cached );
             return;
         }
 
-        $stats = WPAIP_9W9L::get_stats( $days );
+        $stats = YIMAI_GSO_Crawler_Tracker::get_stats( $days );
 
         // 抓活跃爬虫数
         $unique_crawlers = 0;
@@ -62,7 +62,7 @@ class WPAIP_FWHZ {
         }
 
         // 统计唯一 URL 数
-        $top_pages = WPAIP_9W9L::get_top_pages( $days, 100 );
+        $top_pages = YIMAI_GSO_Crawler_Tracker::get_top_pages( $days, 100 );
         $unique_pages = count( $top_pages );
 
         // 今日访问量
@@ -87,8 +87,8 @@ class WPAIP_FWHZ {
      */
     private static function get_today_count() {
         global $wpdb;
-        $table = WPAIP_9W9L::table_name();
-        WPAIP_9W9L::ensure_table();
+        $table = YIMAI_GSO_Crawler_Tracker::table_name();
+        YIMAI_GSO_Crawler_Tracker::ensure_table();
 
         $today = current_time( 'Y-m-d' );
         return (int) $wpdb->get_var( $wpdb->prepare(
@@ -100,11 +100,11 @@ class WPAIP_FWHZ {
     // ==================== 访问趋势（折线图） ====================
 
     /**
-     * AJAX: wpaip_l5_crawler_trend
+     * AJAX: yimai_gso_l5_crawler_trend
      * 返回按日聚合的爬虫访问趋势
      */
     public function ajax_trend() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -112,7 +112,7 @@ class WPAIP_FWHZ {
         $days = isset( $_GET['days'] ) ? intval( $_GET['days'] ) : 30;
         $days = in_array( $days, array( 7, 30, 90 ) ) ? $days : 30;
 
-        $cache_key = 'wpaip_l5_crawler_trend_' . $days;
+        $cache_key = 'yimai_gso_l5_crawler_trend_' . $days;
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             wp_send_json_success( $cached );
@@ -120,8 +120,8 @@ class WPAIP_FWHZ {
         }
 
         global $wpdb;
-        $table = WPAIP_9W9L::table_name();
-        WPAIP_9W9L::ensure_table();
+        $table = YIMAI_GSO_Crawler_Tracker::table_name();
+        YIMAI_GSO_Crawler_Tracker::ensure_table();
 
         $since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
 
@@ -145,11 +145,11 @@ class WPAIP_FWHZ {
     // ==================== 家族分布（饼图/环形图） ====================
 
     /**
-     * AJAX: wpaip_l5_crawler_family
+     * AJAX: yimai_gso_l5_crawler_family
      * 返回按爬虫家族聚合的数据
      */
     public function ajax_family() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -157,7 +157,7 @@ class WPAIP_FWHZ {
         $days = isset( $_GET['days'] ) ? intval( $_GET['days'] ) : 30;
         $days = in_array( $days, array( 7, 30, 90 ) ) ? $days : 30;
 
-        $cache_key = 'wpaip_l5_crawler_family_' . $days;
+        $cache_key = 'yimai_gso_l5_crawler_family_' . $days;
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             wp_send_json_success( $cached );
@@ -165,8 +165,8 @@ class WPAIP_FWHZ {
         }
 
         global $wpdb;
-        $table = WPAIP_9W9L::table_name();
-        WPAIP_9W9L::ensure_table();
+        $table = YIMAI_GSO_Crawler_Tracker::table_name();
+        YIMAI_GSO_Crawler_Tracker::ensure_table();
 
         $since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
 
@@ -232,11 +232,11 @@ class WPAIP_FWHZ {
     // ==================== 爬虫活跃度排行（横向柱状图） ====================
 
     /**
-     * AJAX: wpaip_l5_crawler_ranking
+     * AJAX: yimai_gso_l5_crawler_ranking
      * 返回各爬虫访问排行
      */
     public function ajax_ranking() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -244,14 +244,14 @@ class WPAIP_FWHZ {
         $days = isset( $_GET['days'] ) ? intval( $_GET['days'] ) : 30;
         $days = in_array( $days, array( 7, 30, 90 ) ) ? $days : 30;
 
-        $cache_key = 'wpaip_l5_crawler_ranking_' . $days;
+        $cache_key = 'yimai_gso_l5_crawler_ranking_' . $days;
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             wp_send_json_success( $cached );
             return;
         }
 
-        $stats = WPAIP_9W9L::get_stats( $days );
+        $stats = YIMAI_GSO_Crawler_Tracker::get_stats( $days );
 
         $ranking = array();
         if ( ! empty( $stats['by_crawler'] ) ) {
@@ -289,10 +289,10 @@ class WPAIP_FWHZ {
     // ==================== 被爬最多页面 ====================
 
     /**
-     * AJAX: wpaip_l5_crawler_top_pages
+     * AJAX: yimai_gso_l5_crawler_top_pages
      */
     public function ajax_top_pages() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -301,14 +301,14 @@ class WPAIP_FWHZ {
         $days  = in_array( $days, array( 7, 30, 90 ) ) ? $days : 30;
         $limit = isset( $_GET['limit'] ) ? min( 50, max( 5, intval( $_GET['limit'] ) ) ) : 20;
 
-        $cache_key = 'wpaip_l5_crawler_top_pages_' . $days . '_' . $limit;
+        $cache_key = 'yimai_gso_l5_crawler_top_pages_' . $days . '_' . $limit;
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             wp_send_json_success( $cached );
             return;
         }
 
-        $pages = WPAIP_9W9L::get_top_pages( $days, $limit );
+        $pages = YIMAI_GSO_Crawler_Tracker::get_top_pages( $days, $limit );
 
         // 尝试解析每页的 post_id 并获取文章标题
         $url_parts = array();
@@ -365,18 +365,18 @@ class WPAIP_FWHZ {
     // ==================== 最近访问日志 ====================
 
     /**
-     * AJAX: wpaip_l5_crawler_recent
+     * AJAX: yimai_gso_l5_crawler_recent
      * 返回最近N条爬虫访问日志
      */
     public function ajax_recent() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
         $limit = isset( $_GET['limit'] ) ? min( 50, max( 5, intval( $_GET['limit'] ) ) ) : 10;
 
-        $cache_key = 'wpaip_l5_crawler_recent_' . $limit;
+        $cache_key = 'yimai_gso_l5_crawler_recent_' . $limit;
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             wp_send_json_success( $cached );
@@ -384,8 +384,8 @@ class WPAIP_FWHZ {
         }
 
         global $wpdb;
-        $table = WPAIP_9W9L::table_name();
-        WPAIP_9W9L::ensure_table();
+        $table = YIMAI_GSO_Crawler_Tracker::table_name();
+        YIMAI_GSO_Crawler_Tracker::ensure_table();
 
         $results = $wpdb->get_results( $wpdb->prepare(
             "SELECT crawler_key, crawler_name, family, request_url, visit_time, response_code

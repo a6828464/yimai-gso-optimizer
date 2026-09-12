@@ -5,7 +5,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_VGL3 {
+class YIMAI_GSO_Heading_Analyzer {
 
     private static $instance = null;
 
@@ -33,7 +33,7 @@ class WPAIP_VGL3 {
         $title   = $post->post_title;
 
         // 获取关键词
-        $keywords = get_post_meta( $post_id, 'wpaip_keywords', true );
+        $keywords = get_post_meta( $post_id, 'yimai_gso_keywords', true );
         if ( ! empty( $keywords ) && is_string( $keywords ) ) {
             $kw_arr = explode( ',', $keywords );
         } elseif ( is_array( $keywords ) ) {
@@ -72,7 +72,7 @@ class WPAIP_VGL3 {
         );
 
         // 存入 post_meta
-        update_post_meta( $post_id, 'wpaip_heading_analysis', $result );
+        update_post_meta( $post_id, 'yimai_gso_heading_analysis', $result );
 
         return $result;
     }
@@ -578,7 +578,7 @@ class WPAIP_VGL3 {
      * AJAX: 单篇分析
      */
     public static function ajax_analyze() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( '权限不足' );
@@ -603,14 +603,14 @@ class WPAIP_VGL3 {
      * AJAX: 批量扫描标题结构
      */
     public static function ajax_batch_scan() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( '权限不足' );
         }
 
         global $wpdb;
-        $pt_list = WPAIP_B7PQ::sql_type_list();
+        $pt_list = YIMAI_GSO_Post_Type_Helper::sql_type_list();
         $post_ids = isset( $_POST['post_ids'] ) ? (array) $_POST['post_ids'] : array();
 
         if ( empty( $post_ids ) ) {
@@ -619,7 +619,7 @@ class WPAIP_VGL3 {
                 "SELECT p.ID FROM {$wpdb->posts} p
                  INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
                  WHERE p.post_type IN ({$pt_list}) AND p.post_status = 'publish'
-                   AND pm.meta_key = 'wpaip_generated' AND pm.meta_value = '1'
+                   AND pm.meta_key = 'yimai_gso_generated' AND pm.meta_value = '1'
                  ORDER BY p.post_date DESC LIMIT 50"
             );
         }
@@ -650,7 +650,7 @@ class WPAIP_VGL3 {
      * AJAX: 批量检查文章的优化状态
      */
     public static function ajax_check_optimized() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -661,7 +661,7 @@ class WPAIP_VGL3 {
 
         $status_map = array();
         foreach ( $post_ids as $id ) {
-            $optimized = get_post_meta( $id, 'wpaip_heading_optimized', true );
+            $optimized = get_post_meta( $id, 'yimai_gso_heading_optimized', true );
             $status_map[ $id ] = ! empty( $optimized );
         }
 
@@ -697,7 +697,7 @@ class WPAIP_VGL3 {
         }
 
         // 获取关键词
-        $keywords = get_post_meta( $post_id, 'wpaip_keywords', true );
+        $keywords = get_post_meta( $post_id, 'yimai_gso_keywords', true );
         if ( ! empty( $keywords ) && is_string( $keywords ) ) {
             $kw_arr = explode( ',', $keywords );
         } elseif ( is_array( $keywords ) ) {
@@ -743,7 +743,7 @@ class WPAIP_VGL3 {
         $user_message .= "\n当前 H2 标题列表（共 " . count( $h2_texts ) . " 个）：\n{$h2_list_text}";
 
         // 调用 AI API
-        $generator = new WPAIP_CGGE();
+        $generator = new YIMAI_GSO_AI_Generator();
         $response  = $generator->call_api( array(
             array( 'role' => 'system', 'content' => $sys_prompt ),
             array( 'role' => 'user',   'content' => $user_message ),
@@ -774,7 +774,7 @@ class WPAIP_VGL3 {
         );
 
         // 缓存到 post_meta
-        update_post_meta( $post_id, 'wpaip_heading_optimization', $result );
+        update_post_meta( $post_id, 'yimai_gso_heading_optimization', $result );
 
         return $result;
     }
@@ -783,7 +783,7 @@ class WPAIP_VGL3 {
      * AJAX: 生成 AI 优化建议
      */
     public static function ajax_optimize() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -812,7 +812,7 @@ class WPAIP_VGL3 {
      * AJAX: 应用选中的优化（替换文章中的 H2 标题）
      */
     public static function ajax_apply_optimization() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
@@ -883,10 +883,10 @@ class WPAIP_VGL3 {
         }
 
         // 清除优化建议缓存
-        delete_post_meta( $post_id, 'wpaip_heading_optimization' );
+        delete_post_meta( $post_id, 'yimai_gso_heading_optimization' );
 
         // 标记为已优化
-        update_post_meta( $post_id, 'wpaip_heading_optimized', '1' );
+        update_post_meta( $post_id, 'yimai_gso_heading_optimized', '1' );
 
         // 重新分析标题结构
         $analyzer = self::get_instance();
@@ -899,7 +899,7 @@ class WPAIP_VGL3 {
     }
 
     /* ================================================
-     * GEO 版标题分析（v2.8.1 第3层新增）
+     * GEO 版标题分析（第3层新增）
      * ================================================ */
 
     /**

@@ -41,13 +41,13 @@ function esc(s) {
             initialized = true;
 
             // 搜索按钮
-            $(document).off('click.exSearch', '#wpaip-ex-search-btn').on('click.exSearch', '#wpaip-ex-search-btn', function () {
+            $(document).off('click.exSearch', '#yimai-gso-ex-search-btn').on('click.exSearch', '#yimai-gso-ex-search-btn', function () {
                 currentPage = 1;
                 fetchPosts();
             });
 
             // 回车搜索
-            $(document).off('keypress.exSearchEnter', '#wpaip-ex-search').on('keypress.exSearchEnter', '#wpaip-ex-search', function (e) {
+            $(document).off('keypress.exSearchEnter', '#yimai-gso-ex-search').on('keypress.exSearchEnter', '#yimai-gso-ex-search', function (e) {
                 if (e.which === 13) {
                     currentPage = 1;
                     fetchPosts();
@@ -55,13 +55,13 @@ function esc(s) {
             });
 
             // 清空选择
-            $(document).off('click.exClear', '#wpaip-ex-clear-btn').on('click.exClear', '#wpaip-ex-clear-btn', function () {
+            $(document).off('click.exClear', '#yimai-gso-ex-clear-btn').on('click.exClear', '#yimai-gso-ex-clear-btn', function () {
                 selected = [];
                 renderSelected();
             });
 
             // 开始按钮
-            $(document).off('click.exStart', '#wpaip-ex-start-btn').on('click.exStart', '#wpaip-ex-start-btn', function () {
+            $(document).off('click.exStart', '#yimai-gso-ex-start-btn').on('click.exStart', '#yimai-gso-ex-start-btn', function () {
                 if (isRunning) {
                     abortFlag = true;
                     $(this).text('停止中...').prop('disabled', true);
@@ -72,17 +72,17 @@ function esc(s) {
         }
 
         function fetchPosts() {
-            var keyword = $.trim($('#wpaip-ex-search').val());
-            var catId = $('#wpaip-ex-category').val();
-            var status = $('#wpaip-ex-status').val();
-            var filter = $('#wpaip-ex-filter').val();
+            var keyword = $.trim($('#yimai-gso-ex-search').val());
+            var catId = $('#yimai-gso-ex-category').val();
+            var status = $('#yimai-gso-ex-status').val();
+            var filter = $('#yimai-gso-ex-filter').val();
 
-            var $results = $('#wpaip-ex-results');
-            $results.html('<div class="wpaip-empty"><span class="wpaip-loading"></span> 搜索中...</div>');
+            var $results = $('#yimai-gso-ex-results');
+            $results.html('<div class="yimai-gso-empty"><span class="yimai-gso-loading"></span> 搜索中...</div>');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_excerpt_fetch_posts',
-                nonce: wpaipData.nonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_excerpt_fetch_posts',
+                nonce: yimaiGsoData.nonce,
                 keyword: keyword,
                 category_id: catId,
                 post_status: status,
@@ -90,7 +90,7 @@ function esc(s) {
                 page: currentPage
             }, function (res) {
                 if (!res.success) {
-                    $results.html('<div class="wpaip-empty"><p>❌ ' + escapeHtml(res.data.message || '搜索失败') + '</p></div>');
+                    $results.html('<div class="yimai-gso-empty"><p>❌ ' + escapeHtml(res.data.message || '搜索失败') + '</p></div>');
                     return;
                 }
                 var data = res.data;
@@ -98,14 +98,14 @@ function esc(s) {
                 renderPostList(data.posts || []);
                 renderPagination(data.page, totalPages);
             }).fail(function () {
-                $results.html('<div class="wpaip-empty"><p>❌ 网络请求失败</p></div>');
+                $results.html('<div class="yimai-gso-empty"><p>❌ 网络请求失败</p></div>');
             });
         }
 
         function renderPostList(posts) {
-            var $results = $('#wpaip-ex-results');
+            var $results = $('#yimai-gso-ex-results');
             if (!posts.length) {
-                $results.html('<div class="wpaip-empty"><p>没有找到匹配的文章</p></div>');
+                $results.html('<div class="yimai-gso-empty"><p>没有找到匹配的文章</p></div>');
                 return;
             }
 
@@ -113,17 +113,17 @@ function esc(s) {
             posts.forEach(function (p) {
                 var isSelected = selected.some(function (s) { return s.id === p.id; });
                 var excerptBadge = p.has_excerpt
-                    ? '<span class="wpaip-ex-has" style="color:#16a34a;font-size:11px;">✓ 有摘要</span>'
-                    : '<span class="wpaip-ex-no" style="color:#dc2626;font-size:11px;">✗ 无摘要</span>';
-                html += '<div class="wpaip-br-result-item' + (isSelected ? ' selected' : '') + '" data-id="' + p.id + '">'
-                    + '<label class="wpaip-br-check">'
+                    ? '<span class="yimai-gso-ex-has" style="color:#16a34a;font-size:11px;">✓ 有摘要</span>'
+                    : '<span class="yimai-gso-ex-no" style="color:#dc2626;font-size:11px;">✗ 无摘要</span>';
+                html += '<div class="yimai-gso-br-result-item' + (isSelected ? ' selected' : '') + '" data-id="' + p.id + '">'
+                    + '<label class="yimai-gso-br-check">'
                     + '<input type="checkbox" ' + (isSelected ? 'checked' : '') + ' value="' + p.id + '">'
                     + '</label>'
-                    + '<div class="wpaip-br-result-info">'
-                    + '<strong class="wpaip-br-result-title">' + escHtml(p.title) + '</strong>'
-                    + '<div class="wpaip-br-result-meta">'
+                    + '<div class="yimai-gso-br-result-info">'
+                    + '<strong class="yimai-gso-br-result-title">' + escHtml(p.title) + '</strong>'
+                    + '<div class="yimai-gso-br-result-meta">'
                     + excerptBadge
-                    + '<span class="wpaip-br-status-chip wpaip-br-status-' + p.status + '">' + (statusLabels[p.status] || p.status) + '</span>'
+                    + '<span class="yimai-gso-br-status-chip yimai-gso-br-status-' + p.status + '">' + (statusLabels[p.status] || p.status) + '</span>'
                     + '<span>📅 ' + p.date + '</span>'
                     + '<span>📝 ' + p.word_count + '字</span>'
                     + '</div>'
@@ -145,12 +145,12 @@ function esc(s) {
                     if (idx !== -1) selected.splice(idx, 1);
                 }
                 renderSelected();
-                $(this).closest('.wpaip-br-result-item').toggleClass('selected', this.checked);
+                $(this).closest('.yimai-gso-br-result-item').toggleClass('selected', this.checked);
             });
         }
 
         function renderPagination(page, pages) {
-            var $pag = $('#wpaip-ex-pagination');
+            var $pag = $('#yimai-gso-ex-pagination');
             if (pages <= 1) {
                 $pag.hide();
                 return;
@@ -172,9 +172,9 @@ function esc(s) {
         }
 
         function renderSelected() {
-            var $list = $('#wpaip-ex-selected-list');
-            var $count = $('#wpaip-ex-selected-count');
-            var $clearBtn = $('#wpaip-ex-clear-btn');
+            var $list = $('#yimai-gso-ex-selected-list');
+            var $count = $('#yimai-gso-ex-selected-count');
+            var $clearBtn = $('#yimai-gso-ex-clear-btn');
 
             $count.text(selected.length);
             $clearBtn.toggle(selected.length > 0);
@@ -186,19 +186,19 @@ function esc(s) {
 
             var html = '';
             selected.forEach(function (s, i) {
-                html += '<div class="wpaip-br-selected-item">'
-                    + '<span class="wpaip-br-selected-num">' + (i + 1) + '</span>'
-                    + '<span class="wpaip-br-selected-title" title="' + escHtml(s.title) + '">' + escHtml(s.title) + '</span>'
-                    + '<button type="button" class="button button-small wpaip-br-remove-item" data-id="' + s.id + '" title="移除">×</button>'
+                html += '<div class="yimai-gso-br-selected-item">'
+                    + '<span class="yimai-gso-br-selected-num">' + (i + 1) + '</span>'
+                    + '<span class="yimai-gso-br-selected-title" title="' + escHtml(s.title) + '">' + escHtml(s.title) + '</span>'
+                    + '<button type="button" class="button button-small yimai-gso-br-remove-item" data-id="' + s.id + '" title="移除">×</button>'
                     + '</div>';
             });
             $list.html(html);
 
-            $list.find('.wpaip-br-remove-item').off('click.exRemove').on('click.exRemove', function () {
+            $list.find('.yimai-gso-br-remove-item').off('click.exRemove').on('click.exRemove', function () {
                 var id = parseInt($(this).data('id'));
                 selected = selected.filter(function (s) { return s.id !== id; });
                 renderSelected();
-                $('.wpaip-br-result-item[data-id="' + id + '"]').removeClass('selected').find('input[type="checkbox"]').prop('checked', false);
+                $('.yimai-gso-br-result-item[data-id="' + id + '"]').removeClass('selected').find('input[type="checkbox"]').prop('checked', false);
             });
         }
 
@@ -211,13 +211,13 @@ function esc(s) {
             isRunning = true;
             abortFlag = false;
 
-            var $btn = $('#wpaip-ex-start-btn');
+            var $btn = $('#yimai-gso-ex-start-btn');
             $btn.text('⏹ 停止生成').prop('disabled', false).removeClass('button-primary').addClass('button');
 
-            var $progress = $('#wpaip-ex-progress');
-            var $fill = $('#wpaip-ex-progress-fill');
-            var $progressText = $('#wpaip-ex-progress-text');
-            var $resultsArea = $('#wpaip-ex-results-area');
+            var $progress = $('#yimai-gso-ex-progress');
+            var $fill = $('#yimai-gso-ex-progress-fill');
+            var $progressText = $('#yimai-gso-ex-progress-text');
+            var $resultsArea = $('#yimai-gso-ex-results-area');
 
             $progress.show();
             $fill.css('width', '0%');
@@ -235,13 +235,13 @@ function esc(s) {
                         $progressText.text('🔄 正在生成第 ' + (itemIndex + 1) + ' / ' + total + ' 篇：' + item.title);
 
                         $.ajax({
-                            url: wpaipData.ajaxUrl,
+                            url: yimaiGsoData.ajaxUrl,
                             type: 'POST',
                             dataType: 'json',
                             timeout: 120000,
                             data: {
-                                action: 'wpaip_batch_generate_excerpt',
-                                nonce: wpaipData.nonce,
+                                action: 'yimai_gso_batch_generate_excerpt',
+                                nonce: yimaiGsoData.nonce,
                                 post_id: item.id
                             },
                             success: function (res) {
@@ -285,20 +285,20 @@ function esc(s) {
         }
 
         function appendResultItem(result, current, total) {
-            var $area = $('#wpaip-ex-results-area');
-            var cls = result.success ? 'wpaip-br-result-success' : 'wpaip-br-result-error';
+            var $area = $('#yimai-gso-ex-results-area');
+            var cls = result.success ? 'yimai-gso-br-result-success' : 'yimai-gso-br-result-error';
             var icon = result.success ? '✅' : '❌';
             var info = result.success
                 ? escHtml(result.excerpt) + ' <small>（' + result.char_count + '字）</small>'
                 : (result.error || '未知错误');
 
             $area.append(
-                '<div class="wpaip-br-result-card ' + cls + '">'
-                + '<div class="wpaip-br-result-card-header">'
+                '<div class="yimai-gso-br-result-card ' + cls + '">'
+                + '<div class="yimai-gso-br-result-card-header">'
                 + '<span>' + icon + ' #' + current + '/' + total + '</span>'
-                + '<small class="wpaip-br-result-original">' + escHtml(result.title) + '</small>'
+                + '<small class="yimai-gso-br-result-original">' + escHtml(result.title) + '</small>'
                 + '</div>'
-                + '<div class="wpaip-br-result-card-body">' + info + '</div>'
+                + '<div class="yimai-gso-br-result-card-body">' + info + '</div>'
                 + '</div>'
             );
 
@@ -307,11 +307,11 @@ function esc(s) {
 
         function finishBatch(results, total) {
             isRunning = false;
-            var $btn = $('#wpaip-ex-start-btn');
+            var $btn = $('#yimai-gso-ex-start-btn');
             $btn.text('🚀 批量生成AI摘要').prop('disabled', false).removeClass('button').addClass('button button-primary');
 
-            var $fill = $('#wpaip-ex-progress-fill');
-            var $progressText = $('#wpaip-ex-progress-text');
+            var $fill = $('#yimai-gso-ex-progress-fill');
+            var $progressText = $('#yimai-gso-ex-progress-text');
             // 停止动画并固定100%
             $fill.css({width: '100%', animation: 'none'});
 
@@ -343,7 +343,7 @@ function esc(s) {
     // ==================== 初始化 ====================
     $(document).ready(function () {
         // 新鲜度标签：事件委托，独立于其它初始化，确保点击始终触发数据加载
-        $(document).on('click', '.wpaip-sidebar-tab[data-tab="freshness"]', function () {
+        $(document).on('click', '.yimai-gso-sidebar-tab[data-tab="freshness"]', function () {
             if ($(this).hasClass('locked')) return;
             if (typeof window.loadFreshnessStats === 'function') window.loadFreshnessStats();
             if (typeof window.loadFreshnessPosts === 'function') window.loadFreshnessPosts(1);
@@ -365,7 +365,7 @@ function esc(s) {
         initDashboardPage();
 
         // 新鲜度面板保险：若当前为激活态（如 URL 带 ?tab=freshness 或默认激活），强制加载一次
-        if ($('.wpaip-main-panel[data-tab="freshness"].active').length) {
+        if ($('.yimai-gso-main-panel[data-tab="freshness"].active').length) {
             if (typeof window.loadFreshnessStats === 'function') window.loadFreshnessStats();
             if (typeof window.loadFreshnessPosts === 'function') window.loadFreshnessPosts(1);
         }
@@ -374,7 +374,7 @@ function esc(s) {
 
     // ==================== AI内容助手主标签页（侧边栏） ====================
     function initMainCenterTabs() {
-        if (!$('.wpaip-center-wrap').length) return;
+        if (!$('.yimai-gso-center-wrap').length) return;
 
         // 支持 URL 参数中的 tab
         var urlParams = new URLSearchParams(window.location.search);
@@ -383,7 +383,7 @@ function esc(s) {
         // URL 无 tab 参数时，取页面上实际处于激活态的面板
         // （PHP 默认激活页，如内容新鲜度监控，不会带 ?tab= 参数，必须靠 DOM 判定）
         if (!activeTab) {
-            var $activePanel = $('.wpaip-main-panel.active');
+            var $activePanel = $('.yimai-gso-main-panel.active');
             activeTab = $activePanel.length ? $activePanel.data('tab') : 'dashboard';
         }
 
@@ -393,29 +393,29 @@ function esc(s) {
         }
 
         // 检测 sessionStorage 中的保存标记（由 PHP redirect 脚本设置）
-        var savedTab = sessionStorage.getItem('wpaip_save_tab');
+        var savedTab = sessionStorage.getItem('yimai_gso_save_tab');
         if (savedTab) {
-            sessionStorage.removeItem('wpaip_save_tab');
+            sessionStorage.removeItem('yimai_gso_save_tab');
             showSaveSuccessToast(savedTab);
         }
 
         // 切换标签（支持侧边栏和旧版顶部标签）
-        $('.wpaip-sidebar-tab, .wpaip-main-tab').on('click', function () {
+        $('.yimai-gso-sidebar-tab, .yimai-gso-main-tab').on('click', function () {
             var tab = $(this).data('tab');
             switchMainTab(tab);
         });
 
         // 设置子标签切换（settings 主面板内的 AI、GEO、品牌资料等面板）
-        $('.wpaip-settings-tab').on('click', function () {
+        $('.yimai-gso-settings-tab').on('click', function () {
             var tab = $(this).data('tab');
-            $('.wpaip-settings-tab').removeClass('active');
+            $('.yimai-gso-settings-tab').removeClass('active');
             $(this).addClass('active');
-            $('.wpaip-settings-panel').removeClass('active');
-            $('.wpaip-settings-panel[data-tab="' + tab + '"]').addClass('active');
+            $('.yimai-gso-settings-panel').removeClass('active');
+            $('.yimai-gso-settings-panel[data-tab="' + tab + '"]').addClass('active');
             // 更新隐藏字段，供表单提交时记住当前tab
-            $('#wpaip-current-subtab').val(tab);
+            $('#yimai-gso-current-subtab').val(tab);
             // 控制表单底部提交按钮：GEO实体/爬虫策略/作者档案 使用 AJAX，不需要表单提交按钮
-            var $footer = $('#wpaip-settings-form > .wpaip-settings-footer');
+            var $footer = $('#yimai-gso-settings-form > .yimai-gso-settings-footer');
             if (['ai', 'image', 'publish'].indexOf(tab) >= 0) {
                 $footer.show();
             } else {
@@ -430,10 +430,10 @@ function esc(s) {
 
     function switchMainTab(tab) {
         // 同时更新侧边栏和旧版顶部标签（兼容）
-        $('.wpaip-sidebar-tab, .wpaip-main-tab').removeClass('active');
-        $('.wpaip-sidebar-tab[data-tab="' + tab + '"], .wpaip-main-tab[data-tab="' + tab + '"]').addClass('active');
-        $('.wpaip-main-panel').removeClass('active');
-        var $panel = $('.wpaip-main-panel[data-tab="' + tab + '"]').addClass('active');
+        $('.yimai-gso-sidebar-tab, .yimai-gso-main-tab').removeClass('active');
+        $('.yimai-gso-sidebar-tab[data-tab="' + tab + '"], .yimai-gso-main-tab[data-tab="' + tab + '"]').addClass('active');
+        $('.yimai-gso-main-panel').removeClass('active');
+        var $panel = $('.yimai-gso-main-panel[data-tab="' + tab + '"]').addClass('active');
 
         // 更新 URL 参数（不刷新页面）
         var url = new URL(window.location.href);
@@ -480,7 +480,7 @@ function esc(s) {
             // L5 监控分析面板 — 动态加载 l5-dashboard.js
             loadL5Dashboard(tab);
         }
-        // 新鲜度面板数据加载由 $(document).on('click', '.wpaip-sidebar-tab[data-tab="freshness"]') 事件委托统一处理
+        // 新鲜度面板数据加载由 $(document).on('click', '.yimai-gso-sidebar-tab[data-tab="freshness"]') 事件委托统一处理
         // 页面初始加载由 $(document).ready 末尾的可见性保险检测负责
         // 此处在 switchMainTab 中不再重复调用，避免 4 个 AJAX 竞态
 
@@ -496,14 +496,14 @@ function esc(s) {
     var _l5DashboardLoaded = false;
     function loadL5Dashboard(tab) {
         function _initL5Panel(t) {
-            if (typeof window.wpaipL5Init === "function") { window.wpaipL5Init(t); }
+            if (typeof window.yimaiGsoL5Init === "function") { window.yimaiGsoL5Init(t); }
         }
         if (_l5DashboardLoaded) { _initL5Panel(tab); return; }
         var s = document.createElement("script");
         s.src = "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js";
         s.onload = function() {
             var s2 = document.createElement("script");
-            s2.src = wpaipData.pluginUrl + "admin/js/l5-dashboard.js?ver=" + wpaipData.version;
+            s2.src = yimaiGsoData.pluginUrl + "admin/js/l5-dashboard.js?ver=" + yimaiGsoData.version;
             s2.onload = function() { _l5DashboardLoaded = true; _initL5Panel(tab); };
             document.body.appendChild(s2);
         };
@@ -513,12 +513,12 @@ function esc(s) {
 
     // ==================== 快捷操作按钮 ====================
     function initCenterQuickActions() {
-        if (!$('.wpaip-center-wrap').length) return;
+        if (!$('.yimai-gso-center-wrap').length) return;
 
         // 快捷操作跳转
-        $('.wpaip-quick-action[data-goto], .wpaip-view-all[data-goto], .wpaip-history-header-actions button[data-goto], .wpaip-dashboard-goto[data-goto]')
-            .off('click.wpaipGoto')
-            .on('click.wpaipGoto', function () {
+        $('.yimai-gso-quick-action[data-goto], .yimai-gso-view-all[data-goto], .yimai-gso-history-header-actions button[data-goto], .yimai-gso-dashboard-goto[data-goto]')
+            .off('click.yimaiGsoGoto')
+            .on('click.yimaiGsoGoto', function () {
                 var gotoTab = $(this).data('goto');
                 if (!gotoTab) return;
                 switchMainTab(gotoTab);
@@ -528,9 +528,9 @@ function esc(s) {
 
     // ==================== 发布状态切换 ====================
     function initPublishStatusToggle() {
-        $('input[name="wpaip-status"]').on('change', function () {
+        $('input[name="yimai-gso-status"]').on('change', function () {
             if ($(this).val() === 'future') {
-                $('#wpaip-schedule-group').slideDown(200);
+                $('#yimai-gso-schedule-group').slideDown(200);
                 var tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 tomorrow.setHours(9, 0, 0, 0);
@@ -540,22 +540,22 @@ function esc(s) {
                     + String(tomorrow.getDate()).padStart(2, '0') + 'T'
                     + String(tomorrow.getHours()).padStart(2, '0') + ':'
                     + String(tomorrow.getMinutes()).padStart(2, '0');
-                $('#wpaip-scheduled-at').val(local);
+                $('#yimai-gso-scheduled-at').val(local);
             } else {
-                $('#wpaip-schedule-group').slideUp(200);
+                $('#yimai-gso-schedule-group').slideUp(200);
             }
         });
     }
 
     // ==================== 生成文章 ====================
     function initGenerateBtn() {
-        $('#wpaip-generate-btn').on('click', function () {
+        $('#yimai-gso-generate-btn').on('click', function () {
             if (state.isGenerating) return;
 
-            var prompt = $.trim($('#wpaip-prompt').val());
+            var prompt = $.trim($('#yimai-gso-prompt').val());
             if (!prompt) {
                 alert('请先填写文章主题/提示词！');
-                $('#wpaip-prompt').focus();
+                $('#yimai-gso-prompt').focus();
                 return;
             }
 
@@ -563,22 +563,22 @@ function esc(s) {
             state.images = [];
             state.articleData = null;
             var $btn = $(this);
-            $btn.prop('disabled', true).html('<span class="wpaip-loading"></span> 生成中...');
-            $('#wpaip-progress').show();
-            $('#wpaip-preview-panel').hide();
-            $('#wpaip-publish-result').hide();
+            $btn.prop('disabled', true).html('<span class="yimai-gso-loading"></span> 生成中...');
+            $('#yimai-gso-progress').show();
+            $('#yimai-gso-preview-panel').hide();
+            $('#yimai-gso-publish-result').hide();
 
-            var wordCount  = $('#wpaip-word-count').val();
-            var imageCount = parseInt($('#wpaip-image-count').val()) || 0;
+            var wordCount  = $('#yimai-gso-word-count').val();
+            var imageCount = parseInt($('#yimai-gso-image-count').val()) || 0;
 
             updateProgress('🤖 正在调用 AI 生成文章...');
 
             $.ajax({
-                url: wpaipData.ajaxUrl,
+                url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
                 data: {
-                    action:     'wpaip_generate_article',
-                    nonce:      wpaipData.nonce,
+                    action:     'yimai_gso_generate_article',
+                    nonce:      yimaiGsoData.nonce,
                     prompt:     prompt,
                     word_count: wordCount,
                 },
@@ -617,11 +617,11 @@ function esc(s) {
 
     function fetchImages(keywords, count, $btn) {
         $.ajax({
-            url: wpaipData.ajaxUrl,
+            url: yimaiGsoData.ajaxUrl,
             type: 'POST',
             data: {
-                action:  'wpaip_generate_image',
-                nonce:   wpaipData.nonce,
+                action:  'yimai_gso_generate_image',
+                nonce:   yimaiGsoData.nonce,
                 keyword: keywords,
                 count:   count,
             },
@@ -646,9 +646,9 @@ function esc(s) {
     function finishGeneration($btn) {
         state.isGenerating = false;
         setTimeout(function () {
-            $('#wpaip-progress').fadeOut(300);
-            $('#wpaip-preview-panel').slideDown(400);
-            $('html, body').animate({ scrollTop: $('#wpaip-preview-panel').offset().top - 80 }, 400);
+            $('#yimai-gso-progress').fadeOut(300);
+            $('#yimai-gso-preview-panel').slideDown(400);
+            $('html, body').animate({ scrollTop: $('#yimai-gso-preview-panel').offset().top - 80 }, 400);
         }, 600);
         resetGenerateBtn($btn);
     }
@@ -661,30 +661,30 @@ function esc(s) {
     }
 
     function updateProgress(text) {
-        $('#wpaip-progress-text').text(text);
+        $('#yimai-gso-progress-text').text(text);
     }
 
     // ==================== 填充表单 ====================
     function fillArticleForm(data) {
-        $('#wpaip-title').val(data.title || '');
-        $('#wpaip-excerpt').val(data.excerpt || '');
-        $('#wpaip-tags').val(data.tags || '');
-        $('#wpaip-content').val(data.content || '');
+        $('#yimai-gso-title').val(data.title || '');
+        $('#yimai-gso-excerpt').val(data.excerpt || '');
+        $('#yimai-gso-tags').val(data.tags || '');
+        $('#yimai-gso-content').val(data.content || '');
     }
 
     // ==================== 图片网格 ====================
     function renderImageGrid(images) {
-        var $grid = $('#wpaip-images-grid').empty();
+        var $grid = $('#yimai-gso-images-grid').empty();
 
         $.each(images, function (i, img) {
-            var $item = $('<div class="wpaip-img-item">')
+            var $item = $('<div class="yimai-gso-img-item">')
                 .attr('data-url', img.url)
                 .attr('data-alt', img.alt || '')
                 .attr('data-index', i);
 
             $item.append('<img src="' + escapeHtml(img.thumb || img.url) + '" alt="' + escapeHtml(img.alt || '') + '">');
-            $item.append('<span class="wpaip-img-badge">✓</span>');
-            $item.append('<span class="wpaip-img-source">' + escapeHtml(img.source || '') + '</span>');
+            $item.append('<span class="yimai-gso-img-badge">✓</span>');
+            $item.append('<span class="yimai-gso-img-source">' + escapeHtml(img.source || '') + '</span>');
 
             // 默认选中第一张
             if (i === 0) {
@@ -693,12 +693,12 @@ function esc(s) {
             }
 
             $item.on('click', function () {
-                $('.wpaip-img-item').removeClass('selected');
+                $('.yimai-gso-img-item').removeClass('selected');
                 $(this).addClass('selected');
                 var idx = parseInt($(this).data('index'));
                 if (state.images[idx] && state.images[idx].attach_id) {
                     state.selectedThumbnailId = state.images[idx].attach_id;
-                    $('#wpaip-thumbnail-id').val(state.selectedThumbnailId);
+                    $('#yimai-gso-thumbnail-id').val(state.selectedThumbnailId);
                 } else {
                     uploadSingleImage(state.images[idx], idx);
                 }
@@ -713,11 +713,11 @@ function esc(s) {
      */
     function uploadSingleImage(img, index) {
         $.ajax({
-            url: wpaipData.ajaxUrl,
+            url: yimaiGsoData.ajaxUrl,
             type: 'POST',
             data: {
-                action:    'wpaip_upload_image',
-                nonce:     wpaipData.nonce,
+                action:    'yimai_gso_upload_image',
+                nonce:     yimaiGsoData.nonce,
                 image_url: img.url,
                 alt_text:  img.alt || '',
             },
@@ -726,7 +726,7 @@ function esc(s) {
                     state.images[index].attach_id = res.data.attach_id;
                     state.images[index].wp_url = res.data.url;
                     state.selectedThumbnailId = res.data.attach_id;
-                    $('#wpaip-thumbnail-id').val(res.data.attach_id);
+                    $('#yimai-gso-thumbnail-id').val(res.data.attach_id);
                 }
             }
         });
@@ -773,9 +773,9 @@ function esc(s) {
 
     // ==================== 发布文章 ====================
     function initPublishBtn() {
-        $('#wpaip-publish-btn').on('click', function () {
-            var title   = $.trim($('#wpaip-title').val());
-            var content = $.trim($('#wpaip-content').val());
+        $('#yimai-gso-publish-btn').on('click', function () {
+            var title   = $.trim($('#yimai-gso-title').val());
+            var content = $.trim($('#yimai-gso-content').val());
 
             if (!title || !content) {
                 alert('标题和正文不能为空！');
@@ -783,8 +783,8 @@ function esc(s) {
             }
 
             var $btn    = $(this);
-            var status  = $('input[name="wpaip-status"]:checked').val() || 'draft';
-            var schedAt = status === 'future' ? $('#wpaip-scheduled-at').val() : '';
+            var status  = $('input[name="yimai-gso-status"]:checked').val() || 'draft';
+            var schedAt = status === 'future' ? $('#yimai-gso-scheduled-at').val() : '';
 
             if (status === 'future' && !schedAt) {
                 alert('请选择定时发布时间！');
@@ -799,17 +799,17 @@ function esc(s) {
             // ===== 关键：先把图片直接嵌入正文中 =====
             var finalContent = injectImagesIntoContent(content, state.images);
 
-            $btn.prop('disabled', true).html('<span class="wpaip-loading"></span> 正在发布...');
-            $('#wpaip-publish-result').hide();
+            $btn.prop('disabled', true).html('<span class="yimai-gso-loading"></span> 正在发布...');
+            $('#yimai-gso-publish-result').hide();
 
             var requestData = {
-                action:        'wpaip_publish_article',
-                nonce:         wpaipData.nonce,
+                action:        'yimai_gso_publish_article',
+                nonce:         yimaiGsoData.nonce,
                 title:         title,
                 content:       finalContent,    // 已经包含图片标签的HTML
-                excerpt:       $('#wpaip-excerpt').val(),
-                tags:          $('#wpaip-tags').val(),
-                category_id:   $('#wpaip-category').val(),
+                excerpt:       $('#yimai-gso-excerpt').val(),
+                tags:          $('#yimai-gso-tags').val(),
+                category_id:   $('#yimai-gso-category').val(),
                 status:        status,
                 scheduled_at:  schedAt,
                 thumbnail_id:  state.selectedThumbnailId || 0,
@@ -826,7 +826,7 @@ function esc(s) {
             }
 
             $.ajax({
-                url: wpaipData.ajaxUrl,
+                url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
                 data: requestData,
                 success: function (res) {
@@ -834,7 +834,7 @@ function esc(s) {
                         '<span class="dashicons dashicons-cloud-upload"></span> 发布到 WordPress'
                     );
 
-                    var $result = $('#wpaip-publish-result');
+                    var $result = $('#yimai-gso-publish-result');
                     if (res.success) {
                         var statusText = {
                             publish: '🚀 已发布',
@@ -865,9 +865,9 @@ function esc(s) {
 
     // ==================== 重新生成 ====================
     function initRegenerateBtn() {
-        $('#wpaip-regenerate-btn').on('click', function () {
-            $('#wpaip-preview-panel').hide();
-            $('#wpaip-generate-btn').trigger('click');
+        $('#yimai-gso-regenerate-btn').on('click', function () {
+            $('#yimai-gso-preview-panel').hide();
+            $('#yimai-gso-generate-btn').trigger('click');
         });
     }
 
@@ -875,19 +875,19 @@ function esc(s) {
     function initSettingsPage() {
         // AI提供商切换
         $('#setting-ai-provider').on('change', function () {
-            var providers = wpaipData.providers;
+            var providers = yimaiGsoData.providers;
             var key = $(this).val();
             if (providers[key]) {
                 var prov = providers[key];
                 if (prov.url && key !== 'custom') {
-                    var $url = $('input[name="wpaip_ai_api_url"]');
+                    var $url = $('input[name="yimai_gso_ai_api_url"]');
                     $url.attr('placeholder', prov.url).val(prov.url);
                 }
                 if (prov.models && prov.models.length > 0) {
                     $('#model-hint').text('推荐：' + prov.models.join(' / '));
-                    $('input[name="wpaip_ai_model"]').val(prov.models[0]);
+                    $('input[name="yimai_gso_ai_model"]').val(prov.models[0]);
                 } else if (key === 'custom') {
-                    $('input[name="wpaip_ai_api_url"]').attr('placeholder', '填写兼容 OpenAI Chat Completions 的接口地址');
+                    $('input[name="yimai_gso_ai_api_url"]').attr('placeholder', '填写兼容 OpenAI Chat Completions 的接口地址');
                     $('#model-hint').text('请填写接口支持的模型名称');
                 }
             }
@@ -919,12 +919,12 @@ function esc(s) {
         });
 
         // ★ AI 生图测试连接
-        $('.wpaip-test-ai-img-btn').on('click', function () {
+        $('.yimai-gso-test-ai-img-btn').on('click', function () {
             var $btn = $(this);
             var provider = $btn.data('provider');
             var $row = $btn.closest('.ai-img-key-row');
             var apiKey = $row.find('input[type="password"]').val();
-            var $result = $row.find('.wpaip-test-ai-img-result');
+            var $result = $row.find('.yimai-gso-test-ai-img-result');
 
             if (!apiKey) { $result.html(' <span style="color:red">请先填写 API Key</span>'); return; }
 
@@ -932,11 +932,11 @@ function esc(s) {
             $result.html(' <span style="color:#888">正在生成测试图...</span>');
 
             $.ajax({
-                url: wpaipData.ajaxUrl,
+                url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
                 data: {
-                    action: 'wpaip_test_ai_image',
-                    nonce: wpaipData.nonce,
+                    action: 'yimai_gso_test_ai_image',
+                    nonce: yimaiGsoData.nonce,
                     provider: provider,
                     api_key: apiKey
                 },
@@ -962,9 +962,9 @@ function esc(s) {
             // 仅提示，不自动替换提示词（保留用户自定义内容）
         });
 
-        $('.wpaip-auto-image-alt-toggle, .wpaip-auto-image-alt-mode')
-            .off('.wpaipAutoImageAlt')
-            .on('change.wpaipAutoImageAlt', function () {
+        $('.yimai-gso-auto-image-alt-toggle, .yimai-gso-auto-image-alt-mode')
+            .off('.yimaiGsoAutoImageAlt')
+            .on('change.yimaiGsoAutoImageAlt', function () {
                 applyAutoImageAltFeatureState();
             });
         applyAutoImageAltFeatureState();
@@ -973,13 +973,13 @@ function esc(s) {
         $('#test-ai-api').on('click', function () {
 
             var $btn    = $(this);
-            var apiKey  = $('input[name="wpaip_ai_api_key"]').val();
+            var apiKey  = $('input[name="yimai_gso_ai_api_key"]').val();
             // 如果输入框显示掩码值（****开头），说明用户未修改，标记使用已保存的Key
             var useSaved = (apiKey && apiKey.indexOf('****') === 0);
             if (useSaved) { apiKey = ''; }
-            var apiUrl  = $('input[name="wpaip_ai_api_url"]').val();
+            var apiUrl  = $('input[name="yimai_gso_ai_api_url"]').val();
             var provider = $('#setting-ai-provider').val();
-            var model    = $('input[name="wpaip_ai_model"]').val();
+            var model    = $('input[name="yimai_gso_ai_model"]').val();
             var $result = $('#test-ai-result');
 
             if (!useSaved && !apiKey) { $result.html(' <span style="color:red">请先填写 API Key</span>'); return; }
@@ -988,8 +988,8 @@ function esc(s) {
             $result.html(' <span style="color:#888">正在连接...</span>');
 
             var postData = {
-                action: 'wpaip_test_api',
-                nonce: wpaipData.nonce,
+                action: 'yimai_gso_test_api',
+                nonce: yimaiGsoData.nonce,
                 type: 'ai',
                 provider: provider,
                 model: model,
@@ -1002,7 +1002,7 @@ function esc(s) {
             }
 
             $.ajax({
-                url: wpaipData.ajaxUrl,
+                url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
                 data: postData,
                 success: function (res) {
@@ -1017,14 +1017,14 @@ function esc(s) {
         // 测试图片接口
         $('#test-img-api').on('click', function () {
             var $btn    = $(this);
-            var $row   = $btn.closest('.wpaip-field-group');
+            var $row   = $btn.closest('.yimai-gso-field-group');
             var apiKey = $row.find('input').first().val()
-                       || $('input[name="wpaip_pexels_api_key"]').val()
-                       || $('input[name="wpaip_unsplash_api_key"]').val()
-                       || $('input[name="wpaip_image_api_key"]').val()
-                       || $('input[name="wpaip_flickr_api_key"]').val()
-                       || $('input[name="wpaip_stockapi_api_key"]').val()
-                       || $('input[name="wpaip_custom_img_api_key"]').val();
+                       || $('input[name="yimai_gso_pexels_api_key"]').val()
+                       || $('input[name="yimai_gso_unsplash_api_key"]').val()
+                       || $('input[name="yimai_gso_image_api_key"]').val()
+                       || $('input[name="yimai_gso_flickr_api_key"]').val()
+                       || $('input[name="yimai_gso_stockapi_api_key"]').val()
+                       || $('input[name="yimai_gso_custom_img_api_key"]').val();
             var $result = $row.next('span#test-img-result');
             if ($result.length === 0) { $result = $btn.parent().next('span#test-img-result'); }
 
@@ -1041,9 +1041,9 @@ function esc(s) {
             $btn.prop('disabled', true).text('测试中...');
 
             $.ajax({
-                url: wpaipData.ajaxUrl,
+                url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
-                data: { action: 'wpaip_test_api', nonce: wpaipData.nonce, type: 'image', api_key: apiKey, img_provider: provider },
+                data: { action: 'yimai_gso_test_api', nonce: yimaiGsoData.nonce, type: 'image', api_key: apiKey, img_provider: provider },
                 success: function (res) {
                     if (res.success) { $result.html(' <span style="color:green">✅ ' + escapeHtml(res.data.message) + '</span>'); }
                     else { $result.html(' <span style="color:red">❌ ' + escapeHtml(res.data.message || '失败') + '</span>'); }
@@ -1060,7 +1060,7 @@ function esc(s) {
                 'zhipu': 'cogview-4',
                 'wanxiang': 'wan2.6-t2i'
             };
-            var $input = $('input[name="wpaip_ai_image_model"]');
+            var $input = $('input[name="yimai_gso_ai_image_model"]');
             // 仅当输入框为空或内容是旧的默认值时才自动填充
             var currentVal = $input.val() || '';
             var isDefault = false;
@@ -1073,8 +1073,8 @@ function esc(s) {
         }
 
         // 系统提示词折叠
-        $('#wpaip-toggle-default-prompt').on('click', function () {
-            var $box = $('#wpaip-default-prompt-box');
+        $('#yimai-gso-toggle-default-prompt').on('click', function () {
+            var $box = $('#yimai-gso-default-prompt-box');
             var $btn = $(this);
             if ($box.is(':hidden')) {
                 $box.slideDown(300);
@@ -1088,8 +1088,8 @@ function esc(s) {
         });
 
         // 单篇生成系统提示词折叠
-        $('#wpaip-toggle-default-single-prompt').on('click', function () {
-            var $box = $('#wpaip-default-single-prompt-box');
+        $('#yimai-gso-toggle-default-single-prompt').on('click', function () {
+            var $box = $('#yimai-gso-default-single-prompt-box');
             var $btn = $(this);
             if ($box.is(':hidden')) {
                 $box.slideDown(300);
@@ -1103,8 +1103,8 @@ function esc(s) {
         });
 
         // 用户提示词模板折叠
-        $('#wpaip-toggle-default-user-prompt').on('click', function () {
-            var $box = $('#wpaip-default-user-prompt-box');
+        $('#yimai-gso-toggle-default-user-prompt').on('click', function () {
+            var $box = $('#yimai-gso-default-user-prompt-box');
             var $btn = $(this);
             if ($box.is(':hidden')) {
                 $box.slideDown(300);
@@ -1120,7 +1120,7 @@ function esc(s) {
 
     // ==================== 自定义图片上传 ====================
     function initImageUpload() {
-        $('#wpaip-upload-custom').on('click', function (e) {
+        $('#yimai-gso-upload-custom').on('click', function (e) {
             e.preventDefault();
             var frame = wp.media({
                 title:    '选择封面图片',
@@ -1131,14 +1131,14 @@ function esc(s) {
             frame.on('select', function () {
                 var attachment = frame.state().get('selection').first().toJSON();
                 state.selectedThumbnailId = attachment.id;
-                $('#wpaip-thumbnail-id').val(attachment.id);
+                $('#yimai-gso-thumbnail-id').val(attachment.id);
 
-                var $grid = $('#wpaip-images-grid');
-                var $item = $('<div class="wpaip-img-item selected">').attr('data-url', attachment.url);
+                var $grid = $('#yimai-gso-images-grid');
+                var $item = $('<div class="yimai-gso-img-item selected">').attr('data-url', attachment.url);
                 $item.append('<img src="' + attachment.url + '" alt="自定义封面">');
-                $item.append('<span class="wpaip-img-badge">✓</span>');
-                $item.append('<span class="wpaip-img-source">自定义</span>');
-                $('.wpaip-img-item').removeClass('selected');
+                $item.append('<span class="yimai-gso-img-badge">✓</span>');
+                $item.append('<span class="yimai-gso-img-source">自定义</span>');
+                $('.yimai-gso-img-item').removeClass('selected');
                 $grid.prepend($item);
             });
 
@@ -1149,7 +1149,7 @@ function esc(s) {
     // ==================== 工具函数 ====================
     function showError(msg) {
         alert('❌ ' + msg);
-        $('#wpaip-progress').hide();
+        $('#yimai-gso-progress').hide();
     }
 
     function getFeatureGatePayload(payload) {
@@ -1157,7 +1157,7 @@ function esc(s) {
             return payload;
         }
 
-        return (window.wpaipData && window.wpaipData.featureGate) ? window.wpaipData.featureGate : {};
+        return (window.yimaiGsoData && window.yimaiGsoData.featureGate) ? window.yimaiGsoData.featureGate : {};
     }
 
 
@@ -1239,10 +1239,10 @@ function esc(s) {
         var allowedStatuses = getParamAllowedValues('batch_generate', 'post_status', payload);
         var useParamConfig = allowedStatuses.length > 0;
 
-        var currentStatus = $('input[name="wpaip-batch-status"]:checked').val() || 'draft';
+        var currentStatus = $('input[name="yimai-gso-batch-status"]:checked').val() || 'draft';
         var safeStatus = normalizeBatchStatus(currentStatus, payload);
 
-        $('input[name="wpaip-batch-status"]').each(function () {
+        $('input[name="yimai-gso-batch-status"]').each(function () {
             var $radio = $(this);
             var val = $radio.val();
             var disabled;
@@ -1256,10 +1256,10 @@ function esc(s) {
             }
 
             $radio.prop('disabled', disabled);
-            $radio.closest('.wpaip-radio').toggleClass('is-disabled', disabled);
+            $radio.closest('.yimai-gso-radio').toggleClass('is-disabled', disabled);
         });
 
-        $('input[name="wpaip-batch-status"][value="' + safeStatus + '"]').prop('checked', true);
+        $('input[name="yimai-gso-batch-status"][value="' + safeStatus + '"]').prop('checked', true);
     }
 
     function applyBatchAiTagsFeatureState(payload) {
@@ -1270,9 +1270,9 @@ function esc(s) {
         var hasAiAutoTags = !!featureMap.auto_tags; // 规范化名称
         var isReadonly = readonlyFeatures.indexOf('auto_tags') !== -1;
         var canUseAiAutoTags = hasBatchGenerate && hasAiAutoTags && !isReadonly;
-        var $toggle = $('#wpaip-batch-ai-tags');
-        var $wrap = $('#wpaip-batch-ai-tags-wrap');
-        var $note = $('#wpaip-batch-ai-tags-note');
+        var $toggle = $('#yimai-gso-batch-ai-tags');
+        var $wrap = $('#yimai-gso-batch-ai-tags-wrap');
+        var $note = $('#yimai-gso-batch-ai-tags-note');
 
         if (!$toggle.length) {
             return;
@@ -1321,11 +1321,11 @@ function esc(s) {
         var hasFeature = !!featureMap.auto_alt; // 规范化名称
         var isReadonly = readonlyFeatures.indexOf('auto_alt') !== -1;
 
-        $('.wpaip-auto-image-alt-root').each(function () {
+        $('.yimai-gso-auto-image-alt-root').each(function () {
             var $root = $(this);
-            var $toggle = $root.find('.wpaip-auto-image-alt-toggle');
-            var $mode = $root.find('.wpaip-auto-image-alt-mode');
-            var $note = $root.find('.wpaip-auto-image-alt-note');
+            var $toggle = $root.find('.yimai-gso-auto-image-alt-toggle');
+            var $mode = $root.find('.yimai-gso-auto-image-alt-mode');
+            var $note = $root.find('.yimai-gso-auto-image-alt-note');
             var enabled = $toggle.is(':checked');
 
             if (!hasFeature || isReadonly) {
@@ -1369,7 +1369,7 @@ function esc(s) {
     };
 
     function getSeoMetaRoot() {
-        return $('#wpaip-seo-meta-root');
+        return $('#yimai-gso-seo-meta-root');
     }
 
     function seoMetaFeatureAvailable() {
@@ -1385,7 +1385,7 @@ function esc(s) {
     }
 
     function setSeoMetaStatus(message, type) {
-        var $box = $('#wpaip-seo-status-box');
+        var $box = $('#yimai-gso-seo-status-box');
         if (!$box.length) return;
 
         $box.removeClass('success error');
@@ -1394,20 +1394,20 @@ function esc(s) {
     }
 
     function updateSeoMetaActionState() {
-        var selectedScanCount = $('.wpaip-seo-scan-check:checked').length;
-        var selectedPreviewCount = $('.wpaip-seo-preview-check:checked').length;
+        var selectedScanCount = $('.yimai-gso-seo-scan-check:checked').length;
+        var selectedPreviewCount = $('.yimai-gso-seo-preview-check:checked').length;
         var available = seoMetaFeatureAvailable();
         var readonly = seoMetaReadonly();
 
-        $('#wpaip-seo-preview-btn').prop('disabled', !available || seoMetaState.isPreviewing || seoMetaState.isScanning || selectedScanCount === 0);
-        $('#wpaip-seo-apply-btn').prop('disabled', !available || readonly || seoMetaState.isApplying || seoMetaState.isPreviewing || selectedPreviewCount === 0);
+        $('#yimai-gso-seo-preview-btn').prop('disabled', !available || seoMetaState.isPreviewing || seoMetaState.isScanning || selectedScanCount === 0);
+        $('#yimai-gso-seo-apply-btn').prop('disabled', !available || readonly || seoMetaState.isApplying || seoMetaState.isPreviewing || selectedPreviewCount === 0);
     }
 
     function updateSeoMetaCounters() {
-        var scanCount = $('.wpaip-seo-scan-card').length;
-        var previewCount = $('.wpaip-seo-preview-card[data-success="1"]').length;
-        var $scanCounter = $('#wpaip-seo-scan-count');
-        var $previewCounter = $('#wpaip-seo-preview-count');
+        var scanCount = $('.yimai-gso-seo-scan-card').length;
+        var previewCount = $('.yimai-gso-seo-preview-card[data-success="1"]').length;
+        var $scanCounter = $('#yimai-gso-seo-scan-count');
+        var $previewCounter = $('#yimai-gso-seo-preview-count');
 
         if ($scanCounter.length) {
             if (scanCount > 0) {
@@ -1429,15 +1429,15 @@ function esc(s) {
     }
 
     function renderSeoMetaScanResults(items) {
-        var $container = $('#wpaip-seo-scan-results');
+        var $container = $('#yimai-gso-seo-scan-results');
         if (!$container.length) return;
 
         seoMetaState.scanItems = items || [];
-        $('#wpaip-seo-preview-results').html('<div class="wpaip-empty"><p>勾选候选文章后点击“生成SEO预览”，这里会逐篇展示建议标题、描述和关键词。</p></div>');
+        $('#yimai-gso-seo-preview-results').html('<div class="yimai-gso-empty"><p>勾选候选文章后点击“生成SEO预览”，这里会逐篇展示建议标题、描述和关键词。</p></div>');
         seoMetaState.previewItems = [];
 
         if (!items || items.length === 0) {
-            $container.html('<div class="wpaip-empty"><p>没有扫描到符合条件的文章，试试扩大范围或取消“只扫描缺少SEO字段”。</p></div>');
+            $container.html('<div class="yimai-gso-empty"><p>没有扫描到符合条件的文章，试试扩大范围或取消“只扫描缺少SEO字段”。</p></div>');
             updateSeoMetaCounters();
             return;
         }
@@ -1445,13 +1445,13 @@ function esc(s) {
         var html = '';
         $.each(items, function (_, item) {
             var current = item.current || {};
-            html += '<div class="wpaip-history-card wpaip-seo-scan-card" data-post-id="' + item.id + '" style="margin-bottom:12px;">';
-            html += '  <div class="wpaip-history-card-header">';
+            html += '<div class="yimai-gso-history-card yimai-gso-seo-scan-card" data-post-id="' + item.id + '" style="margin-bottom:12px;">';
+            html += '  <div class="yimai-gso-history-card-header">';
             html += '    <label style="display:flex;align-items:center;gap:8px;font-weight:600;">';
-            html += '      <input type="checkbox" class="wpaip-seo-scan-check" value="' + item.id + '">';
+            html += '      <input type="checkbox" class="yimai-gso-seo-scan-check" value="' + item.id + '">';
             html += '      <span>#' + item.id + '</span>';
             html += '    </label>';
-            html += '    <span class="wpaip-history-time">' + escapeHtml(item.status_text || item.status || '') + ' · ' + escapeHtml(item.date || '') + '</span>';
+            html += '    <span class="yimai-gso-history-time">' + escapeHtml(item.status_text || item.status || '') + ' · ' + escapeHtml(item.date || '') + '</span>';
             html += '  </div>';
             html += '  <div style="font-size:15px;font-weight:700;color:#1e293b;line-height:1.6;">' + escapeHtml(item.title || '') + '</div>';
             html += '  <div style="margin-top:8px;color:#64748b;font-size:13px;line-height:1.8;">';
@@ -1460,7 +1460,7 @@ function esc(s) {
             html += '    <div>当前SEO关键词：' + escapeHtml(current.keywords || '暂无') + '</div>';
             html += '  </div>';
             html += '  <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">';
-            html += '    <span class="wpaip-detect-tip">覆盖度：' + escapeHtml(current.coverage_text || '0/3') + '</span>';
+            html += '    <span class="yimai-gso-detect-tip">覆盖度：' + escapeHtml(current.coverage_text || '0/3') + '</span>';
             if (item.view_url) {
                 html += '    <a href="' + item.view_url + '" target="_blank">查看文章</a>';
             }
@@ -1476,16 +1476,16 @@ function esc(s) {
     }
 
     function appendSeoMetaPreviewCard(item, failedMessage) {
-        var $container = $('#wpaip-seo-preview-results');
+        var $container = $('#yimai-gso-seo-preview-results');
         if (!$container.length) return;
 
-        if ($container.find('.wpaip-empty').length) {
+        if ($container.find('.yimai-gso-empty').length) {
             $container.empty();
         }
 
         if (failedMessage) {
-            var errorHtml = '<div class="wpaip-history-card wpaip-seo-preview-card" data-success="0" style="margin-bottom:12px;border-left:4px solid #ef4444;">'
-                + '<div class="wpaip-history-card-header"><strong>' + escapeHtml(item.post_title || item.title || ('文章 #' + item.id)) + '</strong><span class="wpaip-history-time">预览失败</span></div>'
+            var errorHtml = '<div class="yimai-gso-history-card yimai-gso-seo-preview-card" data-success="0" style="margin-bottom:12px;border-left:4px solid #ef4444;">'
+                + '<div class="yimai-gso-history-card-header"><strong>' + escapeHtml(item.post_title || item.title || ('文章 #' + item.id)) + '</strong><span class="yimai-gso-history-time">预览失败</span></div>'
                 + '<div style="color:#991b1b;font-size:13px;line-height:1.8;">' + escapeHtml(failedMessage) + '</div>'
                 + '</div>';
             $container.append(errorHtml);
@@ -1495,23 +1495,23 @@ function esc(s) {
 
         var current = item.current || {};
         var suggested = item.suggested || {};
-        var html = '<div class="wpaip-history-card wpaip-seo-preview-card" data-post-id="' + item.post_id + '" data-success="1" style="margin-bottom:12px;border-left:4px solid #6366f1;">';
-        html += '  <div class="wpaip-history-card-header">';
+        var html = '<div class="yimai-gso-history-card yimai-gso-seo-preview-card" data-post-id="' + item.post_id + '" data-success="1" style="margin-bottom:12px;border-left:4px solid #6366f1;">';
+        html += '  <div class="yimai-gso-history-card-header">';
         html += '    <label style="display:flex;align-items:center;gap:8px;font-weight:600;">';
-        html += '      <input type="checkbox" class="wpaip-seo-preview-check" value="' + item.post_id + '" checked>';
+        html += '      <input type="checkbox" class="yimai-gso-seo-preview-check" value="' + item.post_id + '" checked>';
         html += '      <span>写回该文章</span>';
         html += '    </label>';
-        html += '    <span class="wpaip-history-time">' + escapeHtml(item.post_title || '') + '</span>';
+        html += '    <span class="yimai-gso-history-time">' + escapeHtml(item.post_title || '') + '</span>';
         html += '  </div>';
-        html += '  <div class="wpaip-form-group"><label>SEO标题</label><input type="text" class="large-text wpaip-seo-preview-title" value="' + escapeHtml(suggested.title || '') + '"></div>';
-        html += '  <div class="wpaip-form-group"><label>SEO描述</label><textarea class="wpaip-seo-preview-description" rows="4">' + escapeHtml(suggested.description || '') + '</textarea></div>';
-        html += '  <div class="wpaip-form-group"><label>SEO关键词</label><textarea class="wpaip-seo-preview-keywords" rows="2">' + escapeHtml(suggested.keywords || '') + '</textarea></div>';
-        html += '  <div class="wpaip-result-box success" style="margin-top:10px;">';
+        html += '  <div class="yimai-gso-form-group"><label>SEO标题</label><input type="text" class="large-text yimai-gso-seo-preview-title" value="' + escapeHtml(suggested.title || '') + '"></div>';
+        html += '  <div class="yimai-gso-form-group"><label>SEO描述</label><textarea class="yimai-gso-seo-preview-description" rows="4">' + escapeHtml(suggested.description || '') + '</textarea></div>';
+        html += '  <div class="yimai-gso-form-group"><label>SEO关键词</label><textarea class="yimai-gso-seo-preview-keywords" rows="2">' + escapeHtml(suggested.keywords || '') + '</textarea></div>';
+        html += '  <div class="yimai-gso-result-box success" style="margin-top:10px;">';
         html += '    当前SEO标题：' + escapeHtml(current.title || '暂无') + '<br>';
         html += '    当前SEO描述：' + escapeHtml(current.description || '暂无') + '<br>';
         html += '    当前SEO关键词：' + escapeHtml(current.keywords || '暂无');
         html += '  </div>';
-        html += '  <div class="wpaip-seo-apply-result" style="display:none;margin-top:10px;"></div>';
+        html += '  <div class="yimai-gso-seo-apply-result" style="display:none;margin-top:10px;"></div>';
         html += '</div>';
 
         $container.append(html);
@@ -1521,7 +1521,7 @@ function esc(s) {
 
     function getSelectedSeoScanIds() {
         var ids = [];
-        $('.wpaip-seo-scan-check:checked').each(function () {
+        $('.yimai-gso-seo-scan-check:checked').each(function () {
             ids.push(parseInt($(this).val(), 10));
         });
         return ids;
@@ -1529,26 +1529,26 @@ function esc(s) {
 
     function getSelectedSeoPreviewPayloads() {
         var items = [];
-        $('.wpaip-seo-preview-card[data-success="1"]').each(function () {
+        $('.yimai-gso-seo-preview-card[data-success="1"]').each(function () {
             var $card = $(this);
-            if (!$card.find('.wpaip-seo-preview-check').is(':checked')) {
+            if (!$card.find('.yimai-gso-seo-preview-check').is(':checked')) {
                 return;
             }
 
             items.push({
                 postId: parseInt($card.data('post-id'), 10),
-                title: $.trim($card.find('.wpaip-seo-preview-title').val() || ''),
-                description: $.trim($card.find('.wpaip-seo-preview-description').val() || ''),
-                keywords: $.trim($card.find('.wpaip-seo-preview-keywords').val() || '')
+                title: $.trim($card.find('.yimai-gso-seo-preview-title').val() || ''),
+                description: $.trim($card.find('.yimai-gso-seo-preview-description').val() || ''),
+                keywords: $.trim($card.find('.yimai-gso-seo-preview-keywords').val() || '')
             });
         });
         return items;
     }
 
     function resetSeoMetaButtons() {
-        $('#wpaip-seo-scan-btn').html('<span class="dashicons dashicons-search"></span> 扫描候选文章');
-        $('#wpaip-seo-preview-btn').html('<span class="dashicons dashicons-superhero"></span> 生成AI预览');
-        $('#wpaip-seo-apply-btn').html('<span class="dashicons dashicons-saved"></span> 确认批量写回');
+        $('#yimai-gso-seo-scan-btn').html('<span class="dashicons dashicons-search"></span> 扫描候选文章');
+        $('#yimai-gso-seo-preview-btn').html('<span class="dashicons dashicons-superhero"></span> 生成AI预览');
+        $('#yimai-gso-seo-apply-btn').html('<span class="dashicons dashicons-saved"></span> 确认批量写回');
         updateSeoMetaActionState();
     }
 
@@ -1556,20 +1556,20 @@ function esc(s) {
         if (!seoMetaFeatureAvailable() || seoMetaState.isScanning) return;
 
         seoMetaState.isScanning = true;
-        $('#wpaip-seo-scan-btn').prop('disabled', true).html('<span class="wpaip-loading"></span> 扫描中...');
-        $('#wpaip-seo-preview-btn, #wpaip-seo-apply-btn').prop('disabled', true);
+        $('#yimai-gso-seo-scan-btn').prop('disabled', true).html('<span class="yimai-gso-loading"></span> 扫描中...');
+        $('#yimai-gso-seo-preview-btn, #yimai-gso-seo-apply-btn').prop('disabled', true);
         setSeoMetaStatus('正在扫描候选文章，请稍候...', 'success');
 
         $.ajax({
-            url: wpaipData.ajaxUrl,
+            url: yimaiGsoData.ajaxUrl,
             type: 'POST',
             data: {
-                action: 'wpaip_seo_meta_scan',
-                nonce: wpaipData.nonce,
-                keyword: $('#wpaip-seo-keyword').val() || '',
-                post_status: $('#wpaip-seo-post-status').val() || 'publish',
-                limit: $('#wpaip-seo-limit').val() || '20',
-                only_missing: $('#wpaip-seo-only-missing').is(':checked') ? '1' : '0'
+                action: 'yimai_gso_seo_meta_scan',
+                nonce: yimaiGsoData.nonce,
+                keyword: $('#yimai-gso-seo-keyword').val() || '',
+                post_status: $('#yimai-gso-seo-post-status').val() || 'publish',
+                limit: $('#yimai-gso-seo-limit').val() || '20',
+                only_missing: $('#yimai-gso-seo-only-missing').is(':checked') ? '1' : '0'
             },
             success: function (res) {
                 if (!res.success) {
@@ -1604,9 +1604,9 @@ function esc(s) {
 
         seoMetaState.isPreviewing = true;
         seoMetaState.previewItems = [];
-        $('#wpaip-seo-preview-results').html('<div class="wpaip-empty"><p>正在逐篇生成SEO预览，请稍候...</p></div>');
-        $('#wpaip-seo-preview-btn').prop('disabled', true).html('<span class="wpaip-loading"></span> 预览生成中...');
-        $('#wpaip-seo-apply-btn').prop('disabled', true);
+        $('#yimai-gso-seo-preview-results').html('<div class="yimai-gso-empty"><p>正在逐篇生成SEO预览，请稍候...</p></div>');
+        $('#yimai-gso-seo-preview-btn').prop('disabled', true).html('<span class="yimai-gso-loading"></span> 预览生成中...');
+        $('#yimai-gso-seo-apply-btn').prop('disabled', true);
 
         var index = 0;
         var successCount = 0;
@@ -1628,11 +1628,11 @@ function esc(s) {
             setSeoMetaStatus('正在生成SEO预览（' + (index + 1) + '/' + ids.length + '）...', 'success');
 
             $.ajax({
-                url: wpaipData.ajaxUrl,
+                url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
                 data: {
-                    action: 'wpaip_seo_meta_preview',
-                    nonce: wpaipData.nonce,
+                    action: 'yimai_gso_seo_meta_preview',
+                    nonce: yimaiGsoData.nonce,
                     post_id: currentId
                 },
                 success: function (res) {
@@ -1674,8 +1674,8 @@ function esc(s) {
         }
 
         seoMetaState.isApplying = true;
-        $('#wpaip-seo-apply-btn').prop('disabled', true).html('<span class="wpaip-loading"></span> 写回中...');
-        $('#wpaip-seo-preview-btn').prop('disabled', true);
+        $('#yimai-gso-seo-apply-btn').prop('disabled', true).html('<span class="yimai-gso-loading"></span> 写回中...');
+        $('#yimai-gso-seo-preview-btn').prop('disabled', true);
 
         var index = 0;
         var successCount = 0;
@@ -1692,16 +1692,16 @@ function esc(s) {
             }
 
             var item = payloads[index];
-            var $card = $('.wpaip-seo-preview-card[data-post-id="' + item.postId + '"]');
-            var $result = $card.find('.wpaip-seo-apply-result');
+            var $card = $('.yimai-gso-seo-preview-card[data-post-id="' + item.postId + '"]');
+            var $result = $card.find('.yimai-gso-seo-apply-result');
             setSeoMetaStatus('正在写回SEO字段（' + (index + 1) + '/' + payloads.length + '）...', 'success');
 
             $.ajax({
-                url: wpaipData.ajaxUrl,
+                url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
                 data: {
-                    action: 'wpaip_seo_meta_apply',
-                    nonce: wpaipData.nonce,
+                    action: 'yimai_gso_seo_meta_apply',
+                    nonce: yimaiGsoData.nonce,
                     post_id: item.postId,
                     seo_title: item.title,
                     seo_description: item.description,
@@ -1736,21 +1736,21 @@ function esc(s) {
      */
     function refreshSeoMetaStats() {
         $.ajax({
-            url: wpaipData.ajaxUrl,
+            url: yimaiGsoData.ajaxUrl,
             type: 'POST',
             data: {
-                action: 'wpaip_seo_meta_stats',
-                nonce: wpaipData.nonce
+                action: 'yimai_gso_seo_meta_stats',
+                nonce: yimaiGsoData.nonce
             },
             success: function (res) {
                 if (res.success && res.data) {
                     var d = res.data;
-                    var tips = $('.wpaip-detect-tips').first();
+                    var tips = $('.yimai-gso-detect-tips').first();
                     if (tips.length) {
-                        tips.find('.wpaip-detect-tip').eq(0).text('最近写回：' + (d.total || 0) + ' 次');
-                        tips.find('.wpaip-detect-tip').eq(1).text('成功：' + (d.success || 0) + ' 次');
-                        tips.find('.wpaip-detect-tip').eq(2).text('失败：' + (d.error || 0) + ' 次');
-                        tips.find('.wpaip-detect-tip').eq(3).text('最近执行：' + (d.last_run || '暂无'));
+                        tips.find('.yimai-gso-detect-tip').eq(0).text('最近写回：' + (d.total || 0) + ' 次');
+                        tips.find('.yimai-gso-detect-tip').eq(1).text('成功：' + (d.success || 0) + ' 次');
+                        tips.find('.yimai-gso-detect-tip').eq(2).text('失败：' + (d.error || 0) + ' 次');
+                        tips.find('.yimai-gso-detect-tip').eq(3).text('最近执行：' + (d.last_run || '暂无'));
                     }
                 }
             }
@@ -1758,48 +1758,48 @@ function esc(s) {
     }
 
     function initSeoMetaPage() {
-        var $panel = $('.wpaip-main-panel[data-tab="seo-meta"]');
+        var $panel = $('.yimai-gso-main-panel[data-tab="seo-meta"]');
         if (!$panel.length) return;
 
-        $('#wpaip-seo-scan-btn').off('click.wpaipSeo').on('click.wpaipSeo', function () {
+        $('#yimai-gso-seo-scan-btn').off('click.yimaiGsoSeo').on('click.yimaiGsoSeo', function () {
             runSeoMetaScan();
         });
 
-        $('#wpaip-seo-preview-btn').off('click.wpaipSeo').on('click.wpaipSeo', function () {
+        $('#yimai-gso-seo-preview-btn').off('click.yimaiGsoSeo').on('click.yimaiGsoSeo', function () {
             runSeoMetaPreview();
         });
 
-        $('#wpaip-seo-apply-btn').off('click.wpaipSeo').on('click.wpaipSeo', function () {
+        $('#yimai-gso-seo-apply-btn').off('click.yimaiGsoSeo').on('click.yimaiGsoSeo', function () {
             runSeoMetaApply();
         });
 
-        $('#wpaip-seo-select-all').off('click.wpaipSeo').on('click.wpaipSeo', function () {
-            $('.wpaip-seo-scan-check').prop('checked', true);
+        $('#yimai-gso-seo-select-all').off('click.yimaiGsoSeo').on('click.yimaiGsoSeo', function () {
+            $('.yimai-gso-seo-scan-check').prop('checked', true);
             updateSeoMetaActionState();
         });
 
-        $('#wpaip-seo-clear-all').off('click.wpaipSeo').on('click.wpaipSeo', function () {
-            $('.wpaip-seo-scan-check').prop('checked', false);
+        $('#yimai-gso-seo-clear-all').off('click.yimaiGsoSeo').on('click.yimaiGsoSeo', function () {
+            $('.yimai-gso-seo-scan-check').prop('checked', false);
             updateSeoMetaActionState();
         });
 
-        $('#wpaip-seo-preview-select-all').off('click.wpaipSeo').on('click.wpaipSeo', function () {
-            $('.wpaip-seo-preview-check').prop('checked', true);
+        $('#yimai-gso-seo-preview-select-all').off('click.yimaiGsoSeo').on('click.yimaiGsoSeo', function () {
+            $('.yimai-gso-seo-preview-check').prop('checked', true);
             updateSeoMetaActionState();
         });
 
-        $('#wpaip-seo-preview-clear-all').off('click.wpaipSeo').on('click.wpaipSeo', function () {
-            $('.wpaip-seo-preview-check').prop('checked', false);
+        $('#yimai-gso-seo-preview-clear-all').off('click.yimaiGsoSeo').on('click.yimaiGsoSeo', function () {
+            $('.yimai-gso-seo-preview-check').prop('checked', false);
             updateSeoMetaActionState();
         });
 
-        $panel.off('change.wpaipSeoScan').on('change.wpaipSeoScan', '.wpaip-seo-scan-check, .wpaip-seo-preview-check', function () {
+        $panel.off('change.yimaiGsoSeoScan').on('change.yimaiGsoSeoScan', '.yimai-gso-seo-scan-check, .yimai-gso-seo-preview-check', function () {
             updateSeoMetaActionState();
         });
 
         // 发布后自动SEO元数据 - 分类药丸切换
-        var $catContainer = $('#wpaip-auto-seo-cats');
-        $catContainer.off('click.wpaipAutoSeo').on('click.wpaipAutoSeo', 'label', function (e) {
+        var $catContainer = $('#yimai-gso-auto-seo-cats');
+        $catContainer.off('click.yimaiGsoAutoSeo').on('click.yimaiGsoAutoSeo', 'label', function (e) {
             if (e.target.tagName === 'INPUT') return;
             var $label = $(this);
             var $checkbox = $label.find('input[type="checkbox"]');
@@ -1813,28 +1813,28 @@ function esc(s) {
         });
 
         // 发布后自动SEO元数据 - 保存按钮
-        $('#wpaip-auto-seo-save-btn').off('click.wpaipAutoSeo').on('click.wpaipAutoSeo', function () {
+        $('#yimai-gso-auto-seo-save-btn').off('click.yimaiGsoAutoSeo').on('click.yimaiGsoAutoSeo', function () {
             var $btn = $(this);
-            var $status = $('#wpaip-auto-seo-save-status');
+            var $status = $('#yimai-gso-auto-seo-save-status');
 
             // 收集分类ID
             var catIds = [];
-            $('#wpaip-auto-seo-cats input[type="checkbox"]:checked').each(function () {
+            $('#yimai-gso-auto-seo-cats input[type="checkbox"]:checked').each(function () {
                 catIds.push($(this).val());
             });
 
             var data = {
-                action: 'wpaip_save_seo_meta_settings',
-                nonce: wpaipData.nonce,
-                auto_seo_meta_enabled: $('#wpaip-auto-seo-enabled').is(':checked') ? 1 : 0,
-                auto_seo_meta_skip_manual: $('#wpaip-auto-seo-skip-manual').is(':checked') ? 1 : 0,
+                action: 'yimai_gso_save_seo_meta_settings',
+                nonce: yimaiGsoData.nonce,
+                auto_seo_meta_enabled: $('#yimai-gso-auto-seo-enabled').is(':checked') ? 1 : 0,
+                auto_seo_meta_skip_manual: $('#yimai-gso-auto-seo-skip-manual').is(':checked') ? 1 : 0,
                 auto_seo_meta_categories: catIds.join(',')
             };
 
             $btn.prop('disabled', true).text('保存中...');
             $status.hide();
 
-            $.post(wpaipData.ajaxUrl, data, function (resp) {
+            $.post(yimaiGsoData.ajaxUrl, data, function (resp) {
                 $btn.prop('disabled', false).html('<span class="dashicons dashicons-yes-alt"></span> 保存自动设置');
                 if (resp && resp.success) {
                     $status.text(resp.data.message || '已保存').css('color', '#46b450').fadeIn().delay(2000).fadeOut();
@@ -1852,7 +1852,7 @@ function esc(s) {
 
 
     function showAutopilotRunResult(type, message) {
-        var $result = $('#wpaip-autopilot-run-result');
+        var $result = $('#yimai-gso-autopilot-run-result');
         if (!$result.length) {
             return;
         }
@@ -1888,10 +1888,10 @@ function esc(s) {
         var msg = messages[tab] || '✅ 设置已保存';
 
         // 移除可能存在的旧 Toast
-        $('.wpaip-save-toast').remove();
+        $('.yimai-gso-save-toast').remove();
 
         // 创建 Toast 元素（初始可见，避免动画时序问题）
-        var $toast = $('<div class="wpaip-save-toast">')
+        var $toast = $('<div class="yimai-gso-save-toast">')
             .css({
                 'position':         'fixed',
                 'top':              '50px',
@@ -1919,8 +1919,8 @@ function esc(s) {
     }
 
     function initAutopilotPage() {
-        var $root = $('#wpaip-autopilot-root');
-        var $button = $('#wpaip-autopilot-run-btn');
+        var $root = $('#yimai-gso-autopilot-root');
+        var $button = $('#yimai-gso-autopilot-run-btn');
 
         if (!$root.length) {
             return;
@@ -1946,7 +1946,7 @@ function esc(s) {
 
             // 定时发布切换：显示/隐藏延迟时间选择
             var $radio = $(this);
-            if ($radio.attr('name') === 'wpaip_autopilot_post_status') {
+            if ($radio.attr('name') === 'yimai_gso_autopilot_post_status') {
                 var $delayRow = $('#apv3-future-delay-row');
                 if ($radio.val() === 'future') {
                     $delayRow.slideDown(200);
@@ -1984,7 +1984,7 @@ function esc(s) {
 
         // --- 永动发布开关：点击后自动保存 ---
         // 监听计划开关（主 Hero 区域）的 checkbox 变化
-        $root.find('input[name="wpaip_autopilot_enabled"]').off('change.wpaipAutopilotToggle').on('change.wpaipAutopilotToggle', function () {
+        $root.find('input[name="yimai_gso_autopilot_enabled"]').off('change.yimaiGsoAutopilotToggle').on('change.yimaiGsoAutopilotToggle', function () {
             var $checkbox = $(this);
             var enabled = $checkbox.is(':checked');
             
@@ -1992,11 +1992,11 @@ function esc(s) {
             $checkbox.prop('disabled', true);
             
             $.ajax({
-                url: wpaipData.ajaxUrl,
+                url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
                 data: {
-                    action: 'wpaip_autopilot_toggle',
-                    nonce: wpaipData.nonce,
+                    action: 'yimai_gso_autopilot_toggle',
+                    nonce: yimaiGsoData.nonce,
                     enabled: enabled ? '1' : ''
                 },
                 success: function (res) {
@@ -2022,7 +2022,7 @@ function esc(s) {
 
         // --- Manual run ---
         if ($button.length) {
-            $button.off('click.wpaipAutopilot').on('click.wpaipAutopilot', function () {
+            $button.off('click.yimaiGsoAutopilot').on('click.yimaiGsoAutopilot', function () {
                 if ($button.prop('disabled')) {
                     return;
                 }
@@ -2041,15 +2041,15 @@ function esc(s) {
                 }
 
                 var originalHtml = $button.html();
-                $button.prop('disabled', true).html('<span class="wpaip-loading"></span>正在派发...');
+                $button.prop('disabled', true).html('<span class="yimai-gso-loading"></span>正在派发...');
                 showAutopilotRunResult('info', '正在派发永动发布任务，后台会继续执行完整链路，请稍候...');
 
                 $.ajax({
-                    url: wpaipData.ajaxUrl,
+                    url: yimaiGsoData.ajaxUrl,
                     type: 'POST',
                     data: {
-                        action: 'wpaip_autopilot_manual_run',
-                        nonce: wpaipData.nonce
+                        action: 'yimai_gso_autopilot_manual_run',
+                        nonce: yimaiGsoData.nonce
                     },
                     success: function (res) {
                         if (!res.success) {
@@ -2131,25 +2131,25 @@ function esc(s) {
         }
 
         // --- Cleanup logs ---
-        var $cleanupBtn = $('#wpaip-cleanup-logs-btn');
-        var $cleanupResult = $('#wpaip-cleanup-result');
+        var $cleanupBtn = $('#yimai-gso-cleanup-logs-btn');
+        var $cleanupResult = $('#yimai-gso-cleanup-result');
 
         if ($cleanupBtn.length && $cleanupResult.length) {
-            $cleanupBtn.off('click.wpaipCleanup').on('click.wpaipCleanup', function () {
+            $cleanupBtn.off('click.yimaiGsoCleanup').on('click.yimaiGsoCleanup', function () {
                 if ($cleanupBtn.prop('disabled')) {
                     return;
                 }
 
                 var originalHtml = $cleanupBtn.html();
-                $cleanupBtn.prop('disabled', true).html('<span class="wpaip-loading"></span> 清理中...');
+                $cleanupBtn.prop('disabled', true).html('<span class="yimai-gso-loading"></span> 清理中...');
                 $cleanupResult.removeClass('info success error').hide();
 
                 $.ajax({
-                    url: wpaipData.ajaxUrl,
+                    url: yimaiGsoData.ajaxUrl,
                     type: 'POST',
                     data: {
-                        action: 'wpaip_autopilot_cleanup_logs',
-                        nonce: wpaipData.nonce
+                        action: 'yimai_gso_autopilot_cleanup_logs',
+                        nonce: yimaiGsoData.nonce
                     },
                     success: function (res) {
                         if (!res.success) {
@@ -2225,7 +2225,7 @@ function esc(s) {
         return '网络请求失败' + serverTip + extra;
     }
 
-    var batchScheduleStorageKey = 'wpaip_batch_schedule_settings';
+    var batchScheduleStorageKey = 'yimai_gso_batch_schedule_settings';
 
     function formatBatchLocalDate(date) {
         return date.getFullYear() + '-'
@@ -2243,7 +2243,7 @@ function esc(s) {
     }
 
     function validateBatchScheduleConfig() {
-        var status = normalizeBatchStatus($('input[name="wpaip-batch-status"]:checked').val() || 'draft');
+        var status = normalizeBatchStatus($('input[name="yimai-gso-batch-status"]:checked').val() || 'draft');
         if (status !== 'future') {
             return { valid: true };
         }
@@ -2266,7 +2266,7 @@ function esc(s) {
         }
 
 
-        var startTime = $.trim($('#wpaip-batch-schedule-start').val() || '');
+        var startTime = $.trim($('#yimai-gso-batch-schedule-start').val() || '');
         if (!startTime) {
             return {
                 valid: false,
@@ -2353,14 +2353,14 @@ function esc(s) {
     }
 
     function toggleBatchScheduleFields(animate) {
-        var $group = $('#wpaip-batch-schedule-group');
-        var $intervalGroup = $('#wpaip-batch-schedule-interval-group');
-        var $start = $('#wpaip-batch-schedule-start');
+        var $group = $('#yimai-gso-batch-schedule-group');
+        var $intervalGroup = $('#yimai-gso-batch-schedule-interval-group');
+        var $start = $('#yimai-gso-batch-schedule-start');
         if (!$group.length || !$intervalGroup.length) {
             return;
         }
 
-        var status = $('input[name="wpaip-batch-status"]:checked').val() || 'draft';
+        var status = $('input[name="yimai-gso-batch-status"]:checked').val() || 'draft';
         var show = status === 'future';
 
         if (show && !$start.val()) {
@@ -2382,16 +2382,16 @@ function esc(s) {
     }
 
     function saveBatchScheduleSettings(showFeedback) {
-        if (!$('input[name="wpaip-batch-status"]').length) {
+        if (!$('input[name="yimai-gso-batch-status"]').length) {
             return null;
         }
 
         toggleBatchScheduleFields(false);
 
         var settings = {
-            status: $('input[name="wpaip-batch-status"]:checked').val() || 'draft',
-            start: $('#wpaip-batch-schedule-start').val() || '',
-            interval: $('#wpaip-batch-schedule-interval').val() || '3600'
+            status: $('input[name="yimai-gso-batch-status"]:checked').val() || 'draft',
+            start: $('#yimai-gso-batch-schedule-start').val() || '',
+            interval: $('#yimai-gso-batch-schedule-interval').val() || '3600'
         };
 
         try {
@@ -2400,8 +2400,8 @@ function esc(s) {
             // ignore storage failure
         }
 
-        if (showFeedback && $('#wpaip-schedule-save-result').length) {
-            $('#wpaip-schedule-save-result')
+        if (showFeedback && $('#yimai-gso-schedule-save-result').length) {
+            $('#yimai-gso-schedule-save-result')
                 .html('<div class="notice notice-success inline"><p>当前发布策略已保存，批量文章配置区会自动读取这组配置。</p></div>')
                 .show();
         }
@@ -2410,7 +2410,7 @@ function esc(s) {
     }
 
     function loadBatchScheduleSettings() {
-        if (!$('input[name="wpaip-batch-status"]').length) {
+        if (!$('input[name="yimai-gso-batch-status"]').length) {
             return;
         }
 
@@ -2423,14 +2423,14 @@ function esc(s) {
 
         if (settings && settings.status) {
             settings.status = normalizeBatchStatus(settings.status);
-            $('input[name="wpaip-batch-status"][value="' + settings.status + '"]').prop('checked', true);
+            $('input[name="yimai-gso-batch-status"][value="' + settings.status + '"]').prop('checked', true);
         }
 
         if (settings && settings.start) {
-            $('#wpaip-batch-schedule-start').val(settings.start);
+            $('#yimai-gso-batch-schedule-start').val(settings.start);
         }
         if (settings && settings.interval) {
-            $('#wpaip-batch-schedule-interval').val(String(settings.interval));
+            $('#yimai-gso-batch-schedule-interval').val(String(settings.interval));
         }
 
         toggleBatchScheduleFields(false);
@@ -2441,14 +2441,14 @@ function esc(s) {
         applyBatchPublishFeatureState();
         applyBatchAiTagsFeatureState();
 
-        $('input[name="wpaip-batch-status"]').off('change.wpaipSchedule').on('change.wpaipSchedule', function () {
+        $('input[name="yimai-gso-batch-status"]').off('change.yimaiGsoSchedule').on('change.yimaiGsoSchedule', function () {
             toggleBatchScheduleFields(true);
             saveBatchScheduleSettings(false);
         });
 
-        $('#wpaip-batch-schedule-start, #wpaip-batch-schedule-interval')
-            .off('change.wpaipScheduleSave input.wpaipScheduleSave')
-            .on('change.wpaipScheduleSave input.wpaipScheduleSave', function () {
+        $('#yimai-gso-batch-schedule-start, #yimai-gso-batch-schedule-interval')
+            .off('change.yimaiGsoScheduleSave input.yimaiGsoScheduleSave')
+            .on('change.yimaiGsoScheduleSave input.yimaiGsoScheduleSave', function () {
                 saveBatchScheduleSettings(false);
             });
 
@@ -2458,13 +2458,13 @@ function esc(s) {
         restoreBatchPromptsFromStorage();
         
         // 自动保存提示词到sessionStorage（用户编辑时实时保存）
-        $('#wpaip-batch-prompts').off('input.wpaipBatchSave').on('input.wpaipBatchSave', function() {
-            sessionStorage.setItem('wpaip_batch_prompts', $(this).val());
+        $('#yimai-gso-batch-prompts').off('input.yimaiGsoBatchSave').on('input.yimaiGsoBatchSave', function() {
+            sessionStorage.setItem('yimai_gso_batch_prompts', $(this).val());
         });
 
         // 开始批量生成
 
-        $('#wpaip-batch-start-btn').off('click.wpaipBatchStart').on('click.wpaipBatchStart', function (e) {
+        $('#yimai-gso-batch-start-btn').off('click.yimaiGsoBatchStart').on('click.yimaiGsoBatchStart', function (e) {
             e.preventDefault();
             if (batchState.isRunning) return;
 
@@ -2478,11 +2478,11 @@ function esc(s) {
                 return;
             }
 
-            var promptsText = $.trim($('#wpaip-batch-prompts').val());
+            var promptsText = $.trim($('#yimai-gso-batch-prompts').val());
 
             if (!promptsText) {
                 alert('请至少输入一个提示词！');
-                $('#wpaip-batch-prompts').focus();
+                $('#yimai-gso-batch-prompts').focus();
                 switchStep(2);
                 return;
             }
@@ -2520,11 +2520,11 @@ function esc(s) {
             switchStep(2);
 
             // UI切换
-            $('#wpaip-batch-start-btn').hide();
-            $('#wpaip-batch-stop-btn').show();
-            $('#wpaip-batch-progress').show();
-            $('#wpaip-batch-counter').show().text('0/' + batchState.total);
-            $('#wpaip-batch-results').empty();
+            $('#yimai-gso-batch-start-btn').hide();
+            $('#yimai-gso-batch-stop-btn').show();
+            $('#yimai-gso-batch-progress').show();
+            $('#yimai-gso-batch-counter').show().text('0/' + batchState.total);
+            $('#yimai-gso-batch-results').empty();
             updateBatchProgress(0, '🚀 批量生成开始，共 ' + batchState.total + ' 篇文章，系统将自动执行生成、配图标签与发布流程...');
 
 
@@ -2535,7 +2535,7 @@ function esc(s) {
         });
 
         // 停止批量生成
-        $('#wpaip-batch-stop-btn').off('click.wpaipBatchStop').on('click.wpaipBatchStop', function (e) {
+        $('#yimai-gso-batch-stop-btn').off('click.yimaiGsoBatchStop').on('click.yimaiGsoBatchStop', function (e) {
             e.preventDefault();
             if (batchState.isRunning) {
                 batchState.isStopped = true;
@@ -2566,13 +2566,13 @@ function esc(s) {
         );
 
         // 准备参数（与 processNextBatchItem 一致）
-        var status = normalizeBatchStatus($('input[name="wpaip-batch-status"]:checked').val() || 'draft');
-        $('input[name="wpaip-batch-status"][value="' + status + '"]').prop('checked', true);
+        var status = normalizeBatchStatus($('input[name="yimai-gso-batch-status"]:checked').val() || 'draft');
+        $('input[name="yimai-gso-batch-status"][value="' + status + '"]').prop('checked', true);
         var scheduledAt = '';
 
         if (status === 'future') {
-            var startTime = $('#wpaip-batch-schedule-start').val();
-            var interval  = parseInt($('#wpaip-batch-schedule-interval').val(), 10) || 3600;
+            var startTime = $('#yimai-gso-batch-schedule-start').val();
+            var interval  = parseInt($('#yimai-gso-batch-schedule-interval').val(), 10) || 3600;
             if (startTime) {
                 var m2 = startTime.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
                 if (!m2) {
@@ -2598,17 +2598,17 @@ function esc(s) {
         var concurrencyIndex = itemIndex % batchState.concurrency;
 
         var request = $.ajax({
-            url: wpaipData.ajaxUrl,
+            url: yimaiGsoData.ajaxUrl,
             type: 'POST',
             data: {
-                action:                   'wpaip_batch_generate_and_publish',
-                nonce:                    wpaipData.nonce,
+                action:                   'yimai_gso_batch_generate_and_publish',
+                nonce:                    yimaiGsoData.nonce,
                 prompt:                   prompt,
-                word_count:               $('#wpaip-batch-word-count').val(),
-                image_count:              $('#wpaip-batch-image-count').val(),
-                category_id:              $('#wpaip-batch-category').val(),
-                tags:                     $('#wpaip-batch-tags').val(),
-                use_ai_tags:              $('#wpaip-batch-ai-tags').is(':checked') ? '1' : '0',
+                word_count:               $('#yimai-gso-batch-word-count').val(),
+                image_count:              $('#yimai-gso-batch-image-count').val(),
+                category_id:              $('#yimai-gso-batch-category').val(),
+                tags:                     $('#yimai-gso-batch-tags').val(),
+                use_ai_tags:              $('#yimai-gso-batch-ai-tags').is(':checked') ? '1' : '0',
                 status:                   status,
                 scheduled_at:             scheduledAt,
                 concurrency_index:        concurrencyIndex,
@@ -2639,7 +2639,7 @@ function esc(s) {
                         });
                         safeAppendBatchResult(index, 'error', prompt, { message: fatalMessage + '，已停止整批任务' });
                         stopBatchForFatalError(fatalMessage, itemIndex);
-                    } else if (res.data && res.data.code === 'wpaip_feature_locked') {
+                    } else if (res.data && res.data.code === 'yimai_gso_feature_locked') {
                         batchState.results.push({
                             status:  'error',
                             title:   prompt.substring(0, 30),
@@ -2661,7 +2661,7 @@ function esc(s) {
                     }
                 } catch (err) {
                     var callbackMessage = '前端处理批量结果时发生异常：' + ((err && err.message) ? err.message : '未知错误');
-                    console.error('[WPAIP] 批量生成 success 回调异常:', err, res);
+                    console.error('[YIMAI GSO] 批量生成 success 回调异常:', err, res);
                     batchState.results.push({
                         status:  'error',
                         title:   prompt.substring(0, 30),
@@ -2681,7 +2681,7 @@ function esc(s) {
                 var delay         = delayBase * Math.pow(1.5, retryAttempt - 1);
 
                 if (retryAttempt <= batchState.maxRetries) {
-                    console.log('[WPAIP] 重试请求失败(#' + index + ')，' + delay + 'ms 后重试 (' + retryAttempt + '/' + batchState.maxRetries + ')', prompt.substring(0, 30));
+                    console.log('[YIMAI GSO] 重试请求失败(#' + index + ')，' + delay + 'ms 后重试 (' + retryAttempt + '/' + batchState.maxRetries + ')', prompt.substring(0, 30));
                     setTimeout(function() {
                         retryBatchItem(itemIndex);
                     }, delay);
@@ -2733,15 +2733,15 @@ function esc(s) {
         );
 
         // 准备参数
-        var status = normalizeBatchStatus($('input[name="wpaip-batch-status"]:checked').val() || 'draft');
-        $('input[name="wpaip-batch-status"][value="' + status + '"]').prop('checked', true);
+        var status = normalizeBatchStatus($('input[name="yimai-gso-batch-status"]:checked').val() || 'draft');
+        $('input[name="yimai-gso-batch-status"][value="' + status + '"]').prop('checked', true);
         var scheduledAt = '';
 
 
         // 定时发布：计算每篇文章的发布时间
         if (status === 'future') {
-            var startTime = $('#wpaip-batch-schedule-start').val();
-            var interval  = parseInt($('#wpaip-batch-schedule-interval').val(), 10) || 3600;
+            var startTime = $('#yimai-gso-batch-schedule-start').val();
+            var interval  = parseInt($('#yimai-gso-batch-schedule-interval').val(), 10) || 3600;
             if (startTime) {
                 // 修复：用正则直接提取年月日时分，避免依赖 replace/split 顺序导致的解析错误
                 // datetime-local 格式为 YYYY-MM-DDTHH:MM 或 YYYY-MM-DD HH:MM
@@ -2779,17 +2779,17 @@ function esc(s) {
         }
 
         var request = $.ajax({
-            url: wpaipData.ajaxUrl,
+            url: yimaiGsoData.ajaxUrl,
             type: 'POST',
             data: {
-                action:                   'wpaip_batch_generate_and_publish',
-                nonce:                    wpaipData.nonce,
+                action:                   'yimai_gso_batch_generate_and_publish',
+                nonce:                    yimaiGsoData.nonce,
                 prompt:                   prompt,
-                word_count:               $('#wpaip-batch-word-count').val(),
-                image_count:              $('#wpaip-batch-image-count').val(),
-                category_id:              $('#wpaip-batch-category').val(),
-                tags:                     $('#wpaip-batch-tags').val(),
-                use_ai_tags:              $('#wpaip-batch-ai-tags').is(':checked') ? '1' : '0',
+                word_count:               $('#yimai-gso-batch-word-count').val(),
+                image_count:              $('#yimai-gso-batch-image-count').val(),
+                category_id:              $('#yimai-gso-batch-category').val(),
+                tags:                     $('#yimai-gso-batch-tags').val(),
+                use_ai_tags:              $('#yimai-gso-batch-ai-tags').is(':checked') ? '1' : '0',
                 status:                   status,
                 scheduled_at:             scheduledAt,
                 concurrency_index:        concurrencyIndex, // 用于后端生成唯一锁标识
@@ -2818,7 +2818,7 @@ function esc(s) {
                         });
                         safeAppendBatchResult(index, 'error', prompt, { message: fatalMessage + '，已停止整批任务' });
                         stopBatchForFatalError(fatalMessage, itemIndex);
-                    } else if (res.data && res.data.code === 'wpaip_feature_locked') {
+                    } else if (res.data && res.data.code === 'yimai_gso_feature_locked') {
                         batchState.results.push({
                             status:  'error',
                             title:   prompt.substring(0, 30),
@@ -2841,7 +2841,7 @@ function esc(s) {
                     }
                 } catch (err) {
                     var callbackMessage = '前端处理批量结果时发生异常：' + ((err && err.message) ? err.message : '未知错误');
-                    console.error('[WPAIP] 批量生成 success 回调异常:', err, res);
+                    console.error('[YIMAI GSO] 批量生成 success 回调异常:', err, res);
                     batchState.results.push({
                         status:  'error',
                         title:   prompt.substring(0, 30),
@@ -2861,7 +2861,7 @@ function esc(s) {
                 var delay         = delayBase * Math.pow(1.5, retryAttempt - 1); // 3s → 4.5s → 6.75s
 
                 if (retryAttempt <= batchState.maxRetries) {
-                    console.log('[WPAIP] 请求失败(#' + index + ')，' + delay + 'ms 后重试 (' + retryAttempt + '/' + batchState.maxRetries + ')', prompt.substring(0, 30));
+                    console.log('[YIMAI GSO] 请求失败(#' + index + ')，' + delay + 'ms 后重试 (' + retryAttempt + '/' + batchState.maxRetries + ')', prompt.substring(0, 30));
                     // 注意：不要调用 processNextBatchItem()，因为它会递增 runningCount 和 currentIndex
                     // 直接复用同一个 itemIndex 重新发起 AJAX 请求，保持 runningCount 不变
                     setTimeout(function() {
@@ -2904,36 +2904,36 @@ function esc(s) {
         var html;
         if (status === 'success') {
             var statusText = statusMap[data.status] || data.status;
-            html = '<div class="wpaip-batch-item success">'
-                 + '<div class="wpaip-batch-item-header">'
-                 + '<span class="wpaip-batch-item-num">#' + index + '</span>'
-                 + '<span class="wpaip-batch-item-status">' + statusText + '</span>'
+            html = '<div class="yimai-gso-batch-item success">'
+                 + '<div class="yimai-gso-batch-item-header">'
+                 + '<span class="yimai-gso-batch-item-num">#' + index + '</span>'
+                 + '<span class="yimai-gso-batch-item-status">' + statusText + '</span>'
                  + '</div>'
-                 + '<div class="wpaip-batch-item-title">' + escapeHtml(data.title) + '</div>'
-                 + '<div class="wpaip-batch-item-links">'
+                 + '<div class="yimai-gso-batch-item-title">' + escapeHtml(data.title) + '</div>'
+                 + '<div class="yimai-gso-batch-item-links">'
                  + '<a href="' + data.post_url + '" target="_blank">查看文章</a> | '
                  + '<a href="' + data.edit_url + '" target="_blank">编辑</a>'
                  + '</div>'
                  + '</div>';
         } else {
-            html = '<div class="wpaip-batch-item error">'
-                 + '<div class="wpaip-batch-item-header">'
-                 + '<span class="wpaip-batch-item-num">#' + index + '</span>'
-                 + '<span class="wpaip-batch-item-status">❌ 失败</span>'
+            html = '<div class="yimai-gso-batch-item error">'
+                 + '<div class="yimai-gso-batch-item-header">'
+                 + '<span class="yimai-gso-batch-item-num">#' + index + '</span>'
+                 + '<span class="yimai-gso-batch-item-status">❌ 失败</span>'
                  + '</div>'
-                 + '<div class="wpaip-batch-item-title">' + escapeHtml(prompt.substring(0, 50)) + '</div>'
-                 + '<div class="wpaip-batch-item-error">' + escapeHtml(data.message || '未知错误') + '</div>'
+                 + '<div class="yimai-gso-batch-item-title">' + escapeHtml(prompt.substring(0, 50)) + '</div>'
+                 + '<div class="yimai-gso-batch-item-error">' + escapeHtml(data.message || '未知错误') + '</div>'
                  + '</div>';
         }
 
-        $('#wpaip-batch-results').append(html);
+        $('#yimai-gso-batch-results').append(html);
     }
 
     function safeAppendBatchResult(index, status, prompt, data) {
         try {
             appendBatchResult(index, status, prompt, data || {});
         } catch (err) {
-            console.error('[WPAIP] 追加批量结果失败:', err, {
+            console.error('[YIMAI GSO] 追加批量结果失败:', err, {
                 index: index,
                 status: status,
                 prompt: prompt,
@@ -2950,14 +2950,14 @@ function esc(s) {
         batchState.runningCount = Math.max(0, batchState.runningCount - 1);
 
         try {
-            $('#wpaip-batch-counter').text(batchState.completedCount + '/' + batchState.total);
+            $('#yimai-gso-batch-counter').text(batchState.completedCount + '/' + batchState.total);
 
             updateBatchProgress(
                 (batchState.completedCount / Math.max(batchState.total, 1)) * 100,
                 '🤖 [' + batchState.completedCount + '/' + batchState.total + ' 完成]'
             );
         } catch (err) {
-            console.error('[WPAIP] 批量生成收口更新 UI 失败:', err);
+            console.error('[YIMAI GSO] 批量生成收口更新 UI 失败:', err);
         }
 
         if (!batchState.isStopped) {
@@ -2968,8 +2968,8 @@ function esc(s) {
 
     function updateBatchProgress(percent, text) {
 
-        $('.wpaip-batch-fill').css('width', Math.max(2, Math.min(percent, 100)) + '%');
-        $('#wpaip-batch-progress-text').text(text);
+        $('.yimai-gso-batch-fill').css('width', Math.max(2, Math.min(percent, 100)) + '%');
+        $('#yimai-gso-batch-progress-text').text(text);
     }
 
     function finishBatch(message) {
@@ -2986,21 +2986,21 @@ function esc(s) {
         var successCount = batchState.results.filter(function (r) { return r.status === 'success'; }).length;
         var errorCount   = batchState.results.filter(function (r) { return r.status === 'error'; }).length;
 
-        var summaryHtml = '<div class="wpaip-batch-summary">'
-                        + '<span class="wpaip-badge green">✅ 成功 ' + successCount + ' 篇</span>';
+        var summaryHtml = '<div class="yimai-gso-batch-summary">'
+                        + '<span class="yimai-gso-badge green">✅ 成功 ' + successCount + ' 篇</span>';
         if (errorCount > 0) {
-            summaryHtml += ' <span class="wpaip-badge" style="background:#fee2e2;color:#991b1b;">❌ 失败 ' + errorCount + ' 篇</span>';
+            summaryHtml += ' <span class="yimai-gso-badge" style="background:#fee2e2;color:#991b1b;">❌ 失败 ' + errorCount + ' 篇</span>';
         }
         summaryHtml += '</div>';
 
 
-        $('#wpaip-batch-results').prepend(summaryHtml);
+        $('#yimai-gso-batch-results').prepend(summaryHtml);
 
         // 恢复按钮
-        $('#wpaip-batch-stop-btn').hide().prop('disabled', false).html(
+        $('#yimai-gso-batch-stop-btn').hide().prop('disabled', false).html(
             '<span class="dashicons dashicons-sticky"></span> 停止批量生成'
         );
-        $('#wpaip-batch-start-btn').show().html(
+        $('#yimai-gso-batch-start-btn').show().html(
             '<span class="dashicons dashicons-controls-forward"></span> 再次批量生成'
         );
     }
@@ -3016,44 +3016,44 @@ function esc(s) {
         loadTitleHistory();
 
         // 角度全选 - 使用事件委托（仅独立页面使用）
-        $(document).on('click', '#wpaip-angles-select-all', function () {
-            $('#wpaip-titles-keyword').closest('.wpaip-panel, .wpaip-main-panel').find('input[name="wpaip_angles"]').prop('checked', true);
+        $(document).on('click', '#yimai-gso-angles-select-all', function () {
+            $('#yimai-gso-titles-keyword').closest('.yimai-gso-panel, .yimai-gso-main-panel').find('input[name="yimai_gso_angles"]').prop('checked', true);
         });
 
         // 角度清空 - 使用事件委托（仅独立页面使用）
-        $(document).on('click', '#wpaip-angles-clear-all', function () {
-            $('#wpaip-titles-keyword').closest('.wpaip-panel, .wpaip-main-panel').find('input[name="wpaip_angles"]').prop('checked', false);
+        $(document).on('click', '#yimai-gso-angles-clear-all', function () {
+            $('#yimai-gso-titles-keyword').closest('.yimai-gso-panel, .yimai-gso-main-panel').find('input[name="yimai_gso_angles"]').prop('checked', false);
         });
 
         // 生成标题按钮 - 使用事件委托
-        $(document).on('click', '#wpaip-titles-generate-btn', function () {
+        $(document).on('click', '#yimai-gso-titles-generate-btn', function () {
             if (titlesState.isGenerating) return;
 
-            var keyword = $.trim($('#wpaip-titles-keyword').val());
+            var keyword = $.trim($('#yimai-gso-titles-keyword').val());
             if (!keyword) {
                 alert('请输入行业关键词或主题！');
-                $('#wpaip-titles-keyword').focus();
+                $('#yimai-gso-titles-keyword').focus();
                 return;
             }
 
-            var count = parseInt($('#wpaip-titles-count').val()) || 20;
+            var count = parseInt($('#yimai-gso-titles-count').val()) || 20;
 
             titlesState.isGenerating = true;
             var $btn = $(this);
-            $btn.prop('disabled', true).html('<span class="wpaip-loading"></span> AI正在生成标题...');
+            $btn.prop('disabled', true).html('<span class="yimai-gso-loading"></span> AI正在生成标题...');
 
-            $('#wpaip-titles-progress').show();
-            $('#wpaip-titles-progress-text').text('🤖 AI 正在分析行业热点，生成爆款标题...');
+            $('#yimai-gso-titles-progress').show();
+            $('#yimai-gso-titles-progress-text').text('🤖 AI 正在分析行业热点，生成爆款标题...');
             // 只清空标题列表
-            $('#wpaip-step1-titles-results .wpaip-title-item').remove();
-            $('#wpaip-step1-titles-results .wpaip-empty').hide();
+            $('#yimai-gso-step1-titles-results .yimai-gso-title-item').remove();
+            $('#yimai-gso-step1-titles-results .yimai-gso-empty').hide();
 
             $.ajax({
-                url: wpaipData.ajaxUrl,
+                url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
                 data: {
-                    action:  'wpaip_generate_titles',
-                    nonce:   wpaipData.nonce,
+                    action:  'yimai_gso_generate_titles',
+                    nonce:   yimaiGsoData.nonce,
                     keyword: keyword,
                     count:   count,
                 },
@@ -3064,18 +3064,18 @@ function esc(s) {
                     );
 
                     if (!res.success) {
-                        $('#wpaip-titles-progress-text').text('❌ ' + (res.data.message || '生成失败'));
+                        $('#yimai-gso-titles-progress-text').text('❌ ' + (res.data.message || '生成失败'));
                         return;
                     }
 
                     titlesState.titles = res.data.titles || [];
                     if (titlesState.titles.length === 0) {
-                        $('#wpaip-titles-progress-text').text('⚠️ 未生成有效标题，请换个关键词试试');
+                        $('#yimai-gso-titles-progress-text').text('⚠️ 未生成有效标题，请换个关键词试试');
                         return;
                     }
 
                     renderTitlesList(titlesState.titles);
-                    $('#wpaip-titles-progress').hide();
+                    $('#yimai-gso-titles-progress').hide();
                     // 刷新历史记录
                     loadTitleHistory();
                 },
@@ -3084,92 +3084,92 @@ function esc(s) {
                     $btn.prop('disabled', false).html(
                         '<span class="dashicons dashicons-lightbulb"></span> 一键生成热门标题'
                     );
-                    $('#wpaip-titles-progress-text').text('❌ 网络请求失败，请重试');
+                    $('#yimai-gso-titles-progress-text').text('❌ 网络请求失败，请重试');
                 }
             });
         });
 
         // 全选 / 取消全选 - 步骤1标题生成结果
-        $(document).on('click', '#wpaip-step1-titles-select-all', function () {
-            $('#wpaip-step1-titles-results .wpaip-title-item').each(function () {
+        $(document).on('click', '#yimai-gso-step1-titles-select-all', function () {
+            $('#yimai-gso-step1-titles-results .yimai-gso-title-item').each(function () {
                 $(this).addClass('selected');
-                $(this).find('.wpaip-title-checkbox').prop('checked', true);
+                $(this).find('.yimai-gso-title-checkbox').prop('checked', true);
             });
             updateTitlesCounter();
         });
 
-        $(document).on('click', '#wpaip-step1-titles-deselect-all', function () {
-            $('#wpaip-step1-titles-results .wpaip-title-item').each(function () {
+        $(document).on('click', '#yimai-gso-step1-titles-deselect-all', function () {
+            $('#yimai-gso-step1-titles-results .yimai-gso-title-item').each(function () {
                 $(this).removeClass('selected');
-                $(this).find('.wpaip-title-checkbox').prop('checked', false);
+                $(this).find('.yimai-gso-title-checkbox').prop('checked', false);
             });
             updateTitlesCounter();
         });
 
         // 选中的标题直接进入批量文章步骤
-        $(document).on('click', '#wpaip-step1-go-batch, #wpaip-results-to-batch', function () {
+        $(document).on('click', '#yimai-gso-step1-go-batch, #yimai-gso-results-to-batch', function () {
             syncSelectedTitlesToBatch(2);
         });
 
         // ==================== 步骤1标题生成结果的内联操作按钮 ====================
         // 全选
-        $(document).on('click', '#wpaip-results-select-all', function () {
-            $('#wpaip-step1-titles-results .wpaip-title-item').each(function () {
+        $(document).on('click', '#yimai-gso-results-select-all', function () {
+            $('#yimai-gso-step1-titles-results .yimai-gso-title-item').each(function () {
                 $(this).addClass('selected');
-                $(this).find('.wpaip-title-checkbox').prop('checked', true);
+                $(this).find('.yimai-gso-title-checkbox').prop('checked', true);
             });
             updateTitlesCounter();
         });
 
         // 清空选中
-        $(document).on('click', '#wpaip-results-clear-all', function () {
-            $('#wpaip-step1-titles-results .wpaip-title-item').each(function () {
+        $(document).on('click', '#yimai-gso-results-clear-all', function () {
+            $('#yimai-gso-step1-titles-results .yimai-gso-title-item').each(function () {
                 $(this).removeClass('selected');
-                $(this).find('.wpaip-title-checkbox').prop('checked', false);
+                $(this).find('.yimai-gso-title-checkbox').prop('checked', false);
             });
             updateTitlesCounter();
         });
 
         // 双击清空全部并恢复空状态
-        $(document).on('dblclick', '#wpaip-results-clear-all', function () {
-            var $container = $('#wpaip-step1-titles-results');
-            $container.find('.wpaip-title-item').remove();
-            $container.find('.wpaip-empty').show();
+        $(document).on('dblclick', '#yimai-gso-results-clear-all', function () {
+            var $container = $('#yimai-gso-step1-titles-results');
+            $container.find('.yimai-gso-title-item').remove();
+            $container.find('.yimai-gso-empty').show();
             // 清空后隐藏计数器，重置选中数
-            $('#wpaip-step1-titles-counter').hide();
-            $('#wpaip-step1-titles-selected-count').text('0');
+            $('#yimai-gso-step1-titles-counter').hide();
+            $('#yimai-gso-step1-titles-selected-count').text('0');
             updateTitlesCounter();
         });
     }
 
 
     function renderTitlesList(titles) {
-        var $container = $('#wpaip-step1-titles-results');
-        var $counter = $('#wpaip-step1-titles-counter');
+        var $container = $('#yimai-gso-step1-titles-results');
+        var $counter = $('#yimai-gso-step1-titles-counter');
 
         // 清空标题列表，保留空状态元素
-        $container.find('.wpaip-title-item').remove();
-        $container.find('.wpaip-empty').hide();
+        $container.find('.yimai-gso-title-item').remove();
+        $container.find('.yimai-gso-empty').hide();
 
         // 显示计数器和按钮（方案C：固定显示在标题栏）
         $counter.show();
         updateTitlesCounter();
 
         $.each(titles, function (i, title) {
-            var $item = $('<div class="wpaip-title-item">')
+            var $item = $('<div class="yimai-gso-title-item">')
                 .attr('data-index', i);
 
-            var $checkbox = $('<input type="checkbox" class="wpaip-title-checkbox">').attr('data-index', i);
-            var $num = $('<span class="wpaip-title-num">').text((i + 1));
-            var $text = $('<span class="wpaip-title-text">').text(title);
-            var $copyBtn = $('<button class="button button-small wpaip-title-copy-btn">').text('复制');
+            var $checkbox = $('<input type="checkbox" class="yimai-gso-title-checkbox">').attr('data-index', i);
+            var $num = $('<span class="yimai-gso-title-num">').text((i + 1));
+            var $text = $('<span class="yimai-gso-title-text">').text(title);
+            var $copyBtn = $('<button class="button button-small yimai-gso-title-copy-btn">').text('复制');
 
             $item.append($checkbox).append($num).append($text).append($copyBtn);
 
             // 点击行切换选中
             $item.on('click', function (e) {
                 // 排除复制按钮和checkbox自身的点击
-                if ($(e.target).hasClass('wpaip-title-copy-btn') || $(e.target).hasClass('wpaip-title-checkbox')) return;
+                if ($(e.target).hasClass('yimai-gso-title-copy-btn') || $(e.target).hasClass('yimai-gso-title-checkbox')) return;
                 $item.toggleClass('selected');
                 $checkbox.prop('checked', $item.hasClass('selected'));
                 updateTitlesCounter();
@@ -3208,35 +3208,35 @@ function esc(s) {
     }
 
     function updateTitlesCounter() {
-        var $container = $('#wpaip-step1-titles-results');
-        var selected = $container.find('.wpaip-title-item.selected').length;
+        var $container = $('#yimai-gso-step1-titles-results');
+        var selected = $container.find('.yimai-gso-title-item.selected').length;
         var total = titlesState.titles.length;
         // 更新头部计数器和工具栏选中计数
-        $('#wpaip-step1-titles-counter').text(total);
-        $('#wpaip-step1-titles-selected-count').text(selected);
+        $('#yimai-gso-step1-titles-counter').text(total);
+        $('#yimai-gso-step1-titles-selected-count').text(selected);
     }
 
     function getSelectedTitlesForBatch() {
         var selectedTitles = [];
-        $('#wpaip-step1-titles-results .wpaip-title-item.selected').each(function () {
-            selectedTitles.push($(this).find('.wpaip-title-text').text());
+        $('#yimai-gso-step1-titles-results .yimai-gso-title-item.selected').each(function () {
+            selectedTitles.push($(this).find('.yimai-gso-title-text').text());
         });
         return selectedTitles;
     }
 
     function restoreBatchPromptsFromStorage(forceAppend) {
-        var savedPrompts = sessionStorage.getItem('wpaip_batch_prompts');
+        var savedPrompts = sessionStorage.getItem('yimai_gso_batch_prompts');
         
         if (!savedPrompts) {
             return;
         }
 
         // 直接更新可见的文本域（用户可以直接编辑）
-        $('#wpaip-batch-prompts').val(savedPrompts);
+        $('#yimai-gso-batch-prompts').val(savedPrompts);
         
         // 只在forceAppend为true时清除sessionStorage（从标题页面跳转过来时）
         if (forceAppend) {
-            sessionStorage.removeItem('wpaip_batch_prompts');
+            sessionStorage.removeItem('yimai_gso_batch_prompts');
         }
     }
 
@@ -3247,7 +3247,7 @@ function esc(s) {
             return false;
         }
 
-        sessionStorage.setItem('wpaip_batch_prompts', selectedTitles.join('\n'));
+        sessionStorage.setItem('yimai_gso_batch_prompts', selectedTitles.join('\n'));
         switchMainTab('generate');
         switchStep(step || 2);
         // 延迟确保DOM更新完成
@@ -3262,22 +3262,22 @@ function esc(s) {
 
     function loadTitleHistory() {
         $.ajax({
-            url: wpaipData.ajaxUrl,
+            url: yimaiGsoData.ajaxUrl,
             type: 'POST',
             data: {
-                action: 'wpaip_get_title_history',
-                nonce: wpaipData.nonce,
+                action: 'yimai_gso_get_title_history',
+                nonce: yimaiGsoData.nonce,
             },
             success: function (res) {
                 if (res.success && res.data.history && res.data.history.length > 0) {
                     // 渲染到所有历史记录容器
                     renderTitleHistory(res.data.history);
-                    $('#wpaip-titles-clear-all').show();
+                    $('#yimai-gso-titles-clear-all').show();
                 } else {
                     // 空状态 - 更新所有容器
-                    var emptyHtml = '<div class="wpaip-empty" style="padding:12px 0;"><p style="font-size:12px;color:#94a3b8;">暂无历史记录</p></div>';
-                    $('#wpaip-titles-history, #wpaip-step1-titles-history').html(emptyHtml);
-                    $('#wpaip-titles-clear-all').hide();
+                    var emptyHtml = '<div class="yimai-gso-empty" style="padding:12px 0;"><p style="font-size:12px;color:#94a3b8;">暂无历史记录</p></div>';
+                    $('#yimai-gso-titles-history, #yimai-gso-step1-titles-history').html(emptyHtml);
+                    $('#yimai-gso-titles-clear-all').hide();
                 }
             }
         });
@@ -3288,15 +3288,15 @@ function esc(s) {
         var $container = $('<div>');
 
         $.each(history, function (i, record) {
-            var $card = $('<div class="wpaip-history-card">')
+            var $card = $('<div class="yimai-gso-history-card">')
                 .attr('data-index', i);
 
-            var $header = $('<div class="wpaip-history-card-header">');
-            var $keyword = $('<span class="wpaip-history-keyword">').html(
+            var $header = $('<div class="yimai-gso-history-card-header">');
+            var $keyword = $('<span class="yimai-gso-history-keyword">').html(
                 '🔑 <strong>' + escapeHtml(record.keyword) + '</strong> · ' + record.count + ' 个标题'
             );
-            var $time = $('<span class="wpaip-history-time">').text(record.created || '');
-            var $deleteBtn = $('<button class="button button-small wpaip-history-delete-btn">')
+            var $time = $('<span class="yimai-gso-history-time">').text(record.created || '');
+            var $deleteBtn = $('<button class="button button-small yimai-gso-history-delete-btn">')
                 .text('删除')
                 .attr('data-index', i);
 
@@ -3306,16 +3306,16 @@ function esc(s) {
             var previewTitles = (record.titles || []).slice(0, 5);
             var remaining = (record.titles || []).length - previewTitles.length;
 
-            var $preview = $('<div class="wpaip-history-preview">');
+            var $preview = $('<div class="yimai-gso-history-preview">');
             $.each(previewTitles, function (j, title) {
-                $preview.append($('<span class="wpaip-history-tag">').text(title));
+                $preview.append($('<span class="yimai-gso-history-tag">').text(title));
             });
             if (remaining > 0) {
-                $preview.append($('<span class="wpaip-history-more">').text('+' + remaining + ' 个'));
+                $preview.append($('<span class="yimai-gso-history-more">').text('+' + remaining + ' 个'));
             }
 
-            var $actions = $('<div class="wpaip-history-actions">');
-            var $viewBtn = $('<button class="button button-small wpaip-history-view-btn">')
+            var $actions = $('<div class="yimai-gso-history-actions">');
+            var $viewBtn = $('<button class="button button-small yimai-gso-history-view-btn">')
                 .text('查看全部');
             $actions.append($viewBtn);
 
@@ -3325,20 +3325,20 @@ function esc(s) {
 
         var html = $container.html();
         // 渲染到所有历史记录容器
-        $('#wpaip-titles-history, #wpaip-step1-titles-history').html(html);
+        $('#yimai-gso-titles-history, #yimai-gso-step1-titles-history').html(html);
 
         // 绑定事件
         // 删除
-        $('#wpaip-titles-history').off('click', '.wpaip-history-delete-btn').on('click', '.wpaip-history-delete-btn', function (e) {
+        $('#yimai-gso-titles-history').off('click', '.yimai-gso-history-delete-btn').on('click', '.yimai-gso-history-delete-btn', function (e) {
             e.stopPropagation();
             var index = $(this).data('index');
             if (confirm('确定删除这条记录？')) {
                 $.ajax({
-                    url: wpaipData.ajaxUrl,
+                    url: yimaiGsoData.ajaxUrl,
                     type: 'POST',
                     data: {
-                        action: 'wpaip_delete_title_history',
-                        nonce: wpaipData.nonce,
+                        action: 'yimai_gso_delete_title_history',
+                        nonce: yimaiGsoData.nonce,
                         index: index,
                     },
                     success: function (res) {
@@ -3351,9 +3351,9 @@ function esc(s) {
         });
 
         // 查看全部 - 把历史标题加载到右侧结果区域
-        $('#wpaip-titles-history').off('click', '.wpaip-history-view-btn').on('click', '.wpaip-history-view-btn', function (e) {
+        $('#yimai-gso-titles-history').off('click', '.yimai-gso-history-view-btn').on('click', '.yimai-gso-history-view-btn', function (e) {
             e.stopPropagation();
-            var index = $(this).closest('.wpaip-history-card').data('index');
+            var index = $(this).closest('.yimai-gso-history-card').data('index');
             var record = history[index];
             if (record && record.titles) {
                 titlesState.titles = record.titles;
@@ -3364,16 +3364,16 @@ function esc(s) {
         });
 
         // 步骤1容器中的删除按钮
-        $('#wpaip-step1-titles-history').off('click', '.wpaip-history-delete-btn').on('click', '.wpaip-history-delete-btn', function (e) {
+        $('#yimai-gso-step1-titles-history').off('click', '.yimai-gso-history-delete-btn').on('click', '.yimai-gso-history-delete-btn', function (e) {
             e.stopPropagation();
             var index = $(this).data('index');
             if (confirm('确定删除这条记录？')) {
                 $.ajax({
-                    url: wpaipData.ajaxUrl,
+                    url: yimaiGsoData.ajaxUrl,
                     type: 'POST',
                     data: {
-                        action: 'wpaip_delete_title_history',
-                        nonce: wpaipData.nonce,
+                        action: 'yimai_gso_delete_title_history',
+                        nonce: yimaiGsoData.nonce,
                         index: index,
                     },
                     success: function (res) {
@@ -3386,9 +3386,9 @@ function esc(s) {
         });
 
         // 步骤1容器中的查看全部按钮
-        $('#wpaip-step1-titles-history').off('click', '.wpaip-history-view-btn').on('click', '.wpaip-history-view-btn', function (e) {
+        $('#yimai-gso-step1-titles-history').off('click', '.yimai-gso-history-view-btn').on('click', '.yimai-gso-history-view-btn', function (e) {
             e.stopPropagation();
-            var index = $(this).closest('.wpaip-history-card').data('index');
+            var index = $(this).closest('.yimai-gso-history-card').data('index');
             var record = history[index];
             if (record && record.titles) {
                 titlesState.titles = record.titles;
@@ -3399,14 +3399,14 @@ function esc(s) {
         });
 
         // 清空全部
-        $('#wpaip-titles-clear-all').off('click').on('click', function () {
+        $('#yimai-gso-titles-clear-all').off('click').on('click', function () {
             if (confirm('确定清空所有历史记录？此操作不可撤销。')) {
                 $.ajax({
-                    url: wpaipData.ajaxUrl,
+                    url: yimaiGsoData.ajaxUrl,
                     type: 'POST',
                     data: {
-                        action: 'wpaip_clear_title_history',
-                        nonce: wpaipData.nonce,
+                        action: 'yimai_gso_clear_title_history',
+                        nonce: yimaiGsoData.nonce,
                     },
                     success: function (res) {
                         loadTitleHistory();
@@ -3416,14 +3416,14 @@ function esc(s) {
         });
 
         // 选题生成区域的历史记录清空按钮
-        $(document).on('click', '#wpaip-step1-history-clear', function () {
+        $(document).on('click', '#yimai-gso-step1-history-clear', function () {
             if (confirm('确定清空所有历史记录？此操作不可撤销。')) {
                 $.ajax({
-                    url: wpaipData.ajaxUrl,
+                    url: yimaiGsoData.ajaxUrl,
                     type: 'POST',
                     data: {
-                        action: 'wpaip_clear_title_history',
-                        nonce: wpaipData.nonce,
+                        action: 'yimai_gso_clear_title_history',
+                        nonce: yimaiGsoData.nonce,
                     },
                     success: function (res) {
                         loadTitleHistory();
@@ -3436,53 +3436,53 @@ function esc(s) {
     // ==================== 生成记录（改版） ====================
     function initHistoryPage() {
         // 不在历史页面则跳过
-        if (!$('#wpaip-history-stats').length) return;
+        if (!$('#yimai-gso-history-stats').length) return;
 
         loadHistoryStats();
         loadHistory(1);
 
         // 筛选按钮
-        $('#wpaip-h-filter-btn').off('click').on('click', function () {
+        $('#yimai-gso-h-filter-btn').off('click').on('click', function () {
             loadHistory(1);
         });
 
         // 回车搜索
-        $('#wpaip-h-search').off('keydown').on('keydown', function (e) {
+        $('#yimai-gso-h-search').off('keydown').on('keydown', function (e) {
             if (e.key === 'Enter') loadHistory(1);
         });
 
         // 重置
-        $('#wpaip-h-reset-btn').off('click').on('click', function () {
-            $('#wpaip-h-search').val('');
-            $('#wpaip-h-status').val('');
-            $('#wpaip-h-source').val('');
-            $('#wpaip-h-date-from').val('');
-            $('#wpaip-h-date-to').val('');
+        $('#yimai-gso-h-reset-btn').off('click').on('click', function () {
+            $('#yimai-gso-h-search').val('');
+            $('#yimai-gso-h-status').val('');
+            $('#yimai-gso-h-source').val('');
+            $('#yimai-gso-h-date-from').val('');
+            $('#yimai-gso-h-date-to').val('');
             loadHistory(1);
         });
 
         // 刷新
-        $('#wpaip-h-refresh-btn').off('click').on('click', function () {
+        $('#yimai-gso-h-refresh-btn').off('click').on('click', function () {
             loadHistoryStats();
             loadHistory(currentHistoryPage);
         });
 
         // 全选
-        $('#wpaip-h-check-all').off('change').on('change', function () {
+        $('#yimai-gso-h-check-all').off('change').on('change', function () {
             var checked = this.checked;
-            $('#wpaip-history-tbody input[type="checkbox"]').prop('checked', checked).trigger('change');
+            $('#yimai-gso-history-tbody input[type="checkbox"]').prop('checked', checked).trigger('change');
         });
 
         // 单个选择
-        $(document).off('change', '.wpaip-h-row-check').on('change', '.wpaip-h-row-check', function () {
+        $(document).off('change', '.yimai-gso-h-row-check').on('change', '.yimai-gso-h-row-check', function () {
             var $row = $(this).closest('tr');
-            if (this.checked) $row.addClass('wpaip-row-selected');
-            else $row.removeClass('wpaip-row-selected');
+            if (this.checked) $row.addClass('yimai-gso-row-selected');
+            else $row.removeClass('yimai-gso-row-selected');
             updateBatchDeleteBtn();
         });
 
         // 批量删除
-        $('#wpaip-h-batch-delete-btn').off('click').on('click', function () {
+        $('#yimai-gso-h-batch-delete-btn').off('click').on('click', function () {
             var ids = getSelectedIds();
             if (!ids.length) return;
             if (!confirm('确定要删除选中的 ' + ids.length + ' 篇文章吗？此操作不可撤销。')) return;
@@ -3490,13 +3490,13 @@ function esc(s) {
             var $btn = $(this);
             $btn.prop('disabled', true).text('删除中...');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_history_delete',
-                nonce: wpaipData.nonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_history_delete',
+                nonce: yimaiGsoData.nonce,
                 ids: ids
             }, function (res) {
                 $btn.prop('disabled', false).text('批量删除').hide();
-                $('#wpaip-h-check-all').prop('checked', false);
+                $('#yimai-gso-h-check-all').prop('checked', false);
                 loadHistoryStats();
                 loadHistory(currentHistoryPage);
             }).fail(function () {
@@ -3506,12 +3506,12 @@ function esc(s) {
         });
 
         // 弹窗关闭
-        $(document).off('click', '.wpaip-modal-close, .wpaip-modal-overlay').on('click', '.wpaip-modal-close, .wpaip-modal-overlay', function () {
-            $('#wpaip-history-modal').fadeOut(150);
+        $(document).off('click', '.yimai-gso-modal-close, .yimai-gso-modal-overlay').on('click', '.yimai-gso-modal-close, .yimai-gso-modal-overlay', function () {
+            $('#yimai-gso-history-modal').fadeOut(150);
         });
 
         $(document).off('keydown').on('keydown', function (e) {
-            if (e.key === 'Escape') $('#wpaip-history-modal').fadeOut(150);
+            if (e.key === 'Escape') $('#yimai-gso-history-modal').fadeOut(150);
         });
     }
 
@@ -3519,39 +3519,39 @@ function esc(s) {
 
     function loadHistory(page) {
         currentHistoryPage = page;
-        var $tbody = $('#wpaip-history-tbody');
-        $tbody.html('<tr><td colspan="6" class="wpaip-loading-row">加载中...</td></tr>');
+        var $tbody = $('#yimai-gso-history-tbody');
+        $tbody.html('<tr><td colspan="6" class="yimai-gso-loading-row">加载中...</td></tr>');
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_history_query',
-            nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_history_query',
+            nonce: yimaiGsoData.nonce,
             page: page,
             per_page: 15,
-            search: $('#wpaip-h-search').val(),
-            status: $('#wpaip-h-status').val(),
-            source: $('#wpaip-h-source').val(),
-            date_from: $('#wpaip-h-date-from').val(),
-            date_to: $('#wpaip-h-date-to').val(),
+            search: $('#yimai-gso-h-search').val(),
+            status: $('#yimai-gso-h-status').val(),
+            source: $('#yimai-gso-h-source').val(),
+            date_from: $('#yimai-gso-h-date-from').val(),
+            date_to: $('#yimai-gso-h-date-to').val(),
             orderby: 'date',
             order: 'DESC'
         }, function (res) {
             if (!res.success) {
-                $tbody.html('<tr><td colspan="6" class="wpaip-loading-row">加载失败</td></tr>');
+                $tbody.html('<tr><td colspan="6" class="yimai-gso-loading-row">加载失败</td></tr>');
                 return;
             }
             var d = res.data;
             renderHistoryTable(d.items);
             renderPagination(d.page, d.pages, d.total, loadHistory);
         }).fail(function () {
-            $tbody.html('<tr><td colspan="6" class="wpaip-loading-row">网络错误，请重试</td></tr>');
+            $tbody.html('<tr><td colspan="6" class="yimai-gso-loading-row">网络错误，请重试</td></tr>');
         });
     }
 
     function renderHistoryTable(items) {
-        var $tbody = $('#wpaip-history-tbody');
+        var $tbody = $('#yimai-gso-history-tbody');
 
         if (!items || items.length === 0) {
-            $tbody.html('<tr><td colspan="6" class="wpaip-loading-row"><div class="wpaip-history-empty"><span class="dashicons dashicons-media-text"></span><p style="margin:0;font-size:14px;">暂无生成记录</p><p style="margin:4px 0 0;font-size:12px;color:#94a3b8;"><a href="admin.php?page=wpaip-batch">去生成第一篇文章</a></p></div></td></tr>');
+            $tbody.html('<tr><td colspan="6" class="yimai-gso-loading-row"><div class="yimai-gso-history-empty"><span class="dashicons dashicons-media-text"></span><p style="margin:0;font-size:14px;">暂无生成记录</p><p style="margin:4px 0 0;font-size:12px;color:#94a3b8;"><a href="admin.php?page=yimai-gso-batch">去生成第一篇文章</a></p></div></td></tr>');
             return;
         }
 
@@ -3576,8 +3576,8 @@ function esc(s) {
 
             // 缩略图
             var thumbHtml = item.thumbnail
-                ? '<img class="wpaip-h-thumb" src="' + item.thumbnail + '" alt="">'
-                : '<div class="wpaip-h-thumb-placeholder">📄</div>';
+                ? '<img class="yimai-gso-h-thumb" src="' + item.thumbnail + '" alt="">'
+                : '<div class="yimai-gso-h-thumb-placeholder">📄</div>';
 
             // 分类+标签
             var metaParts = [];
@@ -3588,30 +3588,30 @@ function esc(s) {
             var wordInfo = item.word_count ? item.word_count + '字' : '';
 
             html += '<tr data-id="' + item.id + '">';
-            html += '<td class="wpaip-th-check"><input type="checkbox" class="wpaip-h-row-check" value="' + item.id + '"></td>';
-            html += '<td class="wpaip-th-title">';
-            html += '<div class="wpaip-h-title-cell">';
+            html += '<td class="yimai-gso-th-check"><input type="checkbox" class="yimai-gso-h-row-check" value="' + item.id + '"></td>';
+            html += '<td class="yimai-gso-th-title">';
+            html += '<div class="yimai-gso-h-title-cell">';
             html += thumbHtml;
             html += '<div style="min-width:0;flex:1;">';
-            html += '<div class="wpaip-h-title-text" data-id="' + item.id + '">' + escHtml(item.title) + '</div>';
+            html += '<div class="yimai-gso-h-title-text" data-id="' + item.id + '">' + escHtml(item.title) + '</div>';
             if (metaLine || wordInfo) {
-                html += '<div class="wpaip-h-meta-line">';
+                html += '<div class="yimai-gso-h-meta-line">';
                 if (metaLine) html += '<span>' + escHtml(metaLine) + '</span>';
                 if (wordInfo) html += '<span>· ' + wordInfo + '</span>';
                 if (item.image_count > 0) html += '<span>· ' + item.image_count + '张图</span>';
                 html += '</div>';
             }
             if (item.scheduled_at) {
-                html += '<div class="wpaip-h-meta-line" style="color:#2563eb;">⏰ ' + escHtml(item.scheduled_at) + '</div>';
+                html += '<div class="yimai-gso-h-meta-line" style="color:#2563eb;">⏰ ' + escHtml(item.scheduled_at) + '</div>';
             }
             html += '</div></div></td>';
-            html += '<td class="wpaip-th-status"><span class="wpaip-h-status wpaip-h-status-' + st[1] + '">' + st[0] + '</span></td>';
-            html += '<td class="wpaip-th-source"><span class="wpaip-h-source wpaip-h-source-' + sr[1] + '">' + sr[0] + '</span></td>';
-            html += '<td class="wpaip-th-date"><span style="font-size:13px;color:#475569;">' + formatTime(item.generated_at || item.date) + '</span></td>';
-            html += '<td class="wpaip-th-actions"><div class="wpaip-h-actions">';
+            html += '<td class="yimai-gso-th-status"><span class="yimai-gso-h-status yimai-gso-h-status-' + st[1] + '">' + st[0] + '</span></td>';
+            html += '<td class="yimai-gso-th-source"><span class="yimai-gso-h-source yimai-gso-h-source-' + sr[1] + '">' + sr[0] + '</span></td>';
+            html += '<td class="yimai-gso-th-date"><span style="font-size:13px;color:#475569;">' + formatTime(item.generated_at || item.date) + '</span></td>';
+            html += '<td class="yimai-gso-th-actions"><div class="yimai-gso-h-actions">';
             html += '<a href="' + item.view_url + '" target="_blank" class="button">查看</a>';
             html += '<a href="' + item.edit_url + '" class="button">编辑</a>';
-            html += '<button class="button wpaip-h-detail-btn" data-id="' + item.id + '" style="color:var(--wpaip-primary);">详情</button>';
+            html += '<button class="button yimai-gso-h-detail-btn" data-id="' + item.id + '" style="color:var(--yimai-gso-primary);">详情</button>';
             html += '</div></td>';
             html += '</tr>';
         });
@@ -3619,13 +3619,13 @@ function esc(s) {
         $tbody.html(html);
 
         // 绑定详情按钮
-        $tbody.off('click', '.wpaip-h-detail-btn').on('click', '.wpaip-h-detail-btn', function () {
+        $tbody.off('click', '.yimai-gso-h-detail-btn').on('click', '.yimai-gso-h-detail-btn', function () {
             var id = $(this).data('id');
             showDetailModal(id);
         });
 
         // 绑定标题点击
-        $tbody.off('click', '.wpaip-h-title-text').on('click', '.wpaip-h-title-text', function () {
+        $tbody.off('click', '.yimai-gso-h-title-text').on('click', '.yimai-gso-h-title-text', function () {
             var id = $(this).data('id');
             showDetailModal(id);
         });
@@ -3633,34 +3633,34 @@ function esc(s) {
 
     // ==================== 分页函数 ====================
     function renderPagination(current, total, items, onPageChange) {
-        var $pag = $('#wpaip-history-pagination');
+        var $pag = $('#yimai-gso-history-pagination');
         if (total <= 1) { $pag.html(''); return; }
 
-        var html = '<button class="wpaip-page-btn' + (current <= 1 ? ' disabled' : '') + '" data-page="' + (current - 1) + '">‹</button>';
+        var html = '<button class="yimai-gso-page-btn' + (current <= 1 ? ' disabled' : '') + '" data-page="' + (current - 1) + '">‹</button>';
 
         var start = Math.max(1, current - 2);
         var end = Math.min(total, current + 2);
 
         if (start > 1) {
-            html += '<button class="wpaip-page-btn" data-page="1">1</button>';
-            if (start > 2) html += '<span class="wpaip-page-info">...</span>';
+            html += '<button class="yimai-gso-page-btn" data-page="1">1</button>';
+            if (start > 2) html += '<span class="yimai-gso-page-info">...</span>';
         }
 
         for (var i = start; i <= end; i++) {
-            html += '<button class="wpaip-page-btn' + (i === current ? ' active' : '') + '" data-page="' + i + '">' + i + '</button>';
+            html += '<button class="yimai-gso-page-btn' + (i === current ? ' active' : '') + '" data-page="' + i + '">' + i + '</button>';
         }
 
         if (end < total) {
-            if (end < total - 1) html += '<span class="wpaip-page-info">...</span>';
-            html += '<button class="wpaip-page-btn" data-page="' + total + '">' + total + '</button>';
+            if (end < total - 1) html += '<span class="yimai-gso-page-info">...</span>';
+            html += '<button class="yimai-gso-page-btn" data-page="' + total + '">' + total + '</button>';
         }
 
-        html += '<button class="wpaip-page-btn' + (current >= total ? ' disabled' : '') + '" data-page="' + (current + 1) + '">›</button>';
-        html += '<span class="wpaip-page-info">共 ' + items + ' 条</span>';
+        html += '<button class="yimai-gso-page-btn' + (current >= total ? ' disabled' : '') + '" data-page="' + (current + 1) + '">›</button>';
+        html += '<span class="yimai-gso-page-info">共 ' + items + ' 条</span>';
 
         $pag.html(html);
 
-        $pag.off('click', '.wpaip-page-btn:not(.disabled)').on('click', '.wpaip-page-btn:not(.disabled)', function () {
+        $pag.off('click', '.yimai-gso-page-btn:not(.disabled)').on('click', '.yimai-gso-page-btn:not(.disabled)', function () {
             var page = parseInt($(this).data('page'));
             if (onPageChange) {
                 onPageChange(page);
@@ -3669,8 +3669,8 @@ function esc(s) {
     }
 
     function showDetailModal(id) {
-        var $modal = $('#wpaip-history-modal');
-        var $body = $('#wpaip-modal-body');
+        var $modal = $('#yimai-gso-history-modal');
+        var $body = $('#yimai-gso-modal-body');
         $body.html('<div style="text-align:center;padding:30px;color:#94a3b8;">加载中...</div>');
         $modal.fadeIn(150);
 
@@ -3680,9 +3680,9 @@ function esc(s) {
         if (rowData) {
             renderDetailContent(rowData);
         } else {
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_history_query',
-                nonce: wpaipData.nonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_history_query',
+                nonce: yimaiGsoData.nonce,
                 page: 1,
                 per_page: 1,
                 // 直接通过 ID 过滤 - 这里简化处理
@@ -3718,45 +3718,45 @@ function esc(s) {
     }
 
     function renderDetailContent(item) {
-        var $body = $('#wpaip-modal-body');
-        var $title = $('#wpaip-modal-title');
+        var $body = $('#yimai-gso-modal-body');
+        var $title = $('#yimai-gso-modal-title');
         $title.text(item.title);
 
         var statusColors = { '已发布': '#16a34a', '草稿': '#64748b', '定时发布': '#2563eb', '回收站': '#dc2626' };
         var statusColor = statusColors[item.status] || '#475569';
 
-        var html = '<div class="wpaip-detail-grid">';
-        html += '<div class="wpaip-detail-item"><div class="wpaip-detail-label">状态</div><div class="wpaip-detail-value"><span style="color:' + statusColor + ';font-weight:600;">' + escHtml(item.status) + '</span></div></div>';
-        html += '<div class="wpaip-detail-item"><div class="wpaip-detail-label">来源</div><div class="wpaip-detail-value">' + escHtml(item.source) + '</div></div>';
-        html += '<div class="wpaip-detail-item"><div class="wpaip-detail-label">生成时间</div><div class="wpaip-detail-value">' + escHtml(item.date) + '</div></div>';
+        var html = '<div class="yimai-gso-detail-grid">';
+        html += '<div class="yimai-gso-detail-item"><div class="yimai-gso-detail-label">状态</div><div class="yimai-gso-detail-value"><span style="color:' + statusColor + ';font-weight:600;">' + escHtml(item.status) + '</span></div></div>';
+        html += '<div class="yimai-gso-detail-item"><div class="yimai-gso-detail-label">来源</div><div class="yimai-gso-detail-value">' + escHtml(item.source) + '</div></div>';
+        html += '<div class="yimai-gso-detail-item"><div class="yimai-gso-detail-label">生成时间</div><div class="yimai-gso-detail-value">' + escHtml(item.date) + '</div></div>';
 
         if (item.word_count) {
-            html += '<div class="wpaip-detail-item"><div class="wpaip-detail-label">目标字数</div><div class="wpaip-detail-value">' + item.word_count + ' 字</div></div>';
+            html += '<div class="yimai-gso-detail-item"><div class="yimai-gso-detail-label">目标字数</div><div class="yimai-gso-detail-value">' + item.word_count + ' 字</div></div>';
         }
         if (item.image_count > 0) {
-            html += '<div class="wpaip-detail-item"><div class="wpaip-detail-label">配图数量</div><div class="wpaip-detail-value">' + item.image_count + ' 张</div></div>';
+            html += '<div class="yimai-gso-detail-item"><div class="yimai-gso-detail-label">配图数量</div><div class="yimai-gso-detail-value">' + item.image_count + ' 张</div></div>';
         }
 
         if (item.categories && item.categories.length) {
-            html += '<div class="wpaip-detail-item"><div class="wpaip-detail-label">分类</div><div class="wpaip-detail-value">' + escHtml(item.categories.join(', ')) + '</div></div>';
+            html += '<div class="yimai-gso-detail-item"><div class="yimai-gso-detail-label">分类</div><div class="yimai-gso-detail-value">' + escHtml(item.categories.join(', ')) + '</div></div>';
         }
         if (item.tags && item.tags.length) {
-            html += '<div class="wpaip-detail-item"><div class="wpaip-detail-label">标签</div><div class="wpaip-detail-value"><div class="wpaip-detail-tags">';
-            item.tags.forEach(function (t) { html += '<span class="wpaip-detail-tag">' + escHtml(t) + '</span>'; });
+            html += '<div class="yimai-gso-detail-item"><div class="yimai-gso-detail-label">标签</div><div class="yimai-gso-detail-value"><div class="yimai-gso-detail-tags">';
+            item.tags.forEach(function (t) { html += '<span class="yimai-gso-detail-tag">' + escHtml(t) + '</span>'; });
             html += '</div></div></div>';
         }
 
-        html += '<div class="wpaip-detail-divider"></div>';
+        html += '<div class="yimai-gso-detail-divider"></div>';
 
         if (item.prompt) {
-            html += '<div class="wpaip-detail-item full-width"><div class="wpaip-detail-label">生成提示词</div><div class="wpaip-detail-prompt">' + escHtml(item.prompt) + '</div></div>';
+            html += '<div class="yimai-gso-detail-item full-width"><div class="yimai-gso-detail-label">生成提示词</div><div class="yimai-gso-detail-prompt">' + escHtml(item.prompt) + '</div></div>';
         }
 
         if (item.ai_model) {
-            html += '<div class="wpaip-detail-item"><div class="wpaip-detail-label">AI 模型</div><div class="wpaip-detail-value">' + escHtml(item.ai_model) + '</div></div>';
+            html += '<div class="yimai-gso-detail-item"><div class="yimai-gso-detail-label">AI 模型</div><div class="yimai-gso-detail-value">' + escHtml(item.ai_model) + '</div></div>';
         }
 
-        html += '<div class="wpaip-detail-actions">';
+        html += '<div class="yimai-gso-detail-actions">';
         html += '<a href="' + item.view_url + '" target="_blank" class="button button-primary">查看文章</a>';
         html += '<a href="' + item.edit_url + '" class="button">编辑文章</a>';
         html += '</div>';
@@ -3767,7 +3767,7 @@ function esc(s) {
 
     function getSelectedIds() {
         var ids = [];
-        $('#wpaip-history-tbody input.wpaip-h-row-check:checked').each(function () {
+        $('#yimai-gso-history-tbody input.yimai-gso-h-row-check:checked').each(function () {
             ids.push(parseInt($(this).val()));
         });
         return ids;
@@ -3776,9 +3776,9 @@ function esc(s) {
     function updateBatchDeleteBtn() {
         var count = getSelectedIds().length;
         if (count > 0) {
-            $('#wpaip-h-batch-delete-btn').text('批量删除 (' + count + ')').show();
+            $('#yimai-gso-h-batch-delete-btn').text('批量删除 (' + count + ')').show();
         } else {
-            $('#wpaip-h-batch-delete-btn').hide();
+            $('#yimai-gso-h-batch-delete-btn').hide();
         }
     }
 
@@ -3816,37 +3816,37 @@ function esc(s) {
 
     // ==================== 仪表盘页面 ====================
     // ========== 仪表盘 v5 初始化 ==========
-    var wpaipD5Charts = {};       // 图表实例引用
-    var wpaipD5Data = null;       // 缓存完整数据
-    var wpaipD5Initing = false;   // 防止并发初始化
+    var yimaiGsoD5Charts = {};       // 图表实例引用
+    var yimaiGsoD5Data = null;       // 缓存完整数据
+    var yimaiGsoD5Initing = false;   // 防止并发初始化
 
     function initDashboardPage() {
-        var $panel = $('.wpaip-main-panel[data-tab="dashboard"]');
+        var $panel = $('.yimai-gso-main-panel[data-tab="dashboard"]');
         if (!$panel.length || !$panel.hasClass('active')) {
             stopD5Countdown();
             return;
         }
 
         // 避免重复初始化：已在初始化中 或 已有数据
-        if (wpaipD5Initing || wpaipD5Data !== null) return;
-        wpaipD5Initing = true;
+        if (yimaiGsoD5Initing || yimaiGsoD5Data !== null) return;
+        yimaiGsoD5Initing = true;
 
         // 清理旧图表实例
-        $.each(wpaipD5Charts, function (key, chart) {
+        $.each(yimaiGsoD5Charts, function (key, chart) {
             if (chart && typeof chart.destroy === 'function') chart.destroy();
         });
-        wpaipD5Charts = {};
+        yimaiGsoD5Charts = {};
 
         // 加载仪表盘数据
         loadDashboardV5Data();
 
         // 趋势 Tab 切换
-        $('#wpaip-d5-trend-tabs').off('click.wpaipD5Trend').on('click.wpaipD5Trend', '.wpaip-d5-chart-tab', function () {
+        $('#yimai-gso-d5-trend-tabs').off('click.yimaiGsoD5Trend').on('click.yimaiGsoD5Trend', '.yimai-gso-d5-chart-tab', function () {
             var range = $(this).data('range');
-            if (!range || !wpaipD5Data) return;
-            $('#wpaip-d5-trend-tabs .wpaip-d5-chart-tab').removeClass('active');
+            if (!range || !yimaiGsoD5Data) return;
+            $('#yimai-gso-d5-trend-tabs .yimai-gso-d5-chart-tab').removeClass('active');
             $(this).addClass('active');
-            renderCrawlerTrendChart(wpaipD5Data.crawler_trend[range]);
+            renderCrawlerTrendChart(yimaiGsoD5Data.crawler_trend[range]);
         });
     }
 
@@ -3854,30 +3854,30 @@ function esc(s) {
      * 加载仪表盘全部数据
      */
     function loadDashboardV5Data() {
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_dashboard_data',
-            nonce: wpaipData.nonce
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_dashboard_data',
+            nonce: yimaiGsoData.nonce
         }, function (res) {
-            wpaipD5Initing = false; // 无论成功失败都重置初始化锁
+            yimaiGsoD5Initing = false; // 无论成功失败都重置初始化锁
             if (!res || !res.success || !res.data) {
                 console.warn('[一麦GSO Dashboard] 仪表盘数据加载失败', res);
                 showDashboardError('数据加载失败，请刷新页面重试');
                 return;
             }
-            wpaipD5Data = res.data;
+            yimaiGsoD5Data = res.data;
 
             // 更新「数据更新于」时间戳
             if (res.data.generated_at) {
-                $('#wpaip-d5-update-time').text(res.data.generated_at.substring(0, 16));
+                $('#yimai-gso-d5-update-time').text(res.data.generated_at.substring(0, 16));
             }
 
-            renderKPICards(wpaipD5Data);
-            renderHealthRadar(wpaipD5Data.health_radar);
-            renderSchemaChart(wpaipD5Data.schema_coverage);
-            renderCrawlerFamilyChart(wpaipD5Data.crawler_family);
-            renderCrawlerTrendChart(wpaipD5Data.crawler_trend['7']);
+            renderKPICards(yimaiGsoD5Data);
+            renderHealthRadar(yimaiGsoD5Data.health_radar);
+            renderSchemaChart(yimaiGsoD5Data.schema_coverage);
+            renderCrawlerFamilyChart(yimaiGsoD5Data.crawler_family);
+            renderCrawlerTrendChart(yimaiGsoD5Data.crawler_trend['7']);
         }).fail(function (jqXHR, textStatus, errorThrown) {
-            wpaipD5Initing = false; // 重置初始化锁，允许重试
+            yimaiGsoD5Initing = false; // 重置初始化锁，允许重试
             console.warn('[一麦GSO Dashboard] AJAX 请求失败:', textStatus, errorThrown);
             showDashboardError('网络请求失败 (' + (jqXHR.status || '0') + ')，请检查控制台或刷新页面');
         });
@@ -3887,7 +3887,7 @@ function esc(s) {
      * 显示仪表盘错误提示
      */
     function showDashboardError(msg) {
-        $('#wpaip-d5-health-grid').html('<div class="wpaip-d5-health-item"><div class="wpaip-d5-health-item-header"><span class="wpaip-d5-health-item-name" style="color:#ef4444">' + msg + '</span></div></div>');
+        $('#yimai-gso-d5-health-grid').html('<div class="yimai-gso-d5-health-item"><div class="yimai-gso-d5-health-item-header"><span class="yimai-gso-d5-health-item-name" style="color:#ef4444">' + msg + '</span></div></div>');
     }
 
     /**
@@ -3895,30 +3895,30 @@ function esc(s) {
      */
     function renderKPICards(data) {
         var kpi = data.kpi || {};
-        var $cards = $('#wpaip-d5-kpi-grid .wpaip-d5-kpi-card');
+        var $cards = $('#yimai-gso-d5-kpi-grid .yimai-gso-d5-kpi-card');
 
         // [0] 已发布文章
-        $cards.eq(0).find('.wpaip-d5-kpi-value').text(kpi.articles || 0);
+        $cards.eq(0).find('.yimai-gso-d5-kpi-value').text(kpi.articles || 0);
 
         // [1] AI爬虫访问
-        $cards.eq(1).find('.wpaip-d5-kpi-value').text(formatNumber(kpi.crawler_today || 0));
+        $cards.eq(1).find('.yimai-gso-d5-kpi-value').text(formatNumber(kpi.crawler_today || 0));
 
         // [2] Schema覆盖率
-        $cards.eq(2).find('.wpaip-d5-kpi-value').text(kpi.schema_rate || 0);
+        $cards.eq(2).find('.yimai-gso-d5-kpi-value').text(kpi.schema_rate || 0);
 
         // [3] AI引荐流量
-        $cards.eq(3).find('.wpaip-d5-kpi-value').text(formatNumber(kpi.referral_30d || 0));
+        $cards.eq(3).find('.yimai-gso-d5-kpi-value').text(formatNumber(kpi.referral_30d || 0));
 
         // [4] 定时发布队列
-        $cards.eq(4).find('.wpaip-d5-kpi-value').text(kpi.scheduled || 0);
+        $cards.eq(4).find('.yimai-gso-d5-kpi-value').text(kpi.scheduled || 0);
 
         // [5] 活跃预警
         var alertVal = kpi.active_alerts || 0;
-        var $alertVal = $cards.eq(5).find('.wpaip-d5-kpi-value');
+        var $alertVal = $cards.eq(5).find('.yimai-gso-d5-kpi-value');
         $alertVal.text(alertVal);
         if (alertVal > 0) {
             $alertVal.css('color', '#ef4444');
-            $cards.eq(5).find('.wpaip-d5-kpi-unit').text('条');
+            $cards.eq(5).find('.yimai-gso-d5-kpi-unit').text('条');
         }
     }
 
@@ -3931,16 +3931,16 @@ function esc(s) {
         items.forEach(function (item) {
             var cls = item.score >= 80 ? 'good' : (item.score >= 50 ? 'warn' : 'bad');
             var fillCls = item.score >= 80 ? 'good' : (item.score >= 50 ? 'warn' : 'bad');
-            html += '<div class="wpaip-d5-health-item">' +
-                '<div class="wpaip-d5-health-item-header">' +
-                '<span class="wpaip-d5-health-item-name">' + escHtml(item.name) + '</span>' +
-                '<span class="wpaip-d5-health-item-score ' + cls + '">' + item.score + '</span>' +
+            html += '<div class="yimai-gso-d5-health-item">' +
+                '<div class="yimai-gso-d5-health-item-header">' +
+                '<span class="yimai-gso-d5-health-item-name">' + escHtml(item.name) + '</span>' +
+                '<span class="yimai-gso-d5-health-item-score ' + cls + '">' + item.score + '</span>' +
                 '</div>' +
-                '<div class="wpaip-d5-health-item-bar"><div class="wpaip-d5-health-item-fill ' + fillCls + '" style="width:' + Math.max(2, item.score) + '%"></div></div>' +
-                '<div class="wpaip-d5-health-item-detail">' + (item.detail || '') + '</div>' +
+                '<div class="yimai-gso-d5-health-item-bar"><div class="yimai-gso-d5-health-item-fill ' + fillCls + '" style="width:' + Math.max(2, item.score) + '%"></div></div>' +
+                '<div class="yimai-gso-d5-health-item-detail">' + (item.detail || '') + '</div>' +
                 '</div>';
         });
-        $('#wpaip-d5-health-grid').html(html);
+        $('#yimai-gso-d5-health-grid').html(html);
     }
 
     /**
@@ -3948,11 +3948,11 @@ function esc(s) {
      */
     function renderCrawlerTrendChart(trendData) {
         if (!trendData || !trendData.labels) return;
-        var ctx = document.getElementById('wpaip-d5-crawler-trend');
+        var ctx = document.getElementById('yimai-gso-d5-crawler-trend');
         if (!ctx) return;
 
-        if (wpaipD5Charts.crawlerTrend) {
-            wpaipD5Charts.crawlerTrend.destroy();
+        if (yimaiGsoD5Charts.crawlerTrend) {
+            yimaiGsoD5Charts.crawlerTrend.destroy();
         }
 
         var families = ['OpenAI', 'Anthropic', 'DeepSeek', 'Perplexity', 'ByteDance'];
@@ -3989,7 +3989,7 @@ function esc(s) {
             });
         }
 
-        wpaipD5Charts.crawlerTrend = new Chart(ctx, {
+        yimaiGsoD5Charts.crawlerTrend = new Chart(ctx, {
             type: 'line',
             data: { labels: trendData.labels, datasets: datasets },
             options: {
@@ -4011,11 +4011,11 @@ function esc(s) {
      * Schema 覆盖图
      */
     function renderSchemaChart(items) {
-        var ctx = document.getElementById('wpaip-d5-schema-chart');
+        var ctx = document.getElementById('yimai-gso-d5-schema-chart');
         if (!ctx) return;
 
-        if (wpaipD5Charts.schema) {
-            wpaipD5Charts.schema.destroy();
+        if (yimaiGsoD5Charts.schema) {
+            yimaiGsoD5Charts.schema.destroy();
         }
 
         var types = items.map(function (i) { return i.type; });
@@ -4026,7 +4026,7 @@ function esc(s) {
             'rgba(245,158,11,.6)', 'rgba(139,92,246,.5)', 'rgba(6,182,212,.5)'
         ];
 
-        wpaipD5Charts.schema = new Chart(ctx, {
+        yimaiGsoD5Charts.schema = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: types,
@@ -4048,18 +4048,18 @@ function esc(s) {
      * 爬虫家族分布
      */
     function renderCrawlerFamilyChart(items) {
-        var ctx = document.getElementById('wpaip-d5-family-chart');
+        var ctx = document.getElementById('yimai-gso-d5-family-chart');
         if (!ctx) return;
 
-        if (wpaipD5Charts.family) {
-            wpaipD5Charts.family.destroy();
+        if (yimaiGsoD5Charts.family) {
+            yimaiGsoD5Charts.family.destroy();
         }
 
         var labels = items.map(function (i) { return i.family; });
         var data = items.map(function (i) { return i.count; });
         var colors = ['#10b981', '#6366f1', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#ef4444', '#94a3b8'];
 
-        wpaipD5Charts.family = new Chart(ctx, {
+        yimaiGsoD5Charts.family = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: labels,
@@ -4095,12 +4095,12 @@ function esc(s) {
     }
 
     function loadRecentArticles() {
-        var $container = $('#wpaip-recent-list');
-        $container.html('<div class="wpaip-recent-loading"><span class="wpaip-loading"></span>加载中...</div>');
+        var $container = $('#yimai-gso-recent-list');
+        $container.html('<div class="yimai-gso-recent-loading"><span class="yimai-gso-loading"></span>加载中...</div>');
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_history_query',
-            nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_history_query',
+            nonce: yimaiGsoData.nonce,
             page: 1,
             per_page: 5,
             orderby: 'date',
@@ -4108,7 +4108,7 @@ function esc(s) {
         }, function (res) {
             if (!res.success || !res.data.items || res.data.items.length === 0) {
                 $container.html(
-                    '<div class="wpaip-recent-empty">' +
+                    '<div class="yimai-gso-recent-empty">' +
                     '<span class="dashicons dashicons-media-text"></span>' +
                     '<h3>暂无生成记录</h3>' +
                     '<p>点击上方「快速生成」开始创作</p>' +
@@ -4126,16 +4126,16 @@ function esc(s) {
                     ? '<img src="' + item.thumbnail + '" alt="">'
                     : '<span>📄</span>';
 
-                html += '<div class="wpaip-recent-item" data-id="' + item.id + '">' +
-                    '<div class="wpaip-recent-thumb">' + thumbHtml + '</div>' +
-                    '<div class="wpaip-recent-info">' +
-                    '<div class="wpaip-recent-title">' + escHtml(item.title) + '</div>' +
-                    '<div class="wpaip-recent-meta">' +
-                    '<span class="wpaip-recent-status wpaip-h-status-' + statusClass + '">' + statusText + '</span>' +
+                html += '<div class="yimai-gso-recent-item" data-id="' + item.id + '">' +
+                    '<div class="yimai-gso-recent-thumb">' + thumbHtml + '</div>' +
+                    '<div class="yimai-gso-recent-info">' +
+                    '<div class="yimai-gso-recent-title">' + escHtml(item.title) + '</div>' +
+                    '<div class="yimai-gso-recent-meta">' +
+                    '<span class="yimai-gso-recent-status yimai-gso-h-status-' + statusClass + '">' + statusText + '</span>' +
                     '<span>' + formatTime(item.generated_at || item.date) + '</span>' +
                     '</div>' +
                     '</div>' +
-                    '<div class="wpaip-recent-actions">' +
+                    '<div class="yimai-gso-recent-actions">' +
                     '<a href="' + item.view_url + '" target="_blank" class="button button-small">查看</a>' +
                     '<a href="' + item.edit_url + '" class="button button-small">编辑</a>' +
                     '</div>' +
@@ -4149,17 +4149,17 @@ function esc(s) {
     // ==================== 生成页面步骤条 ====================
     function initGeneratePage() {
         // 检查生成页面面板是否存在
-        var $panel = $('.wpaip-main-panel[data-tab="generate"]');
+        var $panel = $('.yimai-gso-main-panel[data-tab="generate"]');
         if (!$panel.length) return;
 
         // 步骤切换
-        $panel.find('.wpaip-batch-tab').off('click.wpaipStep').on('click.wpaipStep', function () {
+        $panel.find('.yimai-gso-batch-tab').off('click.yimaiGsoStep').on('click.yimaiGsoStep', function () {
             var step = $(this).data('step');
             switchStep(step);
         });
 
         // 发布快捷设置
-        $panel.find('.wpaip-shortcut-btn').off('click.wpaipShortcut').on('click.wpaipShortcut', function () {
+        $panel.find('.yimai-gso-shortcut-btn').off('click.yimaiGsoShortcut').on('click.yimaiGsoShortcut', function () {
             var requestedStatus = $(this).data('status');
             var safeStatus = normalizeBatchStatus(requestedStatus);
             if (safeStatus !== requestedStatus) {
@@ -4167,7 +4167,7 @@ function esc(s) {
                     ? '当前站点未启用批量生成功能，无法使用此入口。'
                     : '当前账号没有发布文章权限，已切换为保存草稿。');
             }
-            $('input[name="wpaip-batch-status"][value="' + safeStatus + '"]').prop('checked', true).trigger('change');
+            $('input[name="yimai-gso-batch-status"][value="' + safeStatus + '"]').prop('checked', true).trigger('change');
         });
 
 
@@ -4183,22 +4183,22 @@ function esc(s) {
 
         var urlParams = new URLSearchParams(window.location.search);
         var requestedStep = urlParams.get('step');
-        if (requestedStep && $panel.find('.wpaip-batch-tab[data-step="' + requestedStep + '"]').length) {
+        if (requestedStep && $panel.find('.yimai-gso-batch-tab[data-step="' + requestedStep + '"]').length) {
             switchStep(requestedStep);
         } else {
-            var currentStep = String($panel.find('.wpaip-batch-tab.active').data('step') || '1');
+            var currentStep = String($panel.find('.yimai-gso-batch-tab.active').data('step') || '1');
             switchStep(currentStep);
         }
     }
 
     function switchStep(step) {
         var stepKey = String(step);
-        $('.wpaip-batch-tab').removeClass('active');
-        $('.wpaip-batch-tab[data-step="' + stepKey + '"]').addClass('active');
-        $('.wpaip-step-content').removeClass('active');
-        $('.wpaip-step-content[data-step="' + stepKey + '"]').addClass('active');
+        $('.yimai-gso-batch-tab').removeClass('active');
+        $('.yimai-gso-batch-tab[data-step="' + stepKey + '"]').addClass('active');
+        $('.yimai-gso-step-content').removeClass('active');
+        $('.yimai-gso-step-content[data-step="' + stepKey + '"]').addClass('active');
 
-        if ($('.wpaip-main-panel[data-tab="generate"]').hasClass('active')) {
+        if ($('.yimai-gso-main-panel[data-tab="generate"]').hasClass('active')) {
             var url = new URL(window.location.href);
             url.searchParams.set('step', stepKey);
             history.replaceState({}, '', url);
@@ -4214,8 +4214,8 @@ function esc(s) {
 
     // ==================== 生成记录卡片式渲染 ====================
     function initHistoryCards() {
-        // 内容管理在 .wpaip-main-panel[data-tab="history"] 中
-        var $panel = $('.wpaip-main-panel[data-tab="history"]');
+        // 内容管理在 .yimai-gso-main-panel[data-tab="history"] 中
+        var $panel = $('.yimai-gso-main-panel[data-tab="history"]');
         if (!$panel.length) return;
 
         // 如果当前tab是history，加载数据
@@ -4225,45 +4225,45 @@ function esc(s) {
         }
 
         // 筛选
-        $('#wpaip-h-filter-btn, #wpaip-h-search-btn').off('click').on('click', function () {
+        $('#yimai-gso-h-filter-btn, #yimai-gso-h-search-btn').off('click').on('click', function () {
             loadHistoryCards(1);
         });
 
         // 回车搜索
-        $('#wpaip-h-search').off('keydown').on('keydown', function (e) {
+        $('#yimai-gso-h-search').off('keydown').on('keydown', function (e) {
             if (e.key === 'Enter') loadHistoryCards(1);
         });
 
         // 重置
-        $('#wpaip-h-reset-btn').off('click').on('click', function () {
-            $('#wpaip-h-search').val('');
-            $('#wpaip-h-status').val('');
-            $('#wpaip-h-source').val('');
-            $('#wpaip-h-date-from').val('');
-            $('#wpaip-h-date-to').val('');
+        $('#yimai-gso-h-reset-btn').off('click').on('click', function () {
+            $('#yimai-gso-h-search').val('');
+            $('#yimai-gso-h-status').val('');
+            $('#yimai-gso-h-source').val('');
+            $('#yimai-gso-h-date-from').val('');
+            $('#yimai-gso-h-date-to').val('');
             loadHistoryCards(1);
         });
 
         // 刷新
-        $('#wpaip-h-refresh-btn').off('click').on('click', function () {
+        $('#yimai-gso-h-refresh-btn').off('click').on('click', function () {
             loadHistoryStats();
             loadHistoryCards(currentHistoryPage);
         });
 
         // 弹窗
-        $(document).off('click', '.wpaip-modal-close, .wpaip-modal-overlay').on('click', '.wpaip-modal-close, .wpaip-modal-overlay', function () {
-            $('#wpaip-history-modal').fadeOut(150);
+        $(document).off('click', '.yimai-gso-modal-close, .yimai-gso-modal-overlay').on('click', '.yimai-gso-modal-close, .yimai-gso-modal-overlay', function () {
+            $('#yimai-gso-history-modal').fadeOut(150);
         });
 
         $(document).off('keydown').on('keydown', function (e) {
-            if (e.key === 'Escape') $('#wpaip-history-modal').fadeOut(150);
+            if (e.key === 'Escape') $('#yimai-gso-history-modal').fadeOut(150);
         });
     }
 
     function loadHistoryStats() {
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_history_stats',
-            nonce: wpaipData.nonce
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_history_stats',
+            nonce: yimaiGsoData.nonce
         }, function (res) {
             if (res.success) {
                 var d = res.data;
@@ -4280,33 +4280,33 @@ function esc(s) {
     function loadHistoryCards(page) {
         currentHistoryPage = page;
         // 使用PHP中的正确容器ID
-        var $container = $('#wpaip-history-list');
+        var $container = $('#yimai-gso-history-list');
         if (!$container.length) return;
         
-        $container.html('<div class="wpaip-history-loading"><span class="wpaip-loading"></span><span>加载中...</span></div>');
+        $container.html('<div class="yimai-gso-history-loading"><span class="yimai-gso-loading"></span><span>加载中...</span></div>');
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_history_query',
-            nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_history_query',
+            nonce: yimaiGsoData.nonce,
             page: page,
             per_page: 12,
-            search: $('#wpaip-h-search').val(),
-            status: $('#wpaip-h-status').val(),
-            source: $('#wpaip-h-source').val(),
-            date_from: $('#wpaip-h-date-from').val(),
-            date_to: $('#wpaip-h-date-to').val(),
+            search: $('#yimai-gso-h-search').val(),
+            status: $('#yimai-gso-h-status').val(),
+            source: $('#yimai-gso-h-source').val(),
+            date_from: $('#yimai-gso-h-date-from').val(),
+            date_to: $('#yimai-gso-h-date-to').val(),
             orderby: 'date',
             order: 'DESC'
         }, function (res) {
             if (!res.success) {
-                $container.html('<div class="wpaip-history-empty"><span class="dashicons dashicons-warning"></span><h3>加载失败</h3><p>请重试</p></div>');
+                $container.html('<div class="yimai-gso-history-empty"><span class="dashicons dashicons-warning"></span><h3>加载失败</h3><p>请重试</p></div>');
                 return;
             }
 
             var d = res.data;
             if (!d.items || d.items.length === 0) {
                 $container.html(
-                    '<div class="wpaip-history-empty">' +
+                    '<div class="yimai-gso-history-empty">' +
                     '<span class="dashicons dashicons-media-text"></span>' +
                     '<h3>暂无生成记录</h3>' +
                     '<p>开始创作你的第一篇文章吧</p>' +
@@ -4326,23 +4326,23 @@ function esc(s) {
 
                 var thumbHtml = item.thumbnail
                     ? '<img src="' + item.thumbnail + '" alt="">'
-                    : '<div class="wpaip-card-thumb-placeholder">📄</div>';
+                    : '<div class="yimai-gso-card-thumb-placeholder">📄</div>';
 
-                html += '<div class="wpaip-article-card" data-id="' + item.id + '">' +
-                    '<div class="wpaip-card-thumb">' +
+                html += '<div class="yimai-gso-article-card" data-id="' + item.id + '">' +
+                    '<div class="yimai-gso-card-thumb">' +
                     thumbHtml +
-                    '<span class="wpaip-card-status ' + statusClass + '">' + statusText + '</span>' +
+                    '<span class="yimai-gso-card-status ' + statusClass + '">' + statusText + '</span>' +
                     '</div>' +
-                    '<div class="wpaip-card-body">' +
-                    '<div class="wpaip-card-title">' + escHtml(item.title) + '</div>' +
-                    '<div class="wpaip-card-meta">' +
-                    '<span class="wpaip-card-meta-item"><span class="dashicons dashicons-category"></span>' + (item.categories && item.categories[0] || '未分类') + '</span>' +
-                    '<span class="wpaip-card-source ' + sourceClass + '">' + sourceText + '</span>' +
+                    '<div class="yimai-gso-card-body">' +
+                    '<div class="yimai-gso-card-title">' + escHtml(item.title) + '</div>' +
+                    '<div class="yimai-gso-card-meta">' +
+                    '<span class="yimai-gso-card-meta-item"><span class="dashicons dashicons-category"></span>' + (item.categories && item.categories[0] || '未分类') + '</span>' +
+                    '<span class="yimai-gso-card-source ' + sourceClass + '">' + sourceText + '</span>' +
                     '</div>' +
-                    '<div class="wpaip-card-actions">' +
+                    '<div class="yimai-gso-card-actions">' +
                     '<a href="' + item.view_url + '" target="_blank" class="button">查看</a>' +
                     '<a href="' + item.edit_url + '" class="button">编辑</a>' +
-                    '<button class="button wpaip-card-detail-btn" data-id="' + item.id + '">详情</button>' +
+                    '<button class="button yimai-gso-card-detail-btn" data-id="' + item.id + '">详情</button>' +
                     '</div>' +
                     '</div>' +
                     '</div>';
@@ -4351,7 +4351,7 @@ function esc(s) {
             $container.html(html);
 
             // 绑定详情按钮
-            $('.wpaip-card-detail-btn').off('click').on('click', function () {
+            $('.yimai-gso-card-detail-btn').off('click').on('click', function () {
                 var id = $(this).data('id');
                 showCardDetailModal(id);
             });
@@ -4363,8 +4363,8 @@ function esc(s) {
     var historyCardCache = {};
 
     function showCardDetailModal(id) {
-        var $modal = $('#wpaip-history-modal');
-        var $body = $('#wpaip-modal-body');
+        var $modal = $('#yimai-gso-history-modal');
+        var $body = $('#yimai-gso-modal-body');
         $body.html('<div style="text-align:center;padding:30px;color:#94a3b8;">加载中...</div>');
         $modal.fadeIn(150);
 
@@ -4375,11 +4375,11 @@ function esc(s) {
         }
 
         // 从DOM获取
-        var $card = $('.wpaip-article-card[data-id="' + id + '"]');
+        var $card = $('.yimai-gso-article-card[data-id="' + id + '"]');
         if ($card.length) {
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_history_query',
-                nonce: wpaipData.nonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_history_query',
+                nonce: yimaiGsoData.nonce,
                 page: 1,
                 per_page: 50
             }, function (res) {
@@ -4398,7 +4398,7 @@ function esc(s) {
     // ==================== 初始化所有新页面 ====================
     $(document).ready(function () {
         // 根据当前激活的面板初始化对应功能
-        var $activePanel = $('.wpaip-main-panel.active');
+        var $activePanel = $('.yimai-gso-main-panel.active');
         var activeTab = $activePanel.data('tab') || 'dashboard';
 
         // 初始化当前激活面板
@@ -4438,53 +4438,53 @@ function esc(s) {
     };
 
     function initSinglePage() {
-        var $panel = $('.wpaip-main-panel[data-tab="single"]');
+        var $panel = $('.yimai-gso-main-panel[data-tab="single"]');
         if (!$panel.length) return;
 
         $(document)
-            .off('click.wpaipSingleGenerate', '#wpaip-single-generate-btn')
-            .on('click.wpaipSingleGenerate', '#wpaip-single-generate-btn', function (e) {
+            .off('click.yimaiGsoSingleGenerate', '#yimai-gso-single-generate-btn')
+            .on('click.yimaiGsoSingleGenerate', '#yimai-gso-single-generate-btn', function (e) {
                 e.preventDefault();
 
                 if (singleState.isGenerating) return;
 
-                var keyword = $.trim($('#wpaip-single-keyword').val());
+                var keyword = $.trim($('#yimai-gso-single-keyword').val());
                 if (!keyword) {
                     alert('请输入关键词或主题！');
-                    $('#wpaip-single-keyword').focus();
+                    $('#yimai-gso-single-keyword').focus();
                     return;
                 }
 
                 singleState.isGenerating = true;
                 var $btn = $(this);
-                $btn.prop('disabled', true).html('<span class="wpaip-loading"></span> AI正在生成文章...');
+                $btn.prop('disabled', true).html('<span class="yimai-gso-loading"></span> AI正在生成文章...');
 
-                $('#wpaip-single-progress').show();
-                $('#wpaip-single-progress-text').text('🤖 AI 正在撰写文章...');
+                $('#yimai-gso-single-progress').show();
+                $('#yimai-gso-single-progress-text').text('🤖 AI 正在撰写文章...');
 
                 var data = {
-                    action: 'wpaip_single_generate',
-                    nonce: wpaipData.nonce,
+                    action: 'yimai_gso_single_generate',
+                    nonce: yimaiGsoData.nonce,
                     keyword: keyword,
-                    title: $.trim($('#wpaip-single-title').val()),
-                    length: $('#wpaip-single-length').val(),
-                    type: $('#wpaip-single-type').val(),
-                    angle: $('#wpaip-single-angle').val(),
-                    style: $.trim($('#wpaip-single-style').val()),
-                    add_image: $('#wpaip-single-image-enabled').is(':checked'),
-                    auto_excerpt: $('#wpaip-single-auto-excerpt').is(':checked'),
-                    auto_seo: $('#wpaip-single-auto-seo').is(':checked')
+                    title: $.trim($('#yimai-gso-single-title').val()),
+                    length: $('#yimai-gso-single-length').val(),
+                    type: $('#yimai-gso-single-type').val(),
+                    angle: $('#yimai-gso-single-angle').val(),
+                    style: $.trim($('#yimai-gso-single-style').val()),
+                    add_image: $('#yimai-gso-single-image-enabled').is(':checked'),
+                    auto_excerpt: $('#yimai-gso-single-auto-excerpt').is(':checked'),
+                    auto_seo: $('#yimai-gso-single-auto-seo').is(':checked')
                 };
 
                 $.ajax({
-                    url: wpaipData.ajaxUrl,
+                    url: yimaiGsoData.ajaxUrl,
                     type: 'POST',
                     data: data,
                     timeout: 600000, // 2.2.0：单篇生成最长等待10分钟（含AI生成+配图）
                     success: function (res) {
                         singleState.isGenerating = false;
                         $btn.prop('disabled', false).html('🪄 开始生成');
-                        $('#wpaip-single-progress').hide();
+                        $('#yimai-gso-single-progress').hide();
 
                         if (res.success) {
                             singleState.generatedTitle = res.data.title;
@@ -4502,8 +4502,8 @@ function esc(s) {
                     error: function (xhr, status, err) {
                         singleState.isGenerating = false;
                         $btn.prop('disabled', false).html('🪄 开始生成');
-                        $('#wpaip-single-progress').hide();
-                        console.error('[WPAIP] 单篇生成 AJAX 失败:', status, err, 'Response:', xhr.responseText);
+                        $('#yimai-gso-single-progress').hide();
+                        console.error('[YIMAI GSO] 单篇生成 AJAX 失败:', status, err, 'Response:', xhr.responseText);
                         var errMsg = (typeof formatAjaxErrorMessage === 'function')
                             ? formatAjaxErrorMessage(xhr, status, err)
                             : '网络错误，请重试';
@@ -4513,57 +4513,57 @@ function esc(s) {
             });
 
         $(document)
-            .off('click.wpaipSingleCopy', '#wpaip-single-copy-btn')
-            .on('click.wpaipSingleCopy', '#wpaip-single-copy-btn', function (e) {
+            .off('click.yimaiGsoSingleCopy', '#yimai-gso-single-copy-btn')
+            .on('click.yimaiGsoSingleCopy', '#yimai-gso-single-copy-btn', function (e) {
                 e.preventDefault();
 
                 var content = singleState.generatedTitle + '\n\n' + singleState.generatedContent;
                 copyToClipboard(content);
                 $(this).text('已复制！');
                 setTimeout(function () {
-                    $('#wpaip-single-copy-btn').html('<span class="dashicons dashicons-clipboard" style="font-size:16px;width:16px;height:16px;margin:0;vertical-align:middle;"></span> 复制内容');
+                    $('#yimai-gso-single-copy-btn').html('<span class="dashicons dashicons-clipboard" style="font-size:16px;width:16px;height:16px;margin:0;vertical-align:middle;"></span> 复制内容');
                 }, 2000);
             });
 
         $(document)
-            .off('click.wpaipSinglePublish', '#wpaip-single-publish-btn')
-            .on('click.wpaipSinglePublish', '#wpaip-single-publish-btn', function (e) {
+            .off('click.yimaiGsoSinglePublish', '#yimai-gso-single-publish-btn')
+            .on('click.yimaiGsoSinglePublish', '#yimai-gso-single-publish-btn', function (e) {
                 e.preventDefault();
 
                 var $btn = $(this);
-                var title = $.trim($('#wpaip-single-results .wpaip-rewrite-title-text').text()) || singleState.generatedTitle;
-                var status = $('input[name="wpaip-single-status"]:checked').val();
+                var title = $.trim($('#yimai-gso-single-results .yimai-gso-rewrite-title-text').text()) || singleState.generatedTitle;
+                var status = $('input[name="yimai-gso-single-status"]:checked').val();
 
                 if (!title) {
                     alert('文章标题为空，请先生成文章！');
                     return;
                 }
 
-                $btn.prop('disabled', true).html('<span class="wpaip-loading"></span> 发布中...');
+                $btn.prop('disabled', true).html('<span class="yimai-gso-loading"></span> 发布中...');
 
                 $.ajax({
-                    url: wpaipData.ajaxUrl,
+                    url: yimaiGsoData.ajaxUrl,
                     type: 'POST',
                     data: {
-                        action: 'wpaip_single_publish',
-                        nonce: wpaipData.nonce,
+                        action: 'yimai_gso_single_publish',
+                        nonce: yimaiGsoData.nonce,
                         title: title,
                         content: singleState.generatedContent,
                         excerpt: singleState.generatedExcerpt,
-                        category: $('#wpaip-single-category').val(),
-                        tags: $('#wpaip-single-tags').val(),
+                        category: $('#yimai-gso-single-category').val(),
+                        tags: $('#yimai-gso-single-tags').val(),
                         status: status,
                         keywords: singleState.keywords,
                         pending_image_prompts: JSON.stringify(singleState.pendingImagePrompts),
-                        auto_excerpt: $('#wpaip-single-auto-excerpt').is(':checked'),
-                        auto_seo: $('#wpaip-single-auto-seo').is(':checked')
+                        auto_excerpt: $('#yimai-gso-single-auto-excerpt').is(':checked'),
+                        auto_seo: $('#yimai-gso-single-auto-seo').is(':checked')
                     },
                     success: function (res) {
                         $btn.prop('disabled', false).html('<span class="dashicons dashicons-cloud-upload"></span> 发布到 WordPress');
 
                         if (res.success) {
-                            $('#wpaip-single-publish-result').html(
-                                '<div class="wpaip-success-box">' +
+                            $('#yimai-gso-single-publish-result').html(
+                                '<div class="yimai-gso-success-box">' +
                                 '<span class="dashicons dashicons-yes-alt"></span>' +
                                 '<div>' +
                                 '<h4>发布成功！</h4>' +
@@ -4584,38 +4584,38 @@ function esc(s) {
             });
 
         $(document)
-            .off('click.wpaipSingleRegenerate', '#wpaip-single-regenerate-btn')
-            .on('click.wpaipSingleRegenerate', '#wpaip-single-regenerate-btn', function (e) {
+            .off('click.yimaiGsoSingleRegenerate', '#yimai-gso-single-regenerate-btn')
+            .on('click.yimaiGsoSingleRegenerate', '#yimai-gso-single-regenerate-btn', function (e) {
                 e.preventDefault();
-                $('#wpaip-single-title').val('');
-                $('#wpaip-single-generate-btn').trigger('click');
+                $('#yimai-gso-single-title').val('');
+                $('#yimai-gso-single-generate-btn').trigger('click');
             });
 
         // ★ HTML 预览标签切换
         $(document)
-            .off('click.wpaipPreviewTab', '.wpaip-preview-tab')
-            .on('click.wpaipPreviewTab', '.wpaip-preview-tab', function (e) {
+            .off('click.yimaiGsoPreviewTab', '.yimai-gso-preview-tab')
+            .on('click.yimaiGsoPreviewTab', '.yimai-gso-preview-tab', function (e) {
                 e.preventDefault();
                 var mode = $(this).data('mode');
-                $('#wpaip-single-preview-tabs .wpaip-preview-tab').removeClass('active');
+                $('#yimai-gso-single-preview-tabs .yimai-gso-preview-tab').removeClass('active');
                 $(this).addClass('active');
                 if (mode === 'html') {
-                    $('#wpaip-single-preview-text').hide();
-                    $('#wpaip-single-preview-html').show();
+                    $('#yimai-gso-single-preview-text').hide();
+                    $('#yimai-gso-single-preview-html').show();
                 } else {
-                    $('#wpaip-single-preview-html').hide();
-                    $('#wpaip-single-preview-text').show();
+                    $('#yimai-gso-single-preview-html').hide();
+                    $('#yimai-gso-single-preview-text').show();
                 }
             });
     }
 
     function renderSingleResult(data) {
-        var $container = $('#wpaip-single-results').empty();
+        var $container = $('#yimai-gso-single-results').empty();
 
         // 标题
         if (data.title) {
-            var $titleBox = $('<div class="wpaip-rewrite-title-box">')
-                .html('<span class="wpaip-rewrite-label">生成标题</span><div class="wpaip-rewrite-title-text">' + escapeHtml(data.title) + '</div>');
+            var $titleBox = $('<div class="yimai-gso-rewrite-title-box">')
+                .html('<span class="yimai-gso-rewrite-label">生成标题</span><div class="yimai-gso-rewrite-title-text">' + escapeHtml(data.title) + '</div>');
             $container.append($titleBox);
         }
 
@@ -4625,27 +4625,27 @@ function esc(s) {
         var isLong = plainContent.length > previewLength;
         var previewText = isLong ? plainContent.substring(0, previewLength) + '...' : plainContent;
 
-        var $contentBox = $('<div class="wpaip-rewrite-content-box">')
-            .html('<span class="wpaip-rewrite-label">生成内容</span><div class="wpaip-rewrite-preview">' + escapeHtml(previewText).replace(/\n/g, '<br>') + '</div>');
+        var $contentBox = $('<div class="yimai-gso-rewrite-content-box">')
+            .html('<span class="yimai-gso-rewrite-label">生成内容</span><div class="yimai-gso-rewrite-preview">' + escapeHtml(previewText).replace(/\n/g, '<br>') + '</div>');
 
         if (isLong) {
-            $contentBox.append('<button class="button button-small wpaip-single-toggle-full" style="margin-top:8px;">展开全文</button>');
+            $contentBox.append('<button class="button button-small yimai-gso-single-toggle-full" style="margin-top:8px;">展开全文</button>');
         }
 
         $container.append($contentBox);
 
         // 字数统计（修复：使用jQuery解析HTML）
-        $container.append('<div class="wpaip-single-stats">📝 ' + $('<div>').html(data.content).text().length + ' 字 | 🖼️ ' + (data.image_count || 0) + ' 张配图</div>');
+        $container.append('<div class="yimai-gso-single-stats">📝 ' + $('<div>').html(data.content).text().length + ' 字 | 🖼️ ' + (data.image_count || 0) + ' 张配图</div>');
 
         // 显示复制按钮
-        $('#wpaip-single-copy-btn').show();
+        $('#yimai-gso-single-copy-btn').show();
 
         // 显示发布区
-        $('#wpaip-single-publish-area').slideDown(300);
+        $('#yimai-gso-single-publish-area').slideDown(300);
 
         // ★ HTML 预览：将生成内容注入 iframe
         if (data.content) {
-            var $iframe = $('#wpaip-single-preview-iframe');
+            var $iframe = $('#yimai-gso-single-preview-iframe');
             var previewHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
                 'body{font-family:-apple-system,BlinkMacSystemFont,"Microsoft YaHei",sans-serif;font-size:15px;line-height:1.8;color:#333;padding:20px;max-width:720px;margin:0 auto;}' +
                 'h2{font-size:20px;margin:28px 0 14px;padding-bottom:8px;border-bottom:1px solid #eee;}' +
@@ -4659,19 +4659,19 @@ function esc(s) {
             $iframe.attr('srcdoc', previewHtml);
 
             // ★ 填充文本预览 pane（纯文本全文）
-            $('#wpaip-single-preview-text').html(
-                '<div class="wpaip-rewrite-content-box">' +
-                '<div class="wpaip-rewrite-preview">' + escapeHtml(plainContent).replace(/\n/g, '<br>') + '</div>' +
+            $('#yimai-gso-single-preview-text').html(
+                '<div class="yimai-gso-rewrite-content-box">' +
+                '<div class="yimai-gso-rewrite-preview">' + escapeHtml(plainContent).replace(/\n/g, '<br>') + '</div>' +
                 '</div>'
             );
         }
 
         // 显示预览切换标签
-        $('#wpaip-single-preview-tabs').show();
+        $('#yimai-gso-single-preview-tabs').show();
 
         // 展开/收起全文
-        $container.off('click', '.wpaip-single-toggle-full').on('click', '.wpaip-single-toggle-full', function () {
-            var $preview = $(this).siblings('.wpaip-rewrite-preview');
+        $container.off('click', '.yimai-gso-single-toggle-full').on('click', '.yimai-gso-single-toggle-full', function () {
+            var $preview = $(this).siblings('.yimai-gso-rewrite-preview');
             if ($(this).text() === '展开全文') {
                 $preview.html(escapeHtml(plainContent).replace(/\n/g, '<br>'));
                 $(this).text('收起全文');
@@ -4695,11 +4695,11 @@ function esc(s) {
 
         init: function() {
             // 子标签切换
-            $(document).off('click.spTab', '.wpaip-seo-push-tabs .wpaip-tab-modern').on('click.spTab', '.wpaip-seo-push-tabs .wpaip-tab-modern', function() {
+            $(document).off('click.spTab', '.yimai-gso-seo-push-tabs .yimai-gso-tab-modern').on('click.spTab', '.yimai-gso-seo-push-tabs .yimai-gso-tab-modern', function() {
                 var tab = $(this).data('sp-tab');
-                $('.wpaip-seo-push-tabs .wpaip-tab-modern').removeClass('active');
+                $('.yimai-gso-seo-push-tabs .yimai-gso-tab-modern').removeClass('active');
                 $(this).addClass('active');
-                $('.wpaip-seo-push-panel').removeClass('active');
+                $('.yimai-gso-seo-push-panel').removeClass('active');
                 $('[data-sp-panel="' + tab + '"]').addClass('active');
 
                 // 切到日志时自动加载
@@ -4710,46 +4710,46 @@ function esc(s) {
             });
 
             // 测试连接
-            $(document).off('click.spTest', '.wpaip-sp-test-btn').on('click.spTest', '.wpaip-sp-test-btn', function() {
+            $(document).off('click.spTest', '.yimai-gso-sp-test-btn').on('click.spTest', '.yimai-gso-sp-test-btn', function() {
                 var platform = $(this).data('platform');
                 SEOPush.testConnection(platform);
             });
 
             // 加载文章列表
-            $(document).off('click.spLoad', '#wpaip-sp-load-posts').on('click.spLoad', '#wpaip-sp-load-posts', function() {
+            $(document).off('click.spLoad', '#yimai-gso-sp-load-posts').on('click.spLoad', '#yimai-gso-sp-load-posts', function() {
                 SEOPush.loadPosts();
             });
 
             // 全选
-            $(document).off('change.spCheckAll', '#wpaip-sp-check-all, #wpaip-sp-check-all-2').on('change.spCheckAll', '#wpaip-sp-check-all, #wpaip-sp-check-all-2', function() {
+            $(document).off('change.spCheckAll', '#yimai-gso-sp-check-all, #yimai-gso-sp-check-all-2').on('change.spCheckAll', '#yimai-gso-sp-check-all, #yimai-gso-sp-check-all-2', function() {
                 var checked = $(this).prop('checked');
-                $('#wpaip-sp-posts-tbody input[type="checkbox"]').prop('checked', checked);
+                $('#yimai-gso-sp-posts-tbody input[type="checkbox"]').prop('checked', checked);
                 SEOPush.updateSelectedCount();
             });
 
             // 单选更新计数
-            $(document).off('change.spCheck', '#wpaip-sp-posts-tbody input[type="checkbox"]').on('change.spCheck', '#wpaip-sp-posts-tbody input[type="checkbox"]', function() {
+            $(document).off('change.spCheck', '#yimai-gso-sp-posts-tbody input[type="checkbox"]').on('change.spCheck', '#yimai-gso-sp-posts-tbody input[type="checkbox"]', function() {
                 SEOPush.updateSelectedCount();
             });
 
             // 批量推送
-            $(document).off('click.spBatch', '#wpaip-sp-do-batch-push').on('click.spBatch', '#wpaip-sp-do-batch-push', function() {
+            $(document).off('click.spBatch', '#yimai-gso-sp-do-batch-push').on('click.spBatch', '#yimai-gso-sp-do-batch-push', function() {
                 SEOPush.batchPush();
             });
 
             // 推送Sitemap
-            $(document).off('click.spSitemap', '#wpaip-sp-push-sitemap').on('click.spSitemap', '#wpaip-sp-push-sitemap', function() {
+            $(document).off('click.spSitemap', '#yimai-gso-sp-push-sitemap').on('click.spSitemap', '#yimai-gso-sp-push-sitemap', function() {
                 SEOPush.pushSitemap();
             });
 
             // 日志筛选
-            $(document).off('change.spLogFilter', '#wpaip-sp-log-platform').on('change.spLogFilter', '#wpaip-sp-log-platform', function() {
+            $(document).off('change.spLogFilter', '#yimai-gso-sp-log-platform').on('change.spLogFilter', '#yimai-gso-sp-log-platform', function() {
                 SEOPush.logPage = 1;
                 SEOPush.loadLogs();
             });
 
             // 清空日志
-            $(document).off('click.spClearLogs', '#wpaip-sp-clear-logs').on('click.spClearLogs', '#wpaip-sp-clear-logs', function() {
+            $(document).off('click.spClearLogs', '#yimai-gso-sp-clear-logs').on('click.spClearLogs', '#yimai-gso-sp-clear-logs', function() {
                 if (!confirm('确定要清空所有推送日志吗？此操作不可恢复。')) return;
                 SEOPush.clearLogs();
             });
@@ -4760,7 +4760,7 @@ function esc(s) {
                 SEOPush.loadLogs();
             }
             // 监听侧边栏切换到 SEO推送
-            $(document).on('click', '.wpaip-sidebar-tab[data-tab="seo-push"]', function() {
+            $(document).on('click', '.yimai-gso-sidebar-tab[data-tab="seo-push"]', function() {
                 setTimeout(function() {
                     SEOPush.loadStats();
                     SEOPush.loadLogs();
@@ -4771,14 +4771,14 @@ function esc(s) {
             SEOPush.checkFeatureAvailable();
 
             // ★ AJAX 保存 SEO 推送配置（替代内联 POST，避免 Zibll 等主题干扰）
-            $('#wpaip-seo-push-form').off('submit.ajaxSave').on('submit.ajaxSave', function(e) {
+            $('#yimai-gso-seo-push-form').off('submit.ajaxSave').on('submit.ajaxSave', function(e) {
                 e.preventDefault();
                 var $form = $(this);
                 var $btn = $form.find('button[type="submit"]');
                 $btn.prop('disabled', true).text('保存中...');
-                $.post(wpaipData.ajaxUrl, {
-                    action: 'wpaip_save_seo_push_settings',
-                    nonce: wpaipData.nonce,
+                $.post(yimaiGsoData.ajaxUrl, {
+                    action: 'yimai_gso_save_seo_push_settings',
+                    nonce: yimaiGsoData.nonce,
                     data: $form.serialize()
                 }, function(res) {
                     $btn.prop('disabled', false).html('<span class="dashicons dashicons-saved"></span> 保存推送配置');
@@ -4795,33 +4795,33 @@ function esc(s) {
         },
 
         checkFeatureAvailable: function() {
-            var $root = $('#wpaip-seo-push-root');
+            var $root = $('#yimai-gso-seo-push-root');
             if (!$root.length) return;
 
             var available = String($root.data('available')) === '1';
             if (!available) {
                 // 禁用所有交互元素（保留标签按钮可点击，只禁用功能按钮）
-                $('.wpaip-seo-push-section input, .wpaip-seo-push-section select, .wpaip-seo-push-section button').not('.wpaip-seo-push-tab').prop('disabled', true);
-                $('#wpaip-seo-push-form button[type="submit"]').prop('disabled', true);
-                $('#wpaip-sp-load-posts').prop('disabled', true);
-                $('#wpaip-sp-check-all, #wpaip-sp-check-all-2').prop('disabled', true);
-                $('#wpaip-sp-do-batch-push').prop('disabled', true);
-                $('#wpaip-sp-push-sitemap').prop('disabled', true);
-                $('#wpaip-sp-clear-logs').prop('disabled', true);
+                $('.yimai-gso-seo-push-section input, .yimai-gso-seo-push-section select, .yimai-gso-seo-push-section button').not('.yimai-gso-seo-push-tab').prop('disabled', true);
+                $('#yimai-gso-seo-push-form button[type="submit"]').prop('disabled', true);
+                $('#yimai-gso-sp-load-posts').prop('disabled', true);
+                $('#yimai-gso-sp-check-all, #yimai-gso-sp-check-all-2').prop('disabled', true);
+                $('#yimai-gso-sp-do-batch-push').prop('disabled', true);
+                $('#yimai-gso-sp-push-sitemap').prop('disabled', true);
+                $('#yimai-gso-sp-clear-logs').prop('disabled', true);
             }
         },
 
         loadStats: function() {
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_seo_get_stats',
-                nonce: wpaipData.seoNonce
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_seo_get_stats',
+                nonce: yimaiGsoData.seoNonce
             }, function(res) {
                 if (res.success) {
                     var d = res.data;
-                    $('#wpaip-sp-baidu-count').text(d.baidu_success || 0);
-                    $('#wpaip-sp-bing-count').text(d.bing_success || 0);
-                    $('#wpaip-sp-google-count').text(d.google_success || 0);
-                    $('#wpaip-sp-success-rate').text((d.success_rate || 0) + '%');
+                    $('#yimai-gso-sp-baidu-count').text(d.baidu_success || 0);
+                    $('#yimai-gso-sp-bing-count').text(d.bing_success || 0);
+                    $('#yimai-gso-sp-google-count').text(d.google_success || 0);
+                    $('#yimai-gso-sp-success-rate').text((d.success_rate || 0) + '%');
                 }
             }, 'json').fail(function() {
                 // 静默失败
@@ -4829,14 +4829,14 @@ function esc(s) {
         },
 
         testConnection: function(platform) {
-            var $btn = $('.wpaip-sp-test-btn[data-platform="' + platform + '"]');
-            var $result = $('#wpaip-sp-test-' + platform);
+            var $btn = $('.yimai-gso-sp-test-btn[data-platform="' + platform + '"]');
+            var $result = $('#yimai-gso-sp-test-' + platform);
             $btn.prop('disabled', true).find('.dashicons').addClass('animate-spin');
             $result.html('<span style="color:#666">测试中...</span>');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_seo_test_connection',
-                nonce: wpaipData.seoNonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_seo_test_connection',
+                nonce: yimaiGsoData.seoNonce,
                 platform: platform
             }, function(res) {
                 $btn.prop('disabled', false).find('.dashicons').removeClass('animate-spin');
@@ -4857,22 +4857,22 @@ function esc(s) {
         },
 
         loadPosts: function() {
-            var $btn = $('#wpaip-sp-load-posts');
-            var cat = $('#wpaip-sp-push-category').val();
-            var perPage = $('#wpaip-sp-push-per-page').val();
+            var $btn = $('#yimai-gso-sp-load-posts');
+            var cat = $('#yimai-gso-sp-push-category').val();
+            var perPage = $('#yimai-gso-sp-push-per-page').val();
 
             $btn.prop('disabled', true).find('.dashicons').addClass('animate-spin');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_seo_push_get_posts',
-                nonce: wpaipData.seoNonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_seo_push_get_posts',
+                nonce: yimaiGsoData.seoNonce,
                 category: cat,
                 per_page: perPage
             }, function(res) {
                 $btn.prop('disabled', false).find('.dashicons').removeClass('animate-spin');
                 if (res.success && res.data && res.data.posts) {
                     var posts = res.data.posts;
-                    var $tbody = $('#wpaip-sp-posts-tbody');
+                    var $tbody = $('#yimai-gso-sp-posts-tbody');
                     $tbody.empty();
 
                     if (posts.length === 0) {
@@ -4882,7 +4882,7 @@ function esc(s) {
                             var pushed = p.pushed ? '<span style="color:#4caf50">已推送</span>' : '<span style="color:#999">未推送</span>';
                             $tbody.append(
                                 '<tr>' +
-                                '<td><input type="checkbox" class="wpaip-sp-post-cb" value="' + p.ID + '"></td>' +
+                                '<td><input type="checkbox" class="yimai-gso-sp-post-cb" value="' + p.ID + '"></td>' +
                                 '<td>' + p.ID + '</td>' +
                                 '<td><a href="' + esc(p.permalink) + '" target="_blank">' + esc(p.post_title) + '</a></td>' +
                                 '<td>' + esc(p.category || '-') + '</td>' +
@@ -4892,7 +4892,7 @@ function esc(s) {
                             );
                         });
                     }
-                    $('#wpaip-sp-posts-table-wrap').show();
+                    $('#yimai-gso-sp-posts-table-wrap').show();
                     SEOPush.updateSelectedCount();
                 } else {
                     alert(res.data && res.data.message ? res.data.message : '加载失败');
@@ -4904,28 +4904,28 @@ function esc(s) {
         },
 
         updateSelectedCount: function() {
-            var count = $('#wpaip-sp-posts-tbody input[type="checkbox"]:checked').length;
-            $('#wpaip-sp-selected-count').text('已选 ' + count + ' 篇');
-            $('#wpaip-sp-do-batch-push').prop('disabled', count === 0);
+            var count = $('#yimai-gso-sp-posts-tbody input[type="checkbox"]:checked').length;
+            $('#yimai-gso-sp-selected-count').text('已选 ' + count + ' 篇');
+            $('#yimai-gso-sp-do-batch-push').prop('disabled', count === 0);
         },
 
         batchPush: function() {
             var ids = [];
-            $('#wpaip-sp-posts-tbody input[type="checkbox"]:checked').each(function() {
+            $('#yimai-gso-sp-posts-tbody input[type="checkbox"]:checked').each(function() {
                 ids.push($(this).val());
             });
             if (ids.length === 0) return;
 
             if (!confirm('确定要推送选中的 ' + ids.length + ' 篇文章到搜索引擎吗？')) return;
 
-            var $btn = $('#wpaip-sp-do-batch-push');
-            var $result = $('#wpaip-sp-push-result');
+            var $btn = $('#yimai-gso-sp-do-batch-push');
+            var $result = $('#yimai-gso-sp-push-result');
             $btn.prop('disabled', true).html('<span class="dashicons dashicons-update animate-spin" style="margin-top:4px"></span> 推送中...');
             $result.show().html('<p>正在推送 ' + ids.length + ' 篇文章，请稍候...</p>');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_seo_push_batch',
-                nonce: wpaipData.seoNonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_seo_push_batch',
+                nonce: yimaiGsoData.seoNonce,
                 post_ids: ids
             }, function(res) {
                 $btn.prop('disabled', false).html('<span class="dashicons dashicons-share-alt2" style="margin-top:4px"></span> 推送选中文章');
@@ -4947,14 +4947,14 @@ function esc(s) {
         },
 
         pushSitemap: function() {
-            var $btn = $('#wpaip-sp-push-sitemap');
-            var $result = $('#wpaip-sp-sitemap-result');
+            var $btn = $('#yimai-gso-sp-push-sitemap');
+            var $result = $('#yimai-gso-sp-sitemap-result');
             $btn.prop('disabled', true).find('.dashicons').addClass('animate-spin');
             $result.html('<p style="color:#666">正在推送 Sitemap...</p>');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_seo_push_sitemap',
-                nonce: wpaipData.seoNonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_seo_push_sitemap',
+                nonce: yimaiGsoData.seoNonce,
                 platforms: ['baidu', 'bing']
             }, function(res) {
                 $btn.prop('disabled', false).find('.dashicons').removeClass('animate-spin');
@@ -4975,13 +4975,13 @@ function esc(s) {
         },
 
         loadLogs: function() {
-            var platform = $('#wpaip-sp-log-platform').val();
-            var $tbody = $('#wpaip-sp-logs-tbody');
+            var platform = $('#yimai-gso-sp-log-platform').val();
+            var $tbody = $('#yimai-gso-sp-logs-tbody');
             $tbody.html('<tr><td colspan="8" style="text-align:center;padding:40px;color:#999">加载中...</td></tr>');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_seo_push_get_logs',
-                nonce: wpaipData.seoNonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_seo_push_get_logs',
+                nonce: yimaiGsoData.seoNonce,
                 page: SEOPush.logPage,
                 platform: platform
             }, function(res) {
@@ -5013,7 +5013,7 @@ function esc(s) {
                     }
 
                     // 分页：上一页 + 1..9 页码窗口 + 下一页
-                    var $pager = $('#wpaip-sp-logs-pagination');
+                    var $pager = $('#yimai-gso-sp-logs-pagination');
                     $pager.empty();
                     if (data.pages > 1) {
                         var current = parseInt(data.current_page) || 1;
@@ -5027,12 +5027,12 @@ function esc(s) {
                         }
 
                         var html = '<span style="color:#666;margin-right:10px;">共 ' + data.total + ' 条</span>';
-                        html += '<button type="button" class="button wpaip-sp-log-page-btn" data-page="' + Math.max(1, current - 1) + '"' + (current <= 1 ? ' disabled' : '') + '>« 上一页</button>';
+                        html += '<button type="button" class="button yimai-gso-sp-log-page-btn" data-page="' + Math.max(1, current - 1) + '"' + (current <= 1 ? ' disabled' : '') + '>« 上一页</button>';
                         for (var i = start; i <= end; i++) {
                             var cls = i === current ? 'button button-primary' : 'button';
-                            html += '<button type="button" class="' + cls + ' wpaip-sp-log-page-btn" data-page="' + i + '">' + i + '</button>';
+                            html += '<button type="button" class="' + cls + ' yimai-gso-sp-log-page-btn" data-page="' + i + '">' + i + '</button>';
                         }
-                        html += '<button type="button" class="button wpaip-sp-log-page-btn" data-page="' + Math.min(total, current + 1) + '"' + (current >= total ? ' disabled' : '') + '>下一页 »</button>';
+                        html += '<button type="button" class="button yimai-gso-sp-log-page-btn" data-page="' + Math.min(total, current + 1) + '"' + (current >= total ? ' disabled' : '') + '>下一页 »</button>';
                         $pager.html(html);
                     }
                 }
@@ -5042,9 +5042,9 @@ function esc(s) {
         },
 
         clearLogs: function() {
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_seo_push_clear_logs',
-                nonce: wpaipData.seoNonce
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_seo_push_clear_logs',
+                nonce: yimaiGsoData.seoNonce
             }, function(res) {
                 if (res.success) {
                     SEOPush.logPage = 1;
@@ -5059,7 +5059,7 @@ function esc(s) {
         SEOPush.init();
 
         // 日志分页
-        $(document).off('click.spLogPage', '.wpaip-sp-log-page-btn').on('click.spLogPage', '.wpaip-sp-log-page-btn', function() {
+        $(document).off('click.spLogPage', '.yimai-gso-sp-log-page-btn').on('click.spLogPage', '.yimai-gso-sp-log-page-btn', function() {
             if ($(this).prop('disabled')) return;
             SEOPush.logPage = parseInt($(this).data('page'));
             SEOPush.loadLogs();
@@ -5073,51 +5073,51 @@ function esc(s) {
 
     var SchemaPanel = {
         init: function() {
-            var $root = $('#wpaip-schema-root');
+            var $root = $('#yimai-gso-schema-root');
             if (!$root.length) return;
             var available = String($root.data('available')) === '1';
             if (!available) {
-                $('#wpaip-schema-root input, #wpaip-schema-root select, #wpaip-schema-root button').prop('disabled', true);
+                $('#yimai-gso-schema-root input, #yimai-gso-schema-root select, #yimai-gso-schema-root button').prop('disabled', true);
                 return;
             }
             this.loadStats();
 
-            $('#wpaip-schema-save-btn').off('click.schemaSave').on('click.schemaSave', function() {
+            $('#yimai-gso-schema-save-btn').off('click.schemaSave').on('click.schemaSave', function() {
                 SchemaPanel.saveSettings();
             });
 
-            $('#wpaip-schema-rebuild-btn').off('click.schemaRebuild').on('click.schemaRebuild', function() {
+            $('#yimai-gso-schema-rebuild-btn').off('click.schemaRebuild').on('click.schemaRebuild', function() {
                 SchemaPanel.rebuildSchemas();
             });
         },
 
         loadStats: function() {
-            $('#wpaip-schema-total, #wpaip-schema-article, #wpaip-schema-faq, #wpaip-schema-howto, #wpaip-schema-product').text('--');
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_schema_get_stats',
-                nonce: wpaipData.nonce
+            $('#yimai-gso-schema-total, #yimai-gso-schema-article, #yimai-gso-schema-faq, #yimai-gso-schema-howto, #yimai-gso-schema-product').text('--');
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_schema_get_stats',
+                nonce: yimaiGsoData.nonce
             }, function(res) {
                 if (res.success && res.data) {
                     var d = res.data;
-                    $('#wpaip-schema-total').text(d.total || 0);
-                    $('#wpaip-schema-article').text(d.article || 0);
-                    $('#wpaip-schema-faq').text(d.faq || 0);
-                    $('#wpaip-schema-howto').text(d.howto || 0);
-                    $('#wpaip-schema-product').text(d.product || 0);
+                    $('#yimai-gso-schema-total').text(d.total || 0);
+                    $('#yimai-gso-schema-article').text(d.article || 0);
+                    $('#yimai-gso-schema-faq').text(d.faq || 0);
+                    $('#yimai-gso-schema-howto').text(d.howto || 0);
+                    $('#yimai-gso-schema-product').text(d.product || 0);
                 }
             }, 'json').fail(function() {});
         },
 
         saveSettings: function() {
             var types = [];
-            $('.wpaip-schema-toggle input[type="checkbox"]:checked').each(function() {
+            $('.yimai-gso-schema-toggle input[type="checkbox"]:checked').each(function() {
                 types.push($(this).val());
             });
-            var $btn = $('#wpaip-schema-save-btn');
+            var $btn = $('#yimai-gso-schema-save-btn');
             $btn.prop('disabled', true).text('保存中...');
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_schema_save_settings',
-                nonce: wpaipData.nonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_schema_save_settings',
+                nonce: yimaiGsoData.nonce,
                 schema_enabled_types: types
             }, function(res) {
                 $btn.prop('disabled', false).text('保存设置');
@@ -5130,12 +5130,12 @@ function esc(s) {
 
         rebuildSchemas: function() {
             if (!confirm('确定要重新检测所有文章的 Schema 类型吗？此操作不影响文章内容。')) return;
-            var $btn = $('#wpaip-schema-rebuild-btn');
-            var $result = $('#wpaip-schema-rebuild-result');
+            var $btn = $('#yimai-gso-schema-rebuild-btn');
+            var $result = $('#yimai-gso-schema-rebuild-result');
             $btn.prop('disabled', true).text('检测中...');
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_schema_rebuild',
-                nonce: wpaipData.nonce
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_schema_rebuild',
+                nonce: yimaiGsoData.nonce
             }, function(res) {
                 $btn.prop('disabled', false).html('<span class="dashicons dashicons-update" style="font-size:16px;width:16px;height:16px;margin:0 4px 0 0;vertical-align:middle;"></span>重新检测所有文章 Schema 类型');
                 if (res.success) {
@@ -5152,7 +5152,7 @@ function esc(s) {
     };
 
     window.SchemaPanel = SchemaPanel;
-    $(document).on('click', '.wpaip-sidebar-tab[data-tab="schema"]', function() {
+    $(document).on('click', '.yimai-gso-sidebar-tab[data-tab="schema"]', function() {
         setTimeout(function() { SchemaPanel.init(); }, 100);
     });
 })(jQuery);
@@ -5163,86 +5163,86 @@ function esc(s) {
     var SeoScorerPanel = {
         page: 1,
         init: function() {
-            var $root = $('#wpaip-seo-scorer-root');
+            var $root = $('#yimai-gso-seo-scorer-root');
             if (!$root.length) return;
             var available = String($root.data('available')) === '1';
             if (!available) {
-                $('#wpaip-seo-scorer-root input, #wpaip-seo-scorer-root select, #wpaip-seo-scorer-root button').prop('disabled', true);
+                $('#yimai-gso-seo-scorer-root input, #yimai-gso-seo-scorer-root select, #yimai-gso-seo-scorer-root button').prop('disabled', true);
                 return;
             }
-            $('#wpaip-ss-search-btn').off('click.ssSearch').on('click.ssSearch', function() {
+            $('#yimai-gso-ss-search-btn').off('click.ssSearch').on('click.ssSearch', function() {
                 SeoScorerPanel.page = 1; SeoScorerPanel.loadPosts();
             });
-            $('#wpaip-ss-search').off('keydown.ssEnter').on('keydown.ssEnter', function(e) {
+            $('#yimai-gso-ss-search').off('keydown.ssEnter').on('keydown.ssEnter', function(e) {
                 if (e.which === 13) { SeoScorerPanel.page = 1; SeoScorerPanel.loadPosts(); }
             });
-            $('#wpaip-ss-check-all').off('change.ssCheckAll').on('change.ssCheckAll', function() {
-                $('.wpaip-ss-check').prop('checked', this.checked);
+            $('#yimai-gso-ss-check-all').off('change.ssCheckAll').on('change.ssCheckAll', function() {
+                $('.yimai-gso-ss-check').prop('checked', this.checked);
             });
-            $('#wpaip-ss-batch-analyze-btn').off('click.ssBatch').on('click.ssBatch', function() {
+            $('#yimai-gso-ss-batch-analyze-btn').off('click.ssBatch').on('click.ssBatch', function() {
                 SeoScorerPanel.batchAnalyze();
             });
-            $('#wpaip-ss-detail-close, .wpaip-ss-detail-overlay').off('click.ssClose').on('click.ssClose', function() {
-                $('#wpaip-ss-detail-modal').hide();
+            $('#yimai-gso-ss-detail-close, .yimai-gso-ss-detail-overlay').off('click.ssClose').on('click.ssClose', function() {
+                $('#yimai-gso-ss-detail-modal').hide();
             });
             this.loadPosts();
         },
 
         loadPosts: function() {
             var self = this;
-            var $tbody = $('#wpaip-ss-tbody');
-            $tbody.html('<tr><td colspan="7"><div class="wpaip-empty"><p>加载中...</p></div></td></tr>');
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_seo_score_batch_scan',
-                nonce: wpaipData.nonce,
-                search: $('#wpaip-ss-search').val(),
-                category: $('#wpaip-ss-category').val(),
-                status: $('#wpaip-ss-status').val(),
+            var $tbody = $('#yimai-gso-ss-tbody');
+            $tbody.html('<tr><td colspan="7"><div class="yimai-gso-empty"><p>加载中...</p></div></td></tr>');
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_seo_score_batch_scan',
+                nonce: yimaiGsoData.nonce,
+                search: $('#yimai-gso-ss-search').val(),
+                category: $('#yimai-gso-ss-category').val(),
+                status: $('#yimai-gso-ss-status').val(),
                 page: self.page,
                 per_page: 20
             }, function(res) {
-                if (!res.success) { $tbody.html('<tr><td colspan="7"><div class="wpaip-empty"><p>' + esc(res.data || '加载失败') + '</p></div></td></tr>'); return; }
+                if (!res.success) { $tbody.html('<tr><td colspan="7"><div class="yimai-gso-empty"><p>' + esc(res.data || '加载失败') + '</p></div></td></tr>'); return; }
                 var items = res.data.items;
-                if (!items || items.length === 0) { $tbody.html('<tr><td colspan="7"><div class="wpaip-empty"><p>未找到文章</p></div></td></tr>'); return; }
+                if (!items || items.length === 0) { $tbody.html('<tr><td colspan="7"><div class="yimai-gso-empty"><p>未找到文章</p></div></td></tr>'); return; }
                 var html = '';
                 for (var i = 0; i < items.length; i++) {
                     var item = items[i];
                     var scoreHtml = item.has_score ? '<strong style="color:' + (item.grade ? item.grade.color : '#666') + '">' + esc(item.overall) + '</strong>' : '<span style="color:#94a3b8;">未评分</span>';
-                    var gradeHtml = item.grade ? '<span class="wpaip-grade-badge" style="background:' + esc(item.grade.color) + '">' + esc(item.grade.letter) + '</span>' : '';
+                    var gradeHtml = item.grade ? '<span class="yimai-gso-grade-badge" style="background:' + esc(item.grade.color) + '">' + esc(item.grade.letter) + '</span>' : '';
                     var geoScoreHtml = (item.geo_overall != null)
                         ? '<strong style="color:' + (item.geo_grade ? esc(item.geo_grade.color) : '#7c3aed') + '">' + esc(item.geo_overall) + '</strong>'
                         : '<span style="color:#94a3b8;">-</span>';
-                    html += '<tr><td><input type="checkbox" class="wpaip-ss-check" value="' + esc(item.post_id) + '"></td>'
+                    html += '<tr><td><input type="checkbox" class="yimai-gso-ss-check" value="' + esc(item.post_id) + '"></td>'
                         + '<td><a href="post.php?post=' + esc(item.post_id) + '&action=edit" target="_blank">' + esc(item.post_title) + '</a></td>'
                         + '<td>' + esc((item.post_date || '').substring(0, 10)) + '</td>'
                         + '<td>' + scoreHtml + '</td><td>' + gradeHtml + '</td>'
                         + '<td>' + geoScoreHtml + '</td>'
-                        + '<td><button class="button button-small wpaip-ss-analyze-btn" data-id="' + esc(item.post_id) + '">SEO</button> '
-                        + '<button class="button button-small wpaip-geo-analyze-btn" data-id="' + esc(item.post_id) + '" style="color:#7c3aed;border-color:#7c3aed;">GEO</button></td></tr>';
+                        + '<td><button class="button button-small yimai-gso-ss-analyze-btn" data-id="' + esc(item.post_id) + '">SEO</button> '
+                        + '<button class="button button-small yimai-gso-geo-analyze-btn" data-id="' + esc(item.post_id) + '" style="color:#7c3aed;border-color:#7c3aed;">GEO</button></td></tr>';
                 }
                 $tbody.html(html);
                 self.renderPagination(res.data);
-            }, 'json').fail(function() { $tbody.html('<tr><td colspan="7"><div class="wpaip-empty"><p>请求失败</p></div></td></tr>'); });
+            }, 'json').fail(function() { $tbody.html('<tr><td colspan="7"><div class="yimai-gso-empty"><p>请求失败</p></div></td></tr>'); });
         },
 
         renderPagination: function(data) {
-            var $pag = $('#wpaip-ss-pagination');
+            var $pag = $('#yimai-gso-ss-pagination');
             if (data.pages <= 1) { $pag.hide(); return; }
             var html = '';
-            html += '<button class="button wpaip-ss-page-btn" data-page="' + Math.max(1, data.page - 1) + '"' + (data.page <= 1 ? ' disabled' : '') + '>« 上一页</button> ';
+            html += '<button class="button yimai-gso-ss-page-btn" data-page="' + Math.max(1, data.page - 1) + '"' + (data.page <= 1 ? ' disabled' : '') + '>« 上一页</button> ';
             html += '<span style="padding:4px 12px;font-weight:600;color:#374151;">' + data.page + ' / ' + data.pages + '</span> ';
-            html += '<button class="button wpaip-ss-page-btn" data-page="' + (data.page + 1) + '"' + (data.page >= data.pages ? ' disabled' : '') + '>下一页 »</button> ';
+            html += '<button class="button yimai-gso-ss-page-btn" data-page="' + (data.page + 1) + '"' + (data.page >= data.pages ? ' disabled' : '') + '>下一页 »</button> ';
             $pag.html(html).show();
         },
 
         batchAnalyze: function() {
             var ids = [];
-            $('.wpaip-ss-check:checked').each(function() { ids.push($(this).val()); });
+            $('.yimai-gso-ss-check:checked').each(function() { ids.push($(this).val()); });
             if (ids.length === 0) { alert('请先勾选需要评分的文章'); return; }
-            var $btn = $('#wpaip-ss-batch-analyze-btn');
-            var $result = $('#wpaip-ss-batch-result');
+            var $btn = $('#yimai-gso-ss-batch-analyze-btn');
+            var $result = $('#yimai-gso-ss-batch-result');
             $btn.prop('disabled', true).text('评分中（' + ids.length + '篇）...');
-            $.post(wpaipData.ajaxUrl, { action: 'wpaip_seo_score_batch_analyze', nonce: wpaipData.nonce, post_ids: ids }, function(res) {
+            $.post(yimaiGsoData.ajaxUrl, { action: 'yimai_gso_seo_score_batch_analyze', nonce: yimaiGsoData.nonce, post_ids: ids }, function(res) {
                 $btn.prop('disabled', false).html('<span class="dashicons dashicons-chart-bar" style="font-size:16px;width:16px;height:16px;margin:0 4px 0 0;vertical-align:middle;"></span>批量评分所选文章（SEO+GEO）');
                 if (res.success) {
                     var msg = 'SEO ' + esc(res.data.success) + ' 篇' + (res.data.failed > 0 ? '（失败 ' + esc(res.data.failed) + '）' : '') + ' + GEO ' + esc(res.data.geo_success || 0) + ' 篇' + (res.data.geo_skipped > 0 ? '（跳过 ' + esc(res.data.geo_skipped) + '）' : '');
@@ -5254,10 +5254,10 @@ function esc(s) {
         },
 
         showDetail: function(postId) {
-            var $body = $('#wpaip-ss-detail-body');
-            $body.html('<div class="wpaip-empty"><p>分析中...</p></div>');
-            $('#wpaip-ss-detail-modal').show();
-            $.post(wpaipData.ajaxUrl, { action: 'wpaip_seo_score_analyze', nonce: wpaipData.nonce, post_id: postId }, function(res) {
+            var $body = $('#yimai-gso-ss-detail-body');
+            $body.html('<div class="yimai-gso-empty"><p>分析中...</p></div>');
+            $('#yimai-gso-ss-detail-modal').show();
+            $.post(yimaiGsoData.ajaxUrl, { action: 'yimai_gso_seo_score_analyze', nonce: yimaiGsoData.nonce, post_id: postId }, function(res) {
                 if (!res.success) { $body.html('<div class="notice notice-error"><p>' + esc(res.data || '分析失败') + '</p></div>'); return; }
                 var d = res.data, g = d.grade || {};
                 var levelColors = { good: '#22c55e', ok: '#3b82f6', warn: '#f59e0b', bad: '#ef4444' };
@@ -5272,18 +5272,18 @@ function esc(s) {
                     { key: 'readability', label: '可读性', icon: 'dashicons-visibility' },
                     { key: 'external_links', label: '出站链接', icon: 'dashicons-external' }
                 ];
-                var html = '<div style="text-align:center;margin-bottom:24px;"><div class="wpaip-ss-score-ring" style="background:' + esc(g.color || '#94a3b8') + ';">' + esc(d.overall) + '</div>'
+                var html = '<div style="text-align:center;margin-bottom:24px;"><div class="yimai-gso-ss-score-ring" style="background:' + esc(g.color || '#94a3b8') + ';">' + esc(d.overall) + '</div>'
                     + '<div style="font-size:16px;font-weight:600;color:' + esc(g.color || '#333') + ';">' + esc(g.label || '') + ' (' + esc(g.letter || '') + ')</div></div>';
                 var scores = d.scores || {};
                 for (var i = 0; i < dims.length; i++) {
                     var dim = dims[i], s = scores[dim.key] || {}, sv = s.score || 0, bc = levelColors[s.level] || '#94a3b8';
-                    html += '<div class="wpaip-ss-dim-row"><div class="wpaip-ss-dim-icon"><span class="dashicons ' + dim.icon + '"></span></div>'
+                    html += '<div class="yimai-gso-ss-dim-row"><div class="yimai-gso-ss-dim-icon"><span class="dashicons ' + dim.icon + '"></span></div>'
                         + '<div style="flex:1;"><div style="display:flex;justify-content:space-between;align-items:center;">'
-                        + '<span class="wpaip-ss-dim-label">' + dim.label + '</span>'
-                        + '<span class="wpaip-ss-dim-score" style="color:' + bc + ';">' + sv + '</span></div>'
-                        + '<div class="wpaip-ss-dim-bar"><div class="wpaip-ss-dim-bar-fill" style="width:' + sv + '%;background:' + bc + ';"></div></div>';
+                        + '<span class="yimai-gso-ss-dim-label">' + dim.label + '</span>'
+                        + '<span class="yimai-gso-ss-dim-score" style="color:' + bc + ';">' + sv + '</span></div>'
+                        + '<div class="yimai-gso-ss-dim-bar"><div class="yimai-gso-ss-dim-bar-fill" style="width:' + sv + '%;background:' + bc + ';"></div></div>';
                     if (s.tips && s.tips.length > 0) {
-                        html += '<div class="wpaip-ss-dim-tips"><ul style="margin:0;padding-left:16px;">';
+                        html += '<div class="yimai-gso-ss-dim-tips"><ul style="margin:0;padding-left:16px;">';
                         for (var t = 0; t < s.tips.length; t++) html += '<li>' + esc(s.tips[t]) + '</li>';
                         html += '</ul></div>';
                     }
@@ -5302,24 +5302,24 @@ function esc(s) {
                         + '<span style="margin-left:auto;font-size:22px;font-weight:700;color:' + (afColors[afLevel] || '#94a3b8') + ';">' + afScore + '</span>'
                         + '</div>'
                         + '<div style="font-size:12px;color:#6b7280;margin-bottom:8px;">' + (afLabels[afLevel] || '') + '</div>'
-                        + '<div class="wpaip-ss-dim-bar" style="margin-bottom:6px;"><div class="wpaip-ss-dim-bar-fill" style="width:' + afScore + '%;background:' + (afColors[afLevel] || '#8b5cf6') + ';"></div></div>';
+                        + '<div class="yimai-gso-ss-dim-bar" style="margin-bottom:6px;"><div class="yimai-gso-ss-dim-bar-fill" style="width:' + afScore + '%;background:' + (afColors[afLevel] || '#8b5cf6') + ';"></div></div>';
                     if (af.tips && af.tips.length > 0) {
-                        html += '<div class="wpaip-ss-dim-tips"><ul style="margin:0;padding-left:16px;">';
+                        html += '<div class="yimai-gso-ss-dim-tips"><ul style="margin:0;padding-left:16px;">';
                         for (var t = 0; t < af.tips.length; t++) html += '<li style="font-size:12px;color:#7c3aed;">' + esc(af.tips[t]) + '</li>';
                         html += '</ul></div>';
                     }
                     html += '</div>';
                 }
 
-                $('#wpaip-ss-detail-title').text(d.post_title || 'SEO评分详情');
-                $('#wpaip-ss-detail-body').html(html);
+                $('#yimai-gso-ss-detail-title').text(d.post_title || 'SEO评分详情');
+                $('#yimai-gso-ss-detail-body').html(html);
             }, 'json');
         }
     };
 
-    $(document).on('click', '.wpaip-ss-analyze-btn', function() { SeoScorerPanel.showDetail($(this).data('id')); });
-    $(document).on('click', '.wpaip-ss-page-btn', function() { SeoScorerPanel.page = parseInt($(this).data('page')); SeoScorerPanel.loadPosts(); });
-    $(document).on('click', '.wpaip-sidebar-tab[data-tab="seo-score"]', function() { setTimeout(function() { SeoScorerPanel.init(); }, 100); });
+    $(document).on('click', '.yimai-gso-ss-analyze-btn', function() { SeoScorerPanel.showDetail($(this).data('id')); });
+    $(document).on('click', '.yimai-gso-ss-page-btn', function() { SeoScorerPanel.page = parseInt($(this).data('page')); SeoScorerPanel.loadPosts(); });
+    $(document).on('click', '.yimai-gso-sidebar-tab[data-tab="seo-score"]', function() { setTimeout(function() { SeoScorerPanel.init(); }, 100); });
     window.SeoScorerPanel = SeoScorerPanel;
 })(jQuery);
 
@@ -5328,13 +5328,13 @@ function esc(s) {
 
     var GeoScorerPanel = {
         showDetail: function(postId) {
-            var $body = $('#wpaip-geo-detail-body');
-            $body.html('<div class="wpaip-empty"><p>分析中...</p></div>');
-            $('#wpaip-geo-detail-modal').show();
+            var $body = $('#yimai-gso-geo-detail-body');
+            $body.html('<div class="yimai-gso-empty"><p>分析中...</p></div>');
+            $('#yimai-gso-geo-detail-modal').show();
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_dual_score',
-                security: wpaipData.ajaxNonce || wpaipData.seoNonce || wpaipData.nonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_dual_score',
+                security: yimaiGsoData.ajaxNonce || yimaiGsoData.seoNonce || yimaiGsoData.nonce,
                 post_id: postId
             }, function(res) {
                 if (!res.success || !res.data || !res.data.geo) {
@@ -5392,8 +5392,8 @@ function esc(s) {
 
                 // 协同建议按钮
                 html += '<div style="margin-top:16px;text-align:center;">'
-                    + '<button type="button" class="button" id="wpaip-geo-synergy-btn" data-post-id="' + postId + '" style="color:#7c3aed;border-color:#7c3aed;">AI 协同建议</button>'
-                    + '<div id="wpaip-geo-synergy-result" style="margin-top:10px;"></div>'
+                    + '<button type="button" class="button" id="yimai-gso-geo-synergy-btn" data-post-id="' + postId + '" style="color:#7c3aed;border-color:#7c3aed;">AI 协同建议</button>'
+                    + '<div id="yimai-gso-geo-synergy-result" style="margin-top:10px;"></div>'
                     + '</div>';
 
                 // 底部信息
@@ -5401,18 +5401,18 @@ function esc(s) {
                     + (g.computed_at ? '评分时间：' + esc(g.computed_at) : '')
                     + '</div>';
 
-                $('#wpaip-geo-detail-title').text('GEO 评分详情');
+                $('#yimai-gso-geo-detail-title').text('GEO 评分详情');
                 $body.html(html);
 
                 // 绑定协同建议按钮
-                $('#wpaip-geo-synergy-btn').on('click', function() {
-                    var $btn = $(this), $result = $('#wpaip-geo-synergy-result');
+                $('#yimai-gso-geo-synergy-btn').on('click', function() {
+                    var $btn = $(this), $result = $('#yimai-gso-geo-synergy-result');
                     $btn.prop('disabled', true).text('生成中...');
                     $result.html('<span class="spinner is-active" style="float:none;margin:0;"></span>');
 
-                    $.post(wpaipData.ajaxUrl, {
-                        action: 'wpaip_synergy_suggest',
-                        security: wpaipData.ajaxNonce || wpaipData.seoNonce || wpaipData.nonce,
+                    $.post(yimaiGsoData.ajaxUrl, {
+                        action: 'yimai_gso_synergy_suggest',
+                        security: yimaiGsoData.ajaxNonce || yimaiGsoData.seoNonce || yimaiGsoData.nonce,
                         post_id: postId
                     }, function(sr) {
                         $btn.prop('disabled', false).text('AI 协同建议');
@@ -5440,15 +5440,15 @@ function esc(s) {
     };
 
     // 关闭 GEO 弹窗（命名空间事件）
-    $('#wpaip-geo-detail-close').off('click.geoClose').on('click.geoClose', function() {
-        $('#wpaip-geo-detail-modal').hide();
+    $('#yimai-gso-geo-detail-close').off('click.geoClose').on('click.geoClose', function() {
+        $('#yimai-gso-geo-detail-modal').hide();
     });
-    $('#wpaip-geo-detail-modal').off('click.geoOverlay').on('click.geoOverlay', '.wpaip-geo-detail-overlay', function() {
-        $('#wpaip-geo-detail-modal').hide();
+    $('#yimai-gso-geo-detail-modal').off('click.geoOverlay').on('click.geoOverlay', '.yimai-gso-geo-detail-overlay', function() {
+        $('#yimai-gso-geo-detail-modal').hide();
     });
 
     // GEO 按钮点击
-    $(document).on('click', '.wpaip-geo-analyze-btn', function() {
+    $(document).on('click', '.yimai-gso-geo-analyze-btn', function() {
         GeoScorerPanel.showDetail($(this).data('id'));
     });
 
@@ -5460,35 +5460,35 @@ function esc(s) {
 
     var HeadingPanel = {
         init: function() {
-            var $root = $('#wpaip-heading-root');
+            var $root = $('#yimai-gso-heading-root');
             if (!$root.length) return;
             var available = String($root.data('available')) === '1';
             if (!available) {
-                $('#wpaip-heading-root input, #wpaip-heading-root select, #wpaip-heading-root button').prop('disabled', true);
+                $('#yimai-gso-heading-root input, #yimai-gso-heading-root select, #yimai-gso-heading-root button').prop('disabled', true);
                 return;
             }
-            $('#wpaip-ha-search-btn').off('click.haSearch').on('click.haSearch', function() { HeadingPanel.loadPosts(); });
-            $('#wpaip-ha-search').off('keydown.haEnter').on('keydown.haEnter', function(e) { if (e.which === 13) HeadingPanel.loadPosts(); });
+            $('#yimai-gso-ha-search-btn').off('click.haSearch').on('click.haSearch', function() { HeadingPanel.loadPosts(); });
+            $('#yimai-gso-ha-search').off('keydown.haEnter').on('keydown.haEnter', function(e) { if (e.which === 13) HeadingPanel.loadPosts(); });
             // 批量分析按钮
-            $('#wpaip-ha-batch-btn').off('click.haBatch').on('click.haBatch', function() { HeadingPanel.batchAnalyze(); });
+            $('#yimai-gso-ha-batch-btn').off('click.haBatch').on('click.haBatch', function() { HeadingPanel.batchAnalyze(); });
             // 全选/取消全选
-            $('#wpaip-ha-select-all').off('change.haSelectAll').on('change.haSelectAll', function() {
+            $('#yimai-gso-ha-select-all').off('change.haSelectAll').on('change.haSelectAll', function() {
                 var checked = this.checked;
-                $('.wpaip-ha-row-check').prop('checked', checked);
+                $('.yimai-gso-ha-row-check').prop('checked', checked);
             });
             this.loadPosts();
         },
 
         loadPosts: function() {
-            var $tbody = $('#wpaip-ha-tbody');
-            $tbody.html('<tr><td colspan="7"><div class="wpaip-empty"><p>加载中...</p></div></td></tr>');
+            var $tbody = $('#yimai-gso-ha-tbody');
+            $tbody.html('<tr><td colspan="7"><div class="yimai-gso-empty"><p>加载中...</p></div></td></tr>');
             // 重置全选复选框
-            $('#wpaip-ha-select-all').prop('checked', false);
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_search_posts', nonce: wpaipData.nonce,
-                search: $('#wpaip-ha-search').val(), category: $('#wpaip-ha-category').val(), per_page: 20
+            $('#yimai-gso-ha-select-all').prop('checked', false);
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_search_posts', nonce: yimaiGsoData.nonce,
+                search: $('#yimai-gso-ha-search').val(), category: $('#yimai-gso-ha-category').val(), per_page: 20
             }, function(res) {
-                if (!res.success || !res.data || !res.data.posts || res.data.posts.length === 0) { $tbody.html('<tr><td colspan="7"><div class="wpaip-empty"><p>未找到文章</p></div></td></tr>'); return; }
+                if (!res.success || !res.data || !res.data.posts || res.data.posts.length === 0) { $tbody.html('<tr><td colspan="7"><div class="yimai-gso-empty"><p>未找到文章</p></div></td></tr>'); return; }
                 var html = '';
                 var posts = res.data.posts;
                 for (var i = 0; i < posts.length; i++) {
@@ -5514,14 +5514,14 @@ function esc(s) {
                         kwStyle = ''; // 正常文字色
                     }
                     html += '<tr>'
-                        + '<td style="text-align:center;"><input type="checkbox" class="wpaip-ha-row-check" value="' + esc(pId) + '"></td>'
+                        + '<td style="text-align:center;"><input type="checkbox" class="yimai-gso-ha-row-check" value="' + esc(pId) + '"></td>'
                         + '<td><a href="post.php?post=' + esc(pId) + '&action=edit" target="_blank">' + esc(pTitle) + '</a></td>'
                         + '<td style="' + scoreStyle + 'text-align:center;">' + scoreHtml + '</td>'
                         + '<td style="' + h2Style + 'text-align:center;">' + h2Html + '</td>'
                         + '<td style="' + kwStyle + 'text-align:center;">' + kwHtml + '</td>'
-                        + '<td class="wpaip-ha-opt-status" style="color:#94a3b8;text-align:center;font-size:12px;" data-pid="' + esc(pId) + '">--</td>'
-                        + '<td style="text-align:center;"><button class="button button-small wpaip-ha-analyze-btn" data-id="' + esc(pId) + '">分析</button>&nbsp;'
-                        + '<button class="button button-small wpaip-ha-optimize-btn" data-id="' + esc(pId) + '">AI优化建议</button></td>'
+                        + '<td class="yimai-gso-ha-opt-status" style="color:#94a3b8;text-align:center;font-size:12px;" data-pid="' + esc(pId) + '">--</td>'
+                        + '<td style="text-align:center;"><button class="button button-small yimai-gso-ha-analyze-btn" data-id="' + esc(pId) + '">分析</button>&nbsp;'
+                        + '<button class="button button-small yimai-gso-ha-optimize-btn" data-id="' + esc(pId) + '">AI优化建议</button></td>'
                         + '</tr>';
                 }
                 $tbody.html(html);
@@ -5531,37 +5531,37 @@ function esc(s) {
                 posts.forEach(function(p) { ids.push(p.id || p.ID || 0); });
                 ids = ids.filter(function(v) { return v > 0; });
                 if (ids.length > 0) {
-                    $.post(wpaipData.ajaxUrl, {
-                        action: 'wpaip_heading_check_optimized', nonce: wpaipData.nonce,
+                    $.post(yimaiGsoData.ajaxUrl, {
+                        action: 'yimai_gso_heading_check_optimized', nonce: yimaiGsoData.nonce,
                         post_ids: ids
                     }, function(res) {
                         if (res.success && res.data) {
                             for (var pid in res.data) {
                                 if (res.data[pid]) {
-                                    $('.wpaip-ha-opt-status[data-pid="' + pid + '"]').html('<span style="color:#22c55e;font-size:12px;">已优化</span>');
+                                    $('.yimai-gso-ha-opt-status[data-pid="' + pid + '"]').html('<span style="color:#22c55e;font-size:12px;">已优化</span>');
                                 }
                             }
                         }
                     }, 'json');
                 }
-            }, 'json').fail(function() { $tbody.html('<tr><td colspan="7"><div class="wpaip-empty"><p>请求失败</p></div></td></tr>'); });
+            }, 'json').fail(function() { $tbody.html('<tr><td colspan="7"><div class="yimai-gso-empty"><p>请求失败</p></div></td></tr>'); });
         },
 
         analyze: function(postId) {
-            var $result = $('#wpaip-ha-result');
-            $result.show().html('<div class="wpaip-empty"><p>分析中...</p></div>');
-            $.post(wpaipData.ajaxUrl, { action: 'wpaip_heading_analyze', nonce: wpaipData.nonce, post_id: postId }, function(res) {
+            var $result = $('#yimai-gso-ha-result');
+            $result.show().html('<div class="yimai-gso-empty"><p>分析中...</p></div>');
+            $.post(yimaiGsoData.ajaxUrl, { action: 'yimai_gso_heading_analyze', nonce: yimaiGsoData.nonce, post_id: postId }, function(res) {
                 if (!res.success) { $result.html('<div class="notice notice-error"><p>' + esc(res.data || '分析失败') + '</p></div>'); return; }
                 HeadingPanel.renderResult(res.data);
-                var $row = $('.wpaip-ha-analyze-btn[data-id="' + postId + '"]').closest('tr');
+                var $row = $('.yimai-gso-ha-analyze-btn[data-id="' + postId + '"]').closest('tr');
                 if ($row.length) {
                     var d = res.data, sc = d.score >= 70 ? '#22c55e' : (d.score >= 50 ? '#f59e0b' : '#ef4444');
                     $row.find('td:eq(2)').html('<strong style="color:' + sc + ';">' + esc(d.score) + '</strong>');
                     $row.find('td:eq(3)').css('color', '').text(d.h2_structure ? d.h2_structure.count : '-');
                     $row.find('td:eq(4)').css('color', '').text(d.kw_coverage ? d.kw_coverage.rate + '%' : '-');
                     // 优化状态列 - 从后端持久化状态判断
-                    $.post(wpaipData.ajaxUrl, {
-                        action: 'wpaip_heading_check_optimized', nonce: wpaipData.nonce,
+                    $.post(yimaiGsoData.ajaxUrl, {
+                        action: 'yimai_gso_heading_check_optimized', nonce: yimaiGsoData.nonce,
                         post_ids: [postId]
                     }, function(optRes) {
                         if (optRes.success && optRes.data && optRes.data[postId]) {
@@ -5576,9 +5576,9 @@ function esc(s) {
 
         batchAnalyze: function() {
             var ids = [];
-            $('.wpaip-ha-row-check:checked').each(function() { ids.push($(this).val()); });
+            $('.yimai-gso-ha-row-check:checked').each(function() { ids.push($(this).val()); });
             if (ids.length === 0) { alert('请先勾选需要分析的文章'); return; }
-            var $btn = $('#wpaip-ha-batch-btn');
+            var $btn = $('#yimai-gso-ha-batch-btn');
             var total = ids.length;
             $btn.prop('disabled', true).text('分析中（0/' + total + '）...');
             // 串行逐篇分析，避免服务器超时
@@ -5599,14 +5599,14 @@ function esc(s) {
                 }
                 var pid = ids[index];
                 $btn.text('分析中（' + (index + 1) + '/' + total + '）...');
-                $.post(wpaipData.ajaxUrl, {
-                    action: 'wpaip_heading_analyze', nonce: wpaipData.nonce, post_id: pid
+                $.post(yimaiGsoData.ajaxUrl, {
+                    action: 'yimai_gso_heading_analyze', nonce: yimaiGsoData.nonce, post_id: pid
                 }, function(res) {
                     if (res.success) {
                         results.push({ pid: pid, ok: true });
                         // 实时更新表格行评分
                         var d = res.data;
-                        var $row = $('.wpaip-ha-row-check[value="' + pid + '"]').closest('tr');
+                        var $row = $('.yimai-gso-ha-row-check[value="' + pid + '"]').closest('tr');
                         if ($row.length && d) {
                             var sc = d.score >= 70 ? '#22c55e' : (d.score >= 50 ? '#f59e0b' : '#ef4444');
                             $row.find('td:eq(2)').html('<strong style="color:' + sc + ';">' + esc(d.score) + '</strong>');
@@ -5624,9 +5624,9 @@ function esc(s) {
         },
 
         optimize: function(postId) {
-            var $btn = $('.wpaip-ha-optimize-btn[data-id="' + postId + '"]');
+            var $btn = $('.yimai-gso-ha-optimize-btn[data-id="' + postId + '"]');
             $btn.prop('disabled', true).text('优化中...');
-            $.post(wpaipData.ajaxUrl, { action: 'wpaip_heading_optimize', nonce: wpaipData.nonce, post_id: postId }, function(res) {
+            $.post(yimaiGsoData.ajaxUrl, { action: 'yimai_gso_heading_optimize', nonce: yimaiGsoData.nonce, post_id: postId }, function(res) {
                 $btn.prop('disabled', false).text('一键优化');
                 if (!res.success) { alert(res.data.message || '优化失败'); return; }
                 HeadingPanel.showOptimizeModal(res.data, postId);
@@ -5639,8 +5639,8 @@ function esc(s) {
         showOptimizeModal: function(data, postId) {
             var opts = data.optimizations || [];
             var overall = data.overall || '';
-            var html = '<div id="wpaip-ha-optimize-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:99998;"></div>'
-                + '<div id="wpaip-ha-optimize-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:640px;max-height:80vh;overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);z-index:99999;padding:24px;">'
+            var html = '<div id="yimai-gso-ha-optimize-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:99998;"></div>'
+                + '<div id="yimai-gso-ha-optimize-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:640px;max-height:80vh;overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);z-index:99999;padding:24px;">'
                 + '<h3 style="margin:0 0 16px;font-size:16px;">🤖 AI 标题优化建议</h3>'
                 + '<p style="font-size:13px;color:#64748b;margin:0 0 16px;">以下是根据AI分析得到的H2标题优化建议，勾选你希望应用的优化项，点击"应用所选优化"。</p>';
 
@@ -5659,7 +5659,7 @@ function esc(s) {
                     } else {
                         html += '<div style="padding:12px 14px;margin-bottom:8px;background:#fefce8;border:1px solid #fde68a;border-radius:10px;">'
                             + '<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">'
-                            + '<input type="checkbox" class="wpaip-ha-opt-check" checked value=\'' + JSON.stringify(o).replace(/'/g, '&#39;') + '\' style="margin-top:3px;accent-color:#6366f1;">'
+                            + '<input type="checkbox" class="yimai-gso-ha-opt-check" checked value=\'' + JSON.stringify(o).replace(/'/g, '&#39;') + '\' style="margin-top:3px;accent-color:#6366f1;">'
                             + '<div><div style="font-size:12px;color:#94a3b8;text-decoration:line-through;">' + esc(o.original) + '</div>'
                             + '<div style="font-size:13px;font-weight:500;color:#1e293b;margin:2px 0;">→ ' + esc(o.suggested) + '</div>'
                             + '<div style="font-size:12px;color:#d97706;">' + esc(o.reason || '') + '</div></div></label></div>';
@@ -5675,44 +5675,44 @@ function esc(s) {
             }
 
             html += '<div style="display:flex;gap:8px;justify-content:flex-end;">'
-                + '<button type="button" id="wpaip-ha-opt-cancel" class="button">取消</button>';
+                + '<button type="button" id="yimai-gso-ha-opt-cancel" class="button">取消</button>';
 
             if (opts.length > 0) {
-                html += '<button type="button" id="wpaip-ha-opt-apply" class="button button-primary" data-post-id="' + postId + '">📝 应用所选优化</button>';
+                html += '<button type="button" id="yimai-gso-ha-opt-apply" class="button button-primary" data-post-id="' + postId + '">📝 应用所选优化</button>';
             }
             html += '</div></div>';
 
             $('body').append(html);
 
-            $('#wpaip-ha-opt-cancel').on('click', function() { $('#wpaip-ha-optimize-overlay, #wpaip-ha-optimize-modal').remove(); });
-            $('#wpaip-ha-optimize-overlay').on('click', function() { $('#wpaip-ha-optimize-overlay, #wpaip-ha-optimize-modal').remove(); });
-            $('#wpaip-ha-opt-apply').on('click', function() {
+            $('#yimai-gso-ha-opt-cancel').on('click', function() { $('#yimai-gso-ha-optimize-overlay, #yimai-gso-ha-optimize-modal').remove(); });
+            $('#yimai-gso-ha-optimize-overlay').on('click', function() { $('#yimai-gso-ha-optimize-overlay, #yimai-gso-ha-optimize-modal').remove(); });
+            $('#yimai-gso-ha-opt-apply').on('click', function() {
                 HeadingPanel.applyOptimization(postId);
             });
         },
 
         applyOptimization: function(postId) {
-            var checks = $('.wpaip-ha-opt-check:checked');
+            var checks = $('.yimai-gso-ha-opt-check:checked');
             if (checks.length === 0) { alert('请至少勾选一个优化项'); return; }
             var optimizations = [];
             checks.each(function() {
                 try { optimizations.push(JSON.parse($(this).val())); } catch(e) {}
             });
 
-            var $btn = $('#wpaip-ha-opt-apply');
+            var $btn = $('#yimai-gso-ha-opt-apply');
             $btn.prop('disabled', true).text('应用中...');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_heading_apply_optimization', nonce: wpaipData.nonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_heading_apply_optimization', nonce: yimaiGsoData.nonce,
                 post_id: postId, optimizations: JSON.stringify(optimizations)
             }, function(res) {
-                $('#wpaip-ha-optimize-overlay, #wpaip-ha-optimize-modal').remove();
+                $('#yimai-gso-ha-optimize-overlay, #yimai-gso-ha-optimize-modal').remove();
                 if (!res.success) { alert('应用失败：' + (res.data.message || '')); return; }
                 alert('✅ 已成功优化 ' + res.data.applied + ' 个标题！');
                 // 用最新分析结果更新表格行 + 底部分析面板
                 var d = res.data.analysis;
                 if (d) {
-                    var $row = $('.wpaip-ha-analyze-btn[data-id="' + postId + '"]').closest('tr');
+                    var $row = $('.yimai-gso-ha-analyze-btn[data-id="' + postId + '"]').closest('tr');
                     if ($row.length) {
                         var sc = d.score >= 70 ? '#22c55e' : (d.score >= 50 ? '#f59e0b' : '#ef4444');
                         $row.find('td:eq(2)').html('<strong style="color:' + sc + ';">' + esc(d.score) + '</strong>');
@@ -5723,9 +5723,9 @@ function esc(s) {
                     HeadingPanel.renderResult(d);
                 }
                 // 设置持久化优化状态标记
-                $('.wpaip-ha-opt-status[data-pid="' + postId + '"]').html('<span style="color:#22c55e;font-size:12px;">已优化</span>');
+                $('.yimai-gso-ha-opt-status[data-pid="' + postId + '"]').html('<span style="color:#22c55e;font-size:12px;">已优化</span>');
             }, 'json').fail(function() {
-                $('#wpaip-ha-optimize-overlay, #wpaip-ha-optimize-modal').remove();
+                $('#yimai-gso-ha-optimize-overlay, #yimai-gso-ha-optimize-modal').remove();
                 alert('网络请求失败');
             });
         },
@@ -5750,10 +5750,10 @@ function esc(s) {
 
             // 标题列表
             if (d.headings && d.headings.length > 0) {
-                html += '<div style="margin-bottom:16px;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;"><h4 style="margin:0 0 8px;">标题层级</h4><ul class="wpaip-ha-heading-list">';
+                html += '<div style="margin-bottom:16px;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;"><h4 style="margin:0 0 8px;">标题层级</h4><ul class="yimai-gso-ha-heading-list">';
                 for (var h = 0; h < d.headings.length; h++) {
                     var hd = d.headings[h];
-                    html += '<li class="wpaip-ha-heading-item"><span class="wpaip-ha-heading-level h' + hd.level + '">H' + hd.level + '</span><span>' + esc(hd.text) + (hd.has_keyword ? ' <span class="wpaip-ha-heading-kw">含关键词</span>' : '') + '</span></li>';
+                    html += '<li class="yimai-gso-ha-heading-item"><span class="yimai-gso-ha-heading-level h' + hd.level + '">H' + hd.level + '</span><span>' + esc(hd.text) + (hd.has_keyword ? ' <span class="yimai-gso-ha-heading-kw">含关键词</span>' : '') + '</span></li>';
                 }
                 html += '</ul></div>';
             }
@@ -5782,13 +5782,13 @@ function esc(s) {
                 }
                 html += '</div>';
             }
-            $('#wpaip-ha-result').html(html);
+            $('#yimai-gso-ha-result').html(html);
         }
     };
 
-    $(document).on('click', '.wpaip-ha-analyze-btn', function() { HeadingPanel.analyze($(this).data('id')); });
-    $(document).on('click', '.wpaip-ha-optimize-btn', function() { HeadingPanel.optimize($(this).data('id')); });
-    $(document).on('click', '.wpaip-sidebar-tab[data-tab="heading"]', function() { setTimeout(function() { HeadingPanel.init(); }, 100); });
+    $(document).on('click', '.yimai-gso-ha-analyze-btn', function() { HeadingPanel.analyze($(this).data('id')); });
+    $(document).on('click', '.yimai-gso-ha-optimize-btn', function() { HeadingPanel.optimize($(this).data('id')); });
+    $(document).on('click', '.yimai-gso-sidebar-tab[data-tab="heading"]', function() { setTimeout(function() { HeadingPanel.init(); }, 100); });
     window.HeadingPanel = HeadingPanel;
 })(jQuery);
 
@@ -5796,8 +5796,8 @@ function esc(s) {
 // Canonical URL 管理 IIFE
 // ══════════════════════════════════════════════════════════════
 (function($) {
-    // 修复：定义 ajaxurl 变量（从 wpaipData 中读取）
-    var ajaxurl = (typeof wpaipData !== 'undefined' && wpaipData.ajaxUrl) ? wpaipData.ajaxUrl : '';
+    // 修复：定义 ajaxurl 变量（从 yimaiGsoData 中读取）
+    var ajaxurl = (typeof yimaiGsoData !== 'undefined' && yimaiGsoData.ajaxUrl) ? yimaiGsoData.ajaxUrl : '';
 
 
     var CanonicalPanel = {
@@ -5808,7 +5808,7 @@ function esc(s) {
 
         init: function() {
             if (this.initialized) return;
-            var $root = $('#wpaip-canonical-root');
+            var $root = $('#yimai-gso-canonical-root');
             if (!$root.length || $root.data('available') === '0') return;
             this.initialized = true;
             this.bindEvents();
@@ -5817,36 +5817,36 @@ function esc(s) {
 
         bindEvents: function() {
             var self = this;
-            $('#wpaip-cm-search-btn').on('click', function() { self.page = 1; self.scan(); });
-            $('#wpaip-cm-search').on('keypress', function(e) { if (e.which === 13) { self.page = 1; self.scan(); } });
+            $('#yimai-gso-cm-search-btn').on('click', function() { self.page = 1; self.scan(); });
+            $('#yimai-gso-cm-search').on('keypress', function(e) { if (e.which === 13) { self.page = 1; self.scan(); } });
             // 委托：编辑/保存/取消 canonical
-            $(document).off('click.wpaip-cm-edit').on('click.wpaip-cm-edit', '.wpaip-cm-edit-btn', function() { self.startEdit($(this).closest('tr')); });
-            $(document).off('click.wpaip-cm-save').on('click.wpaip-cm-save', '.wpaip-cm-save-btn', function() { self.saveEdit($(this).closest('tr')); });
-            $(document).off('click.wpaip-cm-cancel').on('click.wpaip-cm-cancel', '.wpaip-cm-cancel-btn', function() { self.cancelEdit($(this).closest('tr')); });
+            $(document).off('click.yimai-gso-cm-edit').on('click.yimai-gso-cm-edit', '.yimai-gso-cm-edit-btn', function() { self.startEdit($(this).closest('tr')); });
+            $(document).off('click.yimai-gso-cm-save').on('click.yimai-gso-cm-save', '.yimai-gso-cm-save-btn', function() { self.saveEdit($(this).closest('tr')); });
+            $(document).off('click.yimai-gso-cm-cancel').on('click.yimai-gso-cm-cancel', '.yimai-gso-cm-cancel-btn', function() { self.cancelEdit($(this).closest('tr')); });
         },
 
         getNonce: function() {
-            return $('#wpaip-canonical-root').data('nonce') || '';
+            return $('#yimai-gso-canonical-root').data('nonce') || '';
         },
 
         scan: function() {
             if (this.loading) return;
             this.loading = true;
             var self = this;
-            var $btn = $('#wpaip-cm-search-btn').prop('disabled', true).html('<span class="dashicons dashicons-update-alt spin"></span> 扫描中...');
+            var $btn = $('#yimai-gso-cm-search-btn').prop('disabled', true).html('<span class="dashicons dashicons-update-alt spin"></span> 扫描中...');
 
             $.ajax({
                 url: ajaxurl,
                 type: 'POST',
                 dataType: 'json',
                 data: {
-                    action: 'wpaip_canonical_batch_scan',
+                    action: 'yimai_gso_canonical_batch_scan',
                     nonce: self.getNonce(),
                     page: self.page,
                     per_page: self.perPage,
-                    filter: $('#wpaip-cm-filter').val(),
-                    search: $('#wpaip-cm-search').val(),
-                    category: $('#wpaip-cm-category').val()
+                    filter: $('#yimai-gso-cm-filter').val(),
+                    search: $('#yimai-gso-cm-search').val(),
+                    category: $('#yimai-gso-cm-category').val()
                 },
                 success: function(res) {
                     if (res.success) {
@@ -5854,11 +5854,11 @@ function esc(s) {
                         self.renderTable(res.data.items);
                         self.renderPagination(res.data.total, res.data.page, res.data.per_page);
                     } else {
-                        $('#wpaip-cm-tbody').html('<tr><td colspan="5"><div class="notice notice-error" style="margin:0"><p>' + esc(res.data && res.data.message ? res.data.message : '扫描失败') + '</p></div></td></tr>');
+                        $('#yimai-gso-cm-tbody').html('<tr><td colspan="5"><div class="notice notice-error" style="margin:0"><p>' + esc(res.data && res.data.message ? res.data.message : '扫描失败') + '</p></div></td></tr>');
                     }
                 },
                 error: function() {
-                    $('#wpaip-cm-tbody').html('<tr><td colspan="5"><div class="notice notice-error" style="margin:0"><p>网络请求失败，请重试</p></div></td></tr>');
+                    $('#yimai-gso-cm-tbody').html('<tr><td colspan="5"><div class="notice notice-error" style="margin:0"><p>网络请求失败，请重试</p></div></td></tr>');
                 },
                 complete: function() {
                     self.loading = false;
@@ -5869,16 +5869,16 @@ function esc(s) {
 
         renderStats: function(s) {
             if (!s) return;
-            $('#wpaip-cm-total').text(s.total || 0);
-            $('#wpaip-cm-default').text(s.default || 0);
-            $('#wpaip-cm-custom').text(s.custom || 0);
-            $('#wpaip-cm-external').text(s.external || 0);
+            $('#yimai-gso-cm-total').text(s.total || 0);
+            $('#yimai-gso-cm-default').text(s.default || 0);
+            $('#yimai-gso-cm-custom').text(s.custom || 0);
+            $('#yimai-gso-cm-external').text(s.external || 0);
         },
 
         renderTable: function(items) {
-            var $tbody = $('#wpaip-cm-tbody');
+            var $tbody = $('#yimai-gso-cm-tbody');
             if (!items || items.length === 0) {
-                $tbody.html('<tr><td colspan="5"><div class="wpaip-empty"><p>没有找到匹配的文章</p></div></td></tr>');
+                $tbody.html('<tr><td colspan="5"><div class="yimai-gso-empty"><p>没有找到匹配的文章</p></div></td></tr>');
                 return;
             }
             var html = '';
@@ -5897,34 +5897,34 @@ function esc(s) {
                 }
                 html += '<tr data-id="' + item.id + '" data-custom="' + esc(item.custom_value || '') + '">'
                     + '<td><strong>' + esc(item.title) + '</strong></td>'
-                    + '<td class="wpaip-cm-url-cell"><span class="wpaip-cm-url-display" title="' + encodeURIComponent(item.canonical_url) + '">' + esc(decodeURIComponent(item.canonical_url)) + '</span>'
-                    + '<input type="url" class="wpaip-cm-url-input" value="' + esc(item.custom_value || '') + '" placeholder="留空则使用默认" style="display:none;width:100%;font-size:12px"></td>'
+                    + '<td class="yimai-gso-cm-url-cell"><span class="yimai-gso-cm-url-display" title="' + encodeURIComponent(item.canonical_url) + '">' + esc(decodeURIComponent(item.canonical_url)) + '</span>'
+                    + '<input type="url" class="yimai-gso-cm-url-input" value="' + esc(item.custom_value || '') + '" placeholder="留空则使用默认" style="display:none;width:100%;font-size:12px"></td>'
                     + '<td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;' + statusStyle + '">' + statusBadge + '</span></td>'
                     + '<td style="font-size:12px;color:#64748b">' + esc(item.post_date ? item.post_date.substring(0, 10) : '') + '</td>'
                     + '<td>'
-                    + '<button type="button" class="button button-small wpaip-cm-edit-btn" title="编辑 Canonical">编辑</button>'
-                    + '<button type="button" class="button button-small wpaip-cm-save-btn" style="display:none">保存</button> '
-                    + '<button type="button" class="button button-small wpaip-cm-cancel-btn" style="display:none">取消</button>'
+                    + '<button type="button" class="button button-small yimai-gso-cm-edit-btn" title="编辑 Canonical">编辑</button>'
+                    + '<button type="button" class="button button-small yimai-gso-cm-save-btn" style="display:none">保存</button> '
+                    + '<button type="button" class="button button-small yimai-gso-cm-cancel-btn" style="display:none">取消</button>'
                     + '</td></tr>';
             }
             $tbody.html(html);
         },
 
         renderPagination: function(total, page, perPage) {
-            var $pg = $('#wpaip-cm-pagination');
+            var $pg = $('#yimai-gso-cm-pagination');
             if (total <= perPage) { $pg.html(''); return; }
             var totalPages = Math.ceil(total / perPage);
-            var html = '<button class="button button-small wpaip-cm-pg-btn" data-page="1"' + (page <= 1 ? ' disabled' : '') + '>&laquo;</button>';
+            var html = '<button class="button button-small yimai-gso-cm-pg-btn" data-page="1"' + (page <= 1 ? ' disabled' : '') + '>&laquo;</button>';
             var start = Math.max(1, page - 2), end = Math.min(totalPages, page + 2);
             for (var p = start; p <= end; p++) {
-                html += '<button class="button button-small wpaip-cm-pg-btn' + (p === page ? ' active" style="background:#2271b1;color:#fff"' : '') + '" data-page="' + p + '">' + p + '</button>';
+                html += '<button class="button button-small yimai-gso-cm-pg-btn' + (p === page ? ' active" style="background:#2271b1;color:#fff"' : '') + '" data-page="' + p + '">' + p + '</button>';
             }
-            html += '<button class="button button-small wpaip-cm-pg-btn" data-page="' + totalPages + '"' + (page >= totalPages ? ' disabled' : '') + '>&raquo;</button>';
+            html += '<button class="button button-small yimai-gso-cm-pg-btn" data-page="' + totalPages + '"' + (page >= totalPages ? ' disabled' : '') + '>&raquo;</button>';
             html += '<span style="font-size:12px;color:#64748b;margin-left:8px">共 ' + total + ' 篇</span>';
             $pg.html(html);
 
             var self = this;
-            $pg.off('click.wpaip-cm-pg').on('click.wpaip-cm-pg', '.wpaip-cm-pg-btn', function() {
+            $pg.off('click.yimai-gso-cm-pg').on('click.yimai-gso-cm-pg', '.yimai-gso-cm-pg-btn', function() {
                 if ($(this).prop('disabled')) return;
                 self.page = parseInt($(this).data('page'));
                 self.scan();
@@ -5932,30 +5932,30 @@ function esc(s) {
         },
 
         startEdit: function($tr) {
-            $tr.find('.wpaip-cm-url-display').hide();
-            $tr.find('.wpaip-cm-url-input').show().focus();
-            $tr.find('.wpaip-cm-edit-btn').hide();
-            $tr.find('.wpaip-cm-save-btn, .wpaip-cm-cancel-btn').show();
+            $tr.find('.yimai-gso-cm-url-display').hide();
+            $tr.find('.yimai-gso-cm-url-input').show().focus();
+            $tr.find('.yimai-gso-cm-edit-btn').hide();
+            $tr.find('.yimai-gso-cm-save-btn, .yimai-gso-cm-cancel-btn').show();
         },
 
         cancelEdit: function($tr) {
-            $tr.find('.wpaip-cm-url-display').show();
-            $tr.find('.wpaip-cm-url-input').hide().val($tr.data('custom') || '');
-            $tr.find('.wpaip-cm-edit-btn').show();
-            $tr.find('.wpaip-cm-save-btn, .wpaip-cm-cancel-btn').hide();
+            $tr.find('.yimai-gso-cm-url-display').show();
+            $tr.find('.yimai-gso-cm-url-input').hide().val($tr.data('custom') || '');
+            $tr.find('.yimai-gso-cm-edit-btn').show();
+            $tr.find('.yimai-gso-cm-save-btn, .yimai-gso-cm-cancel-btn').hide();
         },
 
         saveEdit: function($tr) {
             var self = this;
             var postId = $tr.data('id');
-            var url = $tr.find('.wpaip-cm-url-input').val().trim();
+            var url = $tr.find('.yimai-gso-cm-url-input').val().trim();
 
             $.ajax({
                 url: ajaxurl,
                 type: 'POST',
                 dataType: 'json',
                 data: {
-                    action: 'wpaip_canonical_save_custom',
+                    action: 'yimai_gso_canonical_save_custom',
                     nonce: self.getNonce(),
                     post_id: postId,
                     canonical_url: url
@@ -5967,8 +5967,8 @@ function esc(s) {
                         // 更新 URL 显示（解码后展示）
                         var displayUrl = '';
                         try { displayUrl = decodeURIComponent(d.canonical_url); } catch(e) { displayUrl = d.canonical_url; }
-                        $tr.find('.wpaip-cm-url-display').attr('title', encodeURIComponent(d.canonical_url)).text(esc(displayUrl));
-                        $tr.find('.wpaip-cm-url-input').val(d.is_custom ? d.canonical_url : '');
+                        $tr.find('.yimai-gso-cm-url-display').attr('title', encodeURIComponent(d.canonical_url)).text(esc(displayUrl));
+                        $tr.find('.yimai-gso-cm-url-input').val(d.is_custom ? d.canonical_url : '');
                         // 更新状态徽章
                         var $badge = $tr.find('td:nth-child(3) span');
                         if (d.is_external) {
@@ -5989,7 +5989,7 @@ function esc(s) {
         }
     };
 
-    $(document).on('click', '.wpaip-sidebar-tab[data-tab="canonical"]', function() { setTimeout(function() { CanonicalPanel.init(); }, 100); });
+    $(document).on('click', '.yimai-gso-sidebar-tab[data-tab="canonical"]', function() { setTimeout(function() { CanonicalPanel.init(); }, 100); });
     window.CanonicalPanel = CanonicalPanel;
 })(jQuery);
 
@@ -5997,7 +5997,7 @@ function esc(s) {
 // 404 页面 SEO 优化 IIFE (v2.5.0 增强版)
 // ══════════════════════════════════════════════════════════════
 (function($) {
-    var ajaxurl = (typeof wpaipData !== 'undefined' && wpaipData.ajaxUrl) ? wpaipData.ajaxUrl : '';
+    var ajaxurl = (typeof yimaiGsoData !== 'undefined' && yimaiGsoData.ajaxUrl) ? yimaiGsoData.ajaxUrl : '';
 
     var Opt404 = {
         page: 1, perPage: 20, source: 'logs', loading: false, initialized: false,
@@ -6008,10 +6008,10 @@ function esc(s) {
 
         init: function() {
             if (this.initialized) return;
-            var $root = $('#wpaip-404-root');
+            var $root = $('#yimai-gso-404-root');
             if (!$root.length) return;
             if ($root.data('available') === '0') {
-                $('#wpaip-404-root input, #wpaip-404-root select, #wpaip-404-root button').prop('disabled', true);
+                $('#yimai-gso-404-root input, #yimai-gso-404-root select, #yimai-gso-404-root button').prop('disabled', true);
                 return;
             }
             this.initialized = true;
@@ -6025,19 +6025,19 @@ function esc(s) {
             var self = this;
 
             // ── 子标签切换 ──
-            $(document).off('click.wpaip-404-subtab').on('click.wpaip-404-subtab', '.wpaip-404-sub-tab', function() {
-                $('.wpaip-404-sub-tab').removeClass('active');
+            $(document).off('click.yimai-gso-404-subtab').on('click.yimai-gso-404-subtab', '.yimai-gso-404-sub-tab', function() {
+                $('.yimai-gso-404-sub-tab').removeClass('active');
                 $(this).addClass('active');
                 var sub = $(this).data('subtab');
                 self.subTab = sub;
-                $('.wpaip-404-sub-panel').hide();
-                $('.wpaip-404-sub-panel[data-subpanel="' + sub + '"]').show();
+                $('.yimai-gso-404-sub-panel').hide();
+                $('.yimai-gso-404-sub-panel[data-subpanel="' + sub + '"]').show();
                 if (sub === 'redirects') self.loadRedirects();
             });
 
             // ── 死链检测：来源切换 ──
-            $(document).off('click.wpaip-404-source').on('click.wpaip-404-source', '.wpaip-404-source-tab', function() {
-                $('.wpaip-404-source-tab').removeClass('active');
+            $(document).off('click.yimai-gso-404-source').on('click.yimai-gso-404-source', '.yimai-gso-404-source-tab', function() {
+                $('.yimai-gso-404-source-tab').removeClass('active');
                 $(this).addClass('active');
                 self.source = $(this).data('source');
                 self.page = 1;
@@ -6045,105 +6045,105 @@ function esc(s) {
             });
 
             // ── 死链检测：筛选器 ──
-            $('#wpaip-404-bot-filter').off('change').on('change', function() {
+            $('#yimai-gso-404-bot-filter').off('change').on('change', function() {
                 self.botFilter = $(this).val(); self.page = 1; self.scan();
             });
-            $('#wpaip-404-time-filter').off('change').on('change', function() {
+            $('#yimai-gso-404-time-filter').off('change').on('change', function() {
                 self.timeRange = $(this).val(); self.page = 1; self.scan();
             });
-            $('#wpaip-404-search').off('input').on('input', function() {
+            $('#yimai-gso-404-search').off('input').on('input', function() {
                 self.search = $(this).val(); self.page = 1;
             });
 
             // ── 扫描按钮 ──
-            $('#wpaip-404-scan-btn').on('click', function() { self.page = 1; self.scan(); });
+            $('#yimai-gso-404-scan-btn').on('click', function() { self.page = 1; self.scan(); });
 
             // ── 导出CSV ──
-            $('#wpaip-404-export-csv-btn').on('click', function() { self.exportCSV(); });
+            $('#yimai-gso-404-export-csv-btn').on('click', function() { self.exportCSV(); });
 
             // ── 清空日志 ──
-            $('#wpaip-404-clear-btn').on('click', function() {
+            $('#yimai-gso-404-clear-btn').on('click', function() {
                 if (!confirm('确定要清空所有404访问日志吗？此操作不可恢复。')) return;
-                $.post(ajaxurl, { action: 'wpaip_404_clear_logs', nonce: self.getNonce() }, function(res) {
+                $.post(ajaxurl, { action: 'yimai_gso_404_clear_logs', nonce: self.getNonce() }, function(res) {
                     if (res.success) { alert('日志已清空'); self.page = 1; self.scan(); }
                     else alert(res.data && res.data.message ? res.data.message : '操作失败');
                 });
             });
 
             // ── 生成404页面 ──
-            $('#wpaip-404-gen-btn').on('click', function() { self.generatePage(); });
+            $('#yimai-gso-404-gen-btn').on('click', function() { self.generatePage(); });
 
             // ── 自定义404页面复制 ──
-            $('#wpaip-404-copy-btn').on('click', function() {
-                var $ta = $('#wpaip-404-html'); $ta.select(); document.execCommand('copy');
-                $(this).text('已复制!'); setTimeout(function() { $('#wpaip-404-copy-btn').text('复制 HTML 代码'); }, 2000);
+            $('#yimai-gso-404-copy-btn').on('click', function() {
+                var $ta = $('#yimai-gso-404-html'); $ta.select(); document.execCommand('copy');
+                $(this).text('已复制!'); setTimeout(function() { $('#yimai-gso-404-copy-btn').text('复制 HTML 代码'); }, 2000);
             });
 
             // ── 设置保存 ──
-            $('#wpaip-404-save-settings-btn').on('click', function() {
-                var customEnabled = $('#wpaip-404-setting-custom').is(':checked') ? 1 : 0;
+            $('#yimai-gso-404-save-settings-btn').on('click', function() {
+                var customEnabled = $('#yimai-gso-404-setting-custom').is(':checked') ? 1 : 0;
                 $.post(ajaxurl, {
-                    action: 'wpaip_404_save_settings',
+                    action: 'yimai_gso_404_save_settings',
                     nonce: self.getNonce(),
-                    log_enabled: $('#wpaip-404-setting-log').is(':checked') ? 1 : 0,
+                    log_enabled: $('#yimai-gso-404-setting-log').is(':checked') ? 1 : 0,
                     custom_enabled: customEnabled,
-                    auto_redirect: $('#wpaip-404-setting-auto-redirect').is(':checked') ? 1 : 0
+                    auto_redirect: $('#yimai-gso-404-setting-auto-redirect').is(':checked') ? 1 : 0
                 }, function(res) {
                     if (res.success) {
-                        $('#wpaip-404-settings-msg').show().delay(2000).fadeOut();
+                        $('#yimai-gso-404-settings-msg').show().delay(2000).fadeOut();
                         self.updateCustomPageStatus(customEnabled === 1, '');
                         if (customEnabled === 1) {
-                            $('#wpaip-404-custom-alert').show();
+                            $('#yimai-gso-404-custom-alert').show();
                         } else {
-                            $('#wpaip-404-custom-alert').hide();
+                            $('#yimai-gso-404-custom-alert').hide();
                         }
                     }
                 });
             });
 
             // ── 忽略规则保存 ──
-            $('#wpaip-404-save-ignore-btn').on('click', function() {
+            $('#yimai-gso-404-save-ignore-btn').on('click', function() {
                 $.post(ajaxurl, {
-                    action: 'wpaip_404_save_ignore_rules',
+                    action: 'yimai_gso_404_save_ignore_rules',
                     nonce: self.getNonce(),
-                    rules: $('#wpaip-404-ignore-rules').val()
+                    rules: $('#yimai-gso-404-ignore-rules').val()
                 }, function(res) {
-                    if (res.success) $('#wpaip-404-ignore-msg').show().delay(2000).fadeOut();
+                    if (res.success) $('#yimai-gso-404-ignore-msg').show().delay(2000).fadeOut();
                     else alert(res.data && res.data.message ? res.data.message : '操作失败');
                 });
             });
 
             // ── 重定向管理：刷新 ──
-            $('#wpaip-404-red-refresh-btn').on('click', function() { self.redPage = 1; self.loadRedirects(); });
-            $('#wpaip-404-red-search').off('input').on('input', function() { self.redPage = 1; self.loadRedirects(); });
+            $('#yimai-gso-404-red-refresh-btn').on('click', function() { self.redPage = 1; self.loadRedirects(); });
+            $('#yimai-gso-404-red-search').off('input').on('input', function() { self.redPage = 1; self.loadRedirects(); });
 
             // ── 重定向导入/导出 ──
-            $('#wpaip-404-import-csv-btn').on('click', function() {
-                $('#wpaip-404-import-modal').css('display','flex');
+            $('#yimai-gso-404-import-csv-btn').on('click', function() {
+                $('#yimai-gso-404-import-modal').css('display','flex');
             });
-            $('#wpaip-404-import-cancel, .wpaip-404-modal-close').on('click', function() {
-                $('#wpaip-404-import-modal').hide();
+            $('#yimai-gso-404-import-cancel, .yimai-gso-404-modal-close').on('click', function() {
+                $('#yimai-gso-404-import-modal').hide();
             });
-            $('#wpaip-404-import-submit').on('click', function() {
-                var csv = $('#wpaip-404-import-csv').val();
+            $('#yimai-gso-404-import-submit').on('click', function() {
+                var csv = $('#yimai-gso-404-import-csv').val();
                 if (!csv.trim()) { alert('请粘贴CSV数据'); return; }
-                $.post(ajaxurl, { action: 'wpaip_404_import_redirects', nonce: self.getNonce(), csv_data: csv }, function(res) {
-                    if (res.success) { alert(res.data.message); $('#wpaip-404-import-modal').hide(); self.loadRedirects(); }
+                $.post(ajaxurl, { action: 'yimai_gso_404_import_redirects', nonce: self.getNonce(), csv_data: csv }, function(res) {
+                    if (res.success) { alert(res.data.message); $('#yimai-gso-404-import-modal').hide(); self.loadRedirects(); }
                     else alert(res.data && res.data.message ? res.data.message : '导入失败');
                 });
             });
-            $('#wpaip-404-export-red-btn').on('click', function() {
-                $.post(ajaxurl, { action: 'wpaip_404_export_redirects', nonce: self.getNonce() }, function(res) {
+            $('#yimai-gso-404-export-red-btn').on('click', function() {
+                $.post(ajaxurl, { action: 'yimai_gso_404_export_redirects', nonce: self.getNonce() }, function(res) {
                     if (res.success && res.data.csv) {
-                        self.downloadCSV(res.data.csv, 'wpaip-301-redirects.csv');
+                        self.downloadCSV(res.data.csv, 'yimai-gso-301-redirects.csv');
                     }
                 });
             });
 
             // ── 快速添加忽略规则标签 ──
-            $('.wpaip-404-quick-tag').off('click').on('click', function() {
+            $('.yimai-gso-404-quick-tag').off('click').on('click', function() {
                 var val = $(this).text().trim();
-                var $ta = $('#wpaip-404-ignore-rules');
+                var $ta = $('#yimai-gso-404-ignore-rules');
                 var lines = $ta.val().split('\n');
                 var found = false;
                 for (var i = 0; i < lines.length; i++) {
@@ -6156,13 +6156,13 @@ function esc(s) {
 
             // ── 初始化状态 ──
             self.updateCustomPageStatus(
-                $('#wpaip-404-setting-custom').is(':checked'),
+                $('#yimai-gso-404-setting-custom').is(':checked'),
                 ''
             );
         },
 
         getNonce: function() {
-            return $('#wpaip-404-root').data('nonce') || '';
+            return $('#yimai-gso-404-root').data('nonce') || '';
         },
 
         downloadCSV: function(csv, filename) {
@@ -6180,24 +6180,24 @@ function esc(s) {
             if (this.loading) return;
             this.loading = true;
             var self = this;
-            var $btn = $('#wpaip-404-scan-btn').prop('disabled', true).text('⏳ 扫描中...');
-            $('#wpaip-404-scan-progress').show();
-            $('#wpaip-404-scan-fill').css('width', '0%');
-            $('#wpaip-404-scan-text').text('正在扫描...');
+            var $btn = $('#yimai-gso-404-scan-btn').prop('disabled', true).text('⏳ 扫描中...');
+            $('#yimai-gso-404-scan-progress').show();
+            $('#yimai-gso-404-scan-fill').css('width', '0%');
+            $('#yimai-gso-404-scan-text').text('正在扫描...');
             // 模拟进度动画
             var progInterval = setInterval(function() {
-                var w = parseInt($('#wpaip-404-scan-fill').css('width')) || 0;
+                var w = parseInt($('#yimai-gso-404-scan-fill').css('width')) || 0;
                 if (w < 90) {
                     w += Math.random() * 15;
-                    $('#wpaip-404-scan-fill').css('width', Math.min(w, 90) + '%');
-                    $('#wpaip-404-scan-text').text(w > 50 ? '正在扫描文章内链...' : '正在扫描404日志...');
+                    $('#yimai-gso-404-scan-fill').css('width', Math.min(w, 90) + '%');
+                    $('#yimai-gso-404-scan-text').text(w > 50 ? '正在扫描文章内链...' : '正在扫描404日志...');
                 }
             }, 300);
 
             $.ajax({
                 url: ajaxurl, type: 'POST', dataType: 'json',
                 data: {
-                    action: 'wpaip_404_scan',
+                    action: 'yimai_gso_404_scan',
                     nonce: self.getNonce(),
                     page: self.page, per_page: self.perPage,
                     source: self.source,
@@ -6210,22 +6210,22 @@ function esc(s) {
                         var d = res.data;
                         self.renderStats(d.stats);
                         self.renderTable(d.items);
-                        self.renderPagination(d.total, d.page, d.per_page, '#wpaip-404-pagination', 'scan');
+                        self.renderPagination(d.total, d.page, d.per_page, '#yimai-gso-404-pagination', 'scan');
                     } else {
-                        $('#wpaip-404-tbody').html('<tr><td colspan="8"><div class="wpaip-404-empty-state"><div style="color:#ef4444;text-align:center">' + esc(res.data && res.data.message ? res.data.message : '扫描失败') + '</div></div></td></tr>');
+                        $('#yimai-gso-404-tbody').html('<tr><td colspan="8"><div class="yimai-gso-404-empty-state"><div style="color:#ef4444;text-align:center">' + esc(res.data && res.data.message ? res.data.message : '扫描失败') + '</div></div></td></tr>');
                     }
                 },
                 error: function() {
-                    $('#wpaip-404-tbody').html('<tr><td colspan="8"><div class="wpaip-404-empty-state"><div style="color:#ef4444;text-align:center">网络请求失败</div></div></td></tr>');
+                    $('#yimai-gso-404-tbody').html('<tr><td colspan="8"><div class="yimai-gso-404-empty-state"><div style="color:#ef4444;text-align:center">网络请求失败</div></div></td></tr>');
                 },
                 complete: function() {
                     clearInterval(progInterval);
                     self.loading = false;
                     $btn.prop('disabled', false).text('🔍 开始扫描');
-                    $('#wpaip-404-scan-fill').css('width', '100%');
-                    $('#wpaip-404-scan-text').text('扫描完成！');
+                    $('#yimai-gso-404-scan-fill').css('width', '100%');
+                    $('#yimai-gso-404-scan-text').text('扫描完成！');
                     setTimeout(function() {
-                        $('#wpaip-404-scan-progress').fadeOut(500);
+                        $('#yimai-gso-404-scan-progress').fadeOut(500);
                     }, 1500);
                 }
             });
@@ -6235,9 +6235,9 @@ function esc(s) {
             if (!s) return;
             // 死链数量
             var deadCount = s['total_' + this.source] >= 0 ? s['total_' + this.source] : '-';
-            $('#wpaip-404-total-links').text(deadCount);
+            $('#yimai-gso-404-total-links').text(deadCount);
             // 总访问量
-            $('#wpaip-404-total-hits').text(s.total_hits || 0);
+            $('#yimai-gso-404-total-hits').text(s.total_hits || 0);
             // 爬虫访问（如果有的话，在 delta 行展示；否则放 redirect count 卡片）
             if (s.total_bot_hits !== undefined) {
                 // 可以用在访问量卡片的delta
@@ -6245,24 +6245,24 @@ function esc(s) {
         },
 
         updateRedirectCount: function(count) {
-            $('#wpaip-404-redirect-count').text(count || 0);
+            $('#yimai-gso-404-redirect-count').text(count || 0);
         },
 
         updateCustomPageStatus: function(enabled, lastGen) {
             if (enabled) {
-                $('#wpaip-404-custom-status').text('已启用').css('color','#7c3aed');
-                if (lastGen) $('#wpaip-404-delta-custom').text(lastGen).show();
+                $('#yimai-gso-404-custom-status').text('已启用').css('color','#7c3aed');
+                if (lastGen) $('#yimai-gso-404-delta-custom').text(lastGen).show();
             } else {
-                $('#wpaip-404-custom-status').text('未启用').css('color','#1e293b');
+                $('#yimai-gso-404-custom-status').text('未启用').css('color','#1e293b');
             }
         },
 
         renderTable: function(items) {
-            var $tbody = $('#wpaip-404-tbody');
+            var $tbody = $('#yimai-gso-404-tbody');
             if (!items || items.length === 0) {
                 var emptyMsg = this.source === 'logs' ? '暂无 404 访问记录' : '未发现内链死链';
                 if (this.search) emptyMsg = '没有匹配的结果';
-                $tbody.html('<tr><td colspan="8"><div class="wpaip-404-empty-state"><div class="empty-icon">🔍</div><div class="empty-title">' + emptyMsg + '</div></div></td></tr>');
+                $tbody.html('<tr><td colspan="8"><div class="yimai-gso-404-empty-state"><div class="empty-icon">🔍</div><div class="empty-title">' + emptyMsg + '</div></div></td></tr>');
                 return;
             }
             var html = '';
@@ -6279,7 +6279,7 @@ function esc(s) {
                 if (item.redirect_suggestions && item.redirect_suggestions.length > 0) {
                     var sug = item.redirect_suggestions[0];
                     // ★ 修复：sug.score || '?' 在得分为 0（策略4兜底）时被判为 falsy 显示"？分"，改用 != null 精确判断
-sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#94a3b8">→</span><span style="font-size:12px;color:#059669">' + esc(sug.title.length > 18 ? sug.title.substring(0, 18) + '...' : sug.title) + '</span><span class="wpaip-badge green" style="font-size:10px;padding:1px 6px">' + (sug.score != null ? sug.score : '?') + '分</span></div>';
+sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#94a3b8">→</span><span style="font-size:12px;color:#059669">' + esc(sug.title.length > 18 ? sug.title.substring(0, 18) + '...' : sug.title) + '</span><span class="yimai-gso-badge green" style="font-size:10px;padding:1px 6px">' + (sug.score != null ? sug.score : '?') + '分</span></div>';
                     hasSuggestion = true;
                     sugUrl = sug.url;
                     sugTitle = sug.title;
@@ -6290,8 +6290,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
                 // 来源徽章
                 var sourceBadge = item.source === 'internal'
-                    ? '<span class="wpaip-badge" style="background:#fff7ed;color:#ea580c">内链死链</span>'
-                    : '<span class="wpaip-badge" style="background:#fef2f2;color:#dc2626">404日志</span>';
+                    ? '<span class="yimai-gso-badge" style="background:#fff7ed;color:#ea580c">内链死链</span>'
+                    : '<span class="yimai-gso-badge" style="background:#fef2f2;color:#dc2626">404日志</span>';
 
                 // 爬虫类型
                 var botType = item.bot_type || 'user';
@@ -6314,14 +6314,14 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                 // 操作列
                 var actions = '';
                 if (item.source === 'internal' && item.from_id) {
-                actions += '<button type="button" class="wpaip-404-btn wpaip-404-remove-btn" data-post="' + item.from_id + '" data-href="' + esc(item.url) + '" style="color:#ef4444;border-color:#fecaca;padding:3px 10px;font-size:11px" title="移除死链，保留锚文本">✕ 移除</button> ';
+                actions += '<button type="button" class="yimai-gso-404-btn yimai-gso-404-remove-btn" data-post="' + item.from_id + '" data-href="' + esc(item.url) + '" style="color:#ef4444;border-color:#fecaca;padding:3px 10px;font-size:11px" title="移除死链，保留锚文本">✕ 移除</button> ';
             }
             if (hasSuggestion) {
                 // ★ 已应用重定向则显示"已应用"，否则显示"应用"
                 var alreadyApplied = item.has_redirect === true;
-                actions += '<button type="button" class="wpaip-404-btn wpaip-404-apply-red" style="color:' + (alreadyApplied ? '#16a34a' : '#059669') + ';border-color:#a7f3d0;padding:3px 10px;font-size:11px;margin-right:3px" data-path="' + esc(item.path) + '" data-url="' + esc(sugUrl) + '" data-title="' + esc(sugTitle) + '"' + (alreadyApplied ? ' disabled' : '') + '>↗ ' + (alreadyApplied ? '已应用' : '应用') + '</button> ';
+                actions += '<button type="button" class="yimai-gso-404-btn yimai-gso-404-apply-red" style="color:' + (alreadyApplied ? '#16a34a' : '#059669') + ';border-color:#a7f3d0;padding:3px 10px;font-size:11px;margin-right:3px" data-path="' + esc(item.path) + '" data-url="' + esc(sugUrl) + '" data-title="' + esc(sugTitle) + '"' + (alreadyApplied ? ' disabled' : '') + '>↗ ' + (alreadyApplied ? '已应用' : '应用') + '</button> ';
                 }
-                actions += '<button type="button" class="wpaip-404-btn wpaip-404-detail-btn" style="padding:3px 10px;font-size:11px" data-path="' + esc(item.path) + '">📋 详情</button>';
+                actions += '<button type="button" class="yimai-gso-404-btn yimai-gso-404-detail-btn" style="padding:3px 10px;font-size:11px" data-path="' + esc(item.path) + '">📋 详情</button>';
 
                 html += '<tr>'
                     + '<td><div style="display:flex;align-items:center;gap:8px"><span style="color:#ef4444;font-size:14px">⚠️</span><a href="' + esc(fullUrl) + '" target="_blank" rel="noopener noreferrer" title="' + esc(fullUrl) + '" style="font-size:12px;font-family:monospace;word-break:break-all;color:#1e40af;text-decoration:underline">' + esc(fullUrl) + '</a></div></td>'
@@ -6338,11 +6338,11 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
             // ── 事件绑定 ──
             // 详情
-            $tbody.off('click.wpaip-404-detail').on('click.wpaip-404-detail', '.wpaip-404-detail-btn', function() {
+            $tbody.off('click.yimai-gso-404-detail').on('click.yimai-gso-404-detail', '.yimai-gso-404-detail-btn', function() {
                 self.showDetail($(this).data('path'));
             });
             // 应用重定向
-            $tbody.off('click.wpaip-404-apply').on('click.wpaip-404-apply', '.wpaip-404-apply-red', function() {
+            $tbody.off('click.yimai-gso-404-apply').on('click.yimai-gso-404-apply', '.yimai-gso-404-apply-red', function() {
                 var path = $(this).data('path');
                 var url = $(this).data('url');
                 var title = $(this).data('title');
@@ -6350,7 +6350,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                 if (!confirm('确定创建301重定向：\n' + path + ' → ' + title + '？')) return;
                 var $btn = $(this).prop('disabled', true).text('处理中...');
                 $.post(ajaxurl, {
-                    action: 'wpaip_404_apply_redirect',
+                    action: 'yimai_gso_404_apply_redirect',
                     nonce: self.getNonce(),
                     from_path: path,
                     to_url: url,
@@ -6365,13 +6365,13 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                 });
             });
             // 移除死链
-            $tbody.off('click.wpaip-404-remove').on('click.wpaip-404-remove', '.wpaip-404-remove-btn', function() {
+            $tbody.off('click.yimai-gso-404-remove').on('click.yimai-gso-404-remove', '.yimai-gso-404-remove-btn', function() {
                 var postId = $(this).data('post');
                 var href = $(this).data('href');
                 if (!confirm('确定从文章中移除此死链吗？锚文本将保留。')) return;
                 var $btn = $(this).prop('disabled', true).text('处理中...');
                 $.post(ajaxurl, {
-                    action: 'wpaip_404_remove_dead_link',
+                    action: 'yimai_gso_404_remove_dead_link',
                     nonce: self.getNonce(),
                     post_id: postId,
                     href: href
@@ -6391,17 +6391,17 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             if (total <= 0 || total < 0) { $pg.html(''); return; }
             var totalPages = Math.ceil(total / perPage);
             if (totalPages <= 1) { $pg.html('<span style="font-size:12px;color:#64748b">共 ' + total + ' 条</span>'); return; }
-            var html = '<button class="wpaip-404-btn wpaip-404-pg-btn" data-page="1"' + (page <= 1 ? ' disabled' : '') + ' style="padding:6px 12px">‹</button>';
+            var html = '<button class="yimai-gso-404-btn yimai-gso-404-pg-btn" data-page="1"' + (page <= 1 ? ' disabled' : '') + ' style="padding:6px 12px">‹</button>';
             var start = Math.max(1, page - 2), end = Math.min(totalPages, page + 2);
             for (var p = start; p <= end; p++) {
-                html += '<button class="wpaip-404-btn wpaip-404-pg-btn' + (p === page ? ' active" style="background:' + '#6366f1' + ';color:#fff;border-color:transparent' : '" style="background:#fff') + '" data-page="' + p + '">' + p + '</button>';
+                html += '<button class="yimai-gso-404-btn yimai-gso-404-pg-btn' + (p === page ? ' active" style="background:' + '#6366f1' + ';color:#fff;border-color:transparent' : '" style="background:#fff') + '" data-page="' + p + '">' + p + '</button>';
             }
-            html += '<button class="wpaip-404-btn wpaip-404-pg-btn" data-page="' + totalPages + '"' + (page >= totalPages ? ' disabled' : '') + ' style="padding:6px 12px">›</button>';
+            html += '<button class="yimai-gso-404-btn yimai-gso-404-pg-btn" data-page="' + totalPages + '"' + (page >= totalPages ? ' disabled' : '') + ' style="padding:6px 12px">›</button>';
             html += '<span style="font-size:12px;color:#64748b;margin-left:8px">共 ' + total + ' 条</span>';
             $pg.html(html);
 
             var self = this;
-            $pg.off('click.wpaip-404-pg').on('click.wpaip-404-pg', '.wpaip-404-pg-btn', function() {
+            $pg.off('click.yimai-gso-404-pg').on('click.yimai-gso-404-pg', '.yimai-gso-404-pg-btn', function() {
                 if ($(this).prop('disabled')) return;
                 var newPage = parseInt($(this).data('page'));
                 if (caller === 'redirects') {
@@ -6414,18 +6414,18 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
         showDetail: function(path) {
             var self = this;
-            var $overlay = $('<div id="wpaip-404-detail-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100000;display:flex;align-items:center;justify-content:center">');
-            var $modal = $('<div class="wpaip-404-modal-box" style="width:560px">');
-            $modal.html('<div class="wpaip-404-modal-header"><h3>📋 死链详情</h3><button type="button" class="wpaip-404-modal-close">✕</button></div><div class="wpaip-404-modal-body"><div id="wpaip-404-detail-content" style="color:#64748b">加载中...</div></div>');
-            $modal.find('.wpaip-404-modal-close').on('click', function() { $overlay.remove(); });
+            var $overlay = $('<div id="yimai-gso-404-detail-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100000;display:flex;align-items:center;justify-content:center">');
+            var $modal = $('<div class="yimai-gso-404-modal-box" style="width:560px">');
+            $modal.html('<div class="yimai-gso-404-modal-header"><h3>📋 死链详情</h3><button type="button" class="yimai-gso-404-modal-close">✕</button></div><div class="yimai-gso-404-modal-body"><div id="yimai-gso-404-detail-content" style="color:#64748b">加载中...</div></div>');
+            $modal.find('.yimai-gso-404-modal-close').on('click', function() { $overlay.remove(); });
             $overlay.append($modal).on('click', function(e) { if (e.target === this) $overlay.remove(); });
             $('body').append($overlay);
 
             $.ajax({
                 url: ajaxurl, type: 'POST', dataType: 'json',
-                data: { action: 'wpaip_404_get_detail', nonce: self.getNonce(), path: path },
+                data: { action: 'yimai_gso_404_get_detail', nonce: self.getNonce(), path: path },
                 success: function(res) {
-                    var $c = $('#wpaip-404-detail-content');
+                    var $c = $('#yimai-gso-404-detail-content');
                     if (!res.success) { $c.html('<p>加载失败</p>'); return; }
                     var d = res.data;
                     var html = '<div style="margin-bottom:16px">'
@@ -6453,7 +6453,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                             html += '<li style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9">'
                                 + '<span style="width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0;' + scoreColors + '">' + s.score + '</span>'
                                 + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(s.title) + '</div><div style="font-size:11px;color:#94a3b8;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(s.url) + '</div></div>'
-                                + '<button type="button" class="wpaip-404-btn wpaip-404-apply-sug" style="color:#059669;border-color:#a7f3d0;padding:5px 14px;font-size:11px" data-path="' + esc(path) + '" data-url="' + esc(s.url) + '" data-title="' + esc(s.title) + '">↗ 应用</button>'
+                                + '<button type="button" class="yimai-gso-404-btn yimai-gso-404-apply-sug" style="color:#059669;border-color:#a7f3d0;padding:5px 14px;font-size:11px" data-path="' + esc(path) + '" data-url="' + esc(s.url) + '" data-title="' + esc(s.title) + '">↗ 应用</button>'
                                 + '</li>';
                         }
                         html += '</ul></div>';
@@ -6462,10 +6462,10 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                     }
                     $c.html(html);
 
-                    $c.off('click.apply-sug').on('click.apply-sug', '.wpaip-404-apply-sug', function() {
+                    $c.off('click.apply-sug').on('click.apply-sug', '.yimai-gso-404-apply-sug', function() {
                         var btn = $(this).prop('disabled', true).text('处理中...');
                         $.post(ajaxurl, {
-                            action: 'wpaip_404_apply_redirect',
+                            action: 'yimai_gso_404_apply_redirect',
                             nonce: self.getNonce(),
                             from_path: $(this).data('path'),
                             to_url: $(this).data('url'),
@@ -6476,23 +6476,23 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                         });
                     });
                 },
-                error: function() { $('#wpaip-404-detail-content').html('<p>请求失败</p>'); }
+                error: function() { $('#yimai-gso-404-detail-content').html('<p>请求失败</p>'); }
             });
         },
 
         generatePage: function() {
             var self = this;
-            var $btn = $('#wpaip-404-gen-btn').prop('disabled', true).text('⏳ 生成中...');
+            var $btn = $('#yimai-gso-404-gen-btn').prop('disabled', true).text('⏳ 生成中...');
             $.ajax({
                 url: ajaxurl, type: 'POST', dataType: 'json',
-                data: { action: 'wpaip_404_generate_page', nonce: self.getNonce() },
+                data: { action: 'yimai_gso_404_generate_page', nonce: self.getNonce() },
                 success: function(res) {
                     if (res.success) {
                         var d = res.data;
-                        $('#wpaip-404-html').val(d.html);
-                        $('#wpaip-404-preview-link').attr('href', d.preview_url || '#');
-                        $('#wpaip-404-gen-result').slideDown(200);
-                        $('#wpaip-404-custom-alert').show();
+                        $('#yimai-gso-404-html').val(d.html);
+                        $('#yimai-gso-404-preview-link').attr('href', d.preview_url || '#');
+                        $('#yimai-gso-404-gen-result').slideDown(200);
+                        $('#yimai-gso-404-custom-alert').show();
                         self.updateCustomPageStatus(true, '刚刚生成');
                     } else {
                         alert(res.data && res.data.message ? res.data.message : '生成失败');
@@ -6508,42 +6508,42 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             if (this.redLoading) return;
             this.redLoading = true;
             var self = this;
-            $('#wpaip-404-red-tbody').html('<tr><td colspan="7"><div class="wpaip-404-empty-state"><div style="text-align:center;color:#94a3b8;padding:20px">加载中...</div></div></td></tr>');
+            $('#yimai-gso-404-red-tbody').html('<tr><td colspan="7"><div class="yimai-gso-404-empty-state"><div style="text-align:center;color:#94a3b8;padding:20px">加载中...</div></div></td></tr>');
 
             $.ajax({
                 url: ajaxurl, type: 'POST', dataType: 'json',
                 data: {
-                    action: 'wpaip_404_get_redirects',
+                    action: 'yimai_gso_404_get_redirects',
                     nonce: self.getNonce(),
                     page: self.redPage,
                     per_page: self.redPerPage,
-                    search: $('#wpaip-404-red-search').val()
+                    search: $('#yimai-gso-404-red-search').val()
                 },
                 success: function(res) {
                     if (res.success) {
                         var d = res.data;
                         self.renderRedirectTable(d.items);
-                        self.renderPagination(d.total, d.page, d.per_page, '#wpaip-404-red-pagination', 'redirects');
+                        self.renderPagination(d.total, d.page, d.per_page, '#yimai-gso-404-red-pagination', 'redirects');
                         if (d.server_written > 0) {
-                            $('#wpaip-404-server-status').html(' 已写入服务器：<strong>' + d.server_written + '</strong> 条');
+                            $('#yimai-gso-404-server-status').html(' 已写入服务器：<strong>' + d.server_written + '</strong> 条');
                         } else {
-                            $('#wpaip-404-server-status').html('');
+                            $('#yimai-gso-404-server-status').html('');
                         }
                     } else {
-                        $('#wpaip-404-red-tbody').html('<tr><td colspan="7"><div class="wpaip-404-empty-state"><div style="color:#ef4444;text-align:center">加载失败</div></div></td></tr>');
+                        $('#yimai-gso-404-red-tbody').html('<tr><td colspan="7"><div class="yimai-gso-404-empty-state"><div style="color:#ef4444;text-align:center">加载失败</div></div></td></tr>');
                     }
                 },
                 error: function() {
-                    $('#wpaip-404-red-tbody').html('<tr><td colspan="7"><div class="wpaip-404-empty-state"><div style="color:#ef4444;text-align:center">网络请求失败</div></div></td></tr>');
+                    $('#yimai-gso-404-red-tbody').html('<tr><td colspan="7"><div class="yimai-gso-404-empty-state"><div style="color:#ef4444;text-align:center">网络请求失败</div></div></td></tr>');
                 },
                 complete: function() { self.redLoading = false; }
             });
         },
 
         renderRedirectTable: function(items) {
-            var $tbody = $('#wpaip-404-red-tbody');
+            var $tbody = $('#yimai-gso-404-red-tbody');
             if (!items || items.length === 0) {
-                $tbody.html('<tr><td colspan="7"><div class="wpaip-404-empty-state"><div class="empty-icon">↗️</div><div class="empty-title">暂无重定向规则</div><div class="empty-desc">在死链检测中应用建议即可自动创建</div></div></td></tr>');
+                $tbody.html('<tr><td colspan="7"><div class="yimai-gso-404-empty-state"><div class="empty-icon">↗️</div><div class="empty-title">暂无重定向规则</div><div class="empty-desc">在死链检测中应用建议即可自动创建</div></div></td></tr>');
                 this.updateRedirectCount(0);
                 return;
             }
@@ -6555,49 +6555,49 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                 var statusLabel = r.server_written ? '已写入服务器' : 'WP内部重定向';
                 var statusColor = r.server_written ? '#166534' : '#64748b';
                 html += '<tr>'
-                    + '<td><input type="checkbox" class="wpaip-404-red-checkbox" data-source="' + esc(r.source) + '"></td>'
+                    + '<td><input type="checkbox" class="yimai-gso-404-red-checkbox" data-source="' + esc(r.source) + '"></td>'
                     + '<td><div style="color:#ef4444;font-family:monospace;font-size:12px;word-break:break-all">' + esc(r.source) + '</div></td>'
                     + '<td style="text-align:center;color:#94a3b8">→</td>'
                     + '<td><div style="color:#059669;font-family:monospace;font-size:12px;word-break:break-all">' + esc(r.target) + '</div>' + (r.target_title ? '<div style="font-size:11px;color:#94a3b8">' + esc(r.target_title.length > 30 ? r.target_title.substring(0, 30) + '...' : r.target_title) + '</div>' : '') + '</td>'
                     + '<td><span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:' + statusColor + '">' + statusDot + statusLabel + '</span></td>'
                     + '<td style="font-size:12px;color:#64748b">' + esc((r.updated_at || r.created_at || '').substring(0, 16)) + '</td>'
-                    + '<td><button type="button" class="wpaip-404-btn wpaip-404-red-delete" data-source="' + esc(r.source) + '" style="color:#ef4444;border-color:#fecaca;padding:3px 12px;font-size:11px">🗑 删除</button></td>'
+                    + '<td><button type="button" class="yimai-gso-404-btn yimai-gso-404-red-delete" data-source="' + esc(r.source) + '" style="color:#ef4444;border-color:#fecaca;padding:3px 12px;font-size:11px">🗑 删除</button></td>'
                     + '</tr>';
             }
             $tbody.html(html);
 
             // 批量选中计数
             var updateBatchBar = function() {
-                var checked = $('.wpaip-404-red-checkbox:checked').length;
-                $('#wpaip-404-batch-count').text(checked);
-                $('#wpaip-404-batch-bar').toggle(checked > 0);
+                var checked = $('.yimai-gso-404-red-checkbox:checked').length;
+                $('#yimai-gso-404-batch-count').text(checked);
+                $('#yimai-gso-404-batch-bar').toggle(checked > 0);
             };
-            $('.wpaip-404-red-checkbox').off('change').on('change', updateBatchBar);
-            $('#wpaip-404-red-check-all').off('change').on('change', function() {
-                $('.wpaip-404-red-checkbox').prop('checked', this.checked).trigger('change');
+            $('.yimai-gso-404-red-checkbox').off('change').on('change', updateBatchBar);
+            $('#yimai-gso-404-red-check-all').off('change').on('change', function() {
+                $('.yimai-gso-404-red-checkbox').prop('checked', this.checked).trigger('change');
             });
-            $('#wpaip-404-batch-bar').toggle($('.wpaip-404-red-checkbox:checked').length > 0);
+            $('#yimai-gso-404-batch-bar').toggle($('.yimai-gso-404-red-checkbox:checked').length > 0);
 
-            $tbody.off('click.red-delete').on('click.red-delete', '.wpaip-404-red-delete', function() {
+            $tbody.off('click.red-delete').on('click.red-delete', '.yimai-gso-404-red-delete', function() {
                 var src = $(this).data('source');
                 if (!confirm('确定删除此重定向规则？\n' + src)) return;
                 var $row = $(this).closest('tr');
-                $.post(ajaxurl, { action: 'wpaip_404_delete_redirect', nonce: self.getNonce(), source: src }, function(res) {
+                $.post(ajaxurl, { action: 'yimai_gso_404_delete_redirect', nonce: self.getNonce(), source: src }, function(res) {
                     if (res.success) { $row.fadeOut(300, function() { $row.remove(); self.loadRedirects(); }); }
                     else alert(res.data && res.data.message ? res.data.message : '操作失败');
                 });
             });
 
             // 批量删除
-            $('#wpaip-404-red-batch-delete').off('click').on('click', function() {
+            $('#yimai-gso-404-red-batch-delete').off('click').on('click', function() {
                 var checked = [];
-                $('.wpaip-404-red-checkbox:checked').each(function() { checked.push($(this).data('source')); });
+                $('.yimai-gso-404-red-checkbox:checked').each(function() { checked.push($(this).data('source')); });
                 if (checked.length === 0) { alert('请先选择要删除的规则'); return; }
                 if (!confirm('确定删除选中的 ' + checked.length + ' 条重定向规则？')) return;
                 var done = 0;
                 for (var i = 0; i < checked.length; i++) {
                     (function(src) {
-                        $.post(ajaxurl, { action: 'wpaip_404_delete_redirect', nonce: self.getNonce(), source: src }, function(res) {
+                        $.post(ajaxurl, { action: 'yimai_gso_404_delete_redirect', nonce: self.getNonce(), source: src }, function(res) {
                             done++;
                             if (done >= checked.length) self.loadRedirects();
                         });
@@ -6611,9 +6611,9 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
         exportCSV: function() {
             var self = this;
-            $.post(ajaxurl, { action: 'wpaip_404_export_csv', nonce: self.getNonce() }, function(res) {
+            $.post(ajaxurl, { action: 'yimai_gso_404_export_csv', nonce: self.getNonce() }, function(res) {
                 if (res.success && res.data.csv) {
-                    self.downloadCSV(res.data.csv, 'wpaip-404-log-' + new Date().toISOString().slice(0,10) + '.csv');
+                    self.downloadCSV(res.data.csv, 'yimai-gso-404-log-' + new Date().toISOString().slice(0,10) + '.csv');
                 } else {
                     alert('导出失败');
                 }
@@ -6621,9 +6621,9 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         }
     };
 
-    $(document).on('click', '.wpaip-sidebar-tab[data-tab="optimizer-404"]', function() { setTimeout(function() { Opt404.init(); }, 100); });
+    $(document).on('click', '.yimai-gso-sidebar-tab[data-tab="optimizer-404"]', function() { setTimeout(function() { Opt404.init(); }, 100); });
     // 页面加载时如果404标签已激活，自动初始化
-    $(document).ready(function() { if ($('.wpaip-main-panel[data-tab="optimizer-404"].active').length) { Opt404.init(); } });
+    $(document).ready(function() { if ($('.yimai-gso-main-panel[data-tab="optimizer-404"].active').length) { Opt404.init(); } });
     window.Opt404 = Opt404;
 })(jQuery);
 
@@ -6645,7 +6645,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         groups: [],
 
         init: function() {
-            if (!$('#wpaip-image-library-root').length) return;
+            if (!$('#yimai-gso-image-library-root').length) return;
             this.loadStats();
             this.loadGroups();
             this.loadImages();
@@ -6653,14 +6653,14 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         },
 
         getNonce: function() {
-            return (typeof wpaipData !== 'undefined' && wpaipData.nonce) ? wpaipData.nonce : '';
+            return (typeof yimaiGsoData !== 'undefined' && yimaiGsoData.nonce) ? yimaiGsoData.nonce : '';
         },
 
         // ── Stats ──
         loadStats: function() {
             var self = this;
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_stats',
+                action: 'yimai_gso_image_library_stats',
                 nonce: self.getNonce()
             }, function(res) {
                 if (res.success) {
@@ -6675,7 +6675,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         loadGroups: function() {
             var self = this;
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_groups',
+                action: 'yimai_gso_image_library_groups',
                 nonce: self.getNonce()
             }, function(res) {
                 if (res.success) {
@@ -6747,7 +6747,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             $grid.html('<div class="ilib-loading">加载中...</div>');
 
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_list',
+                action: 'yimai_gso_image_library_list',
                 nonce: self.getNonce(),
                 page: self.page,
                 per_page: self.perPage,
@@ -6849,7 +6849,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                 var added = 0;
                 attachments.forEach(function(att) {
                     $.post(ajaxurl, {
-                        action: 'wpaip_image_library_upload',
+                        action: 'yimai_gso_image_library_upload',
                         nonce: self.getNonce(),
                         attachment_id: att.id,
                         group_id: $('#ilib-filter-group').val()
@@ -6868,7 +6868,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         createGroup: function(name, parentId) {
             var self = this;
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_group_create',
+                action: 'yimai_gso_image_library_group_create',
                 nonce: self.getNonce(),
                 name: name,
                 parent_id: parentId || 0
@@ -6892,7 +6892,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             var newName = prompt('输入新分组名称：', currentName);
             if (!newName || newName === currentName) return;
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_group_rename',
+                action: 'yimai_gso_image_library_group_rename',
                 nonce: self.getNonce(),
                 term_id: termId,
                 name: newName
@@ -6908,7 +6908,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             var self = this;
             if (!confirm('确定删除此分组？分组内的图片不会被删除，但会移至其他分组。')) return;
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_group_delete',
+                action: 'yimai_gso_image_library_group_delete',
                 nonce: self.getNonce(),
                 term_id: termId
             }, function(res) {
@@ -6926,7 +6926,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             var kw = prompt('输入关键词（逗号分隔）：');
             if (kw === null) return;
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_batch_update',
+                action: 'yimai_gso_image_library_batch_update',
                 nonce: self.getNonce(),
                 ids: self.selectedIds,
                 keywords: kw
@@ -6945,7 +6945,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             if (w === null) return;
             w = Math.max(1, Math.min(10, parseInt(w) || 5));
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_batch_update',
+                action: 'yimai_gso_image_library_batch_update',
                 nonce: self.getNonce(),
                 ids: self.selectedIds,
                 weight: w
@@ -6972,7 +6972,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             var choice = prompt('输入分组ID：\n' + options);
             if (!choice) return;
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_batch_update',
+                action: 'yimai_gso_image_library_batch_update',
                 nonce: self.getNonce(),
                 ids: self.selectedIds,
                 group_id: parseInt(choice)
@@ -6990,7 +6990,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             var self = this;
             if (!confirm('确定删除选中的 ' + self.selectedIds.length + ' 张图片？此操作不可撤销。')) return;
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_delete',
+                action: 'yimai_gso_image_library_delete',
                 nonce: self.getNonce(),
                 ids: self.selectedIds
             }, function(res) {
@@ -7008,7 +7008,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             var self = this;
             if (!confirm('确定删除此图片？')) return;
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_delete',
+                action: 'yimai_gso_image_library_delete',
                 nonce: self.getNonce(),
                 ids: [id]
             }, function(res) {
@@ -7046,7 +7046,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
             // Load current values
             $.post(ajaxurl, {
-                action: 'wpaip_image_library_list',
+                action: 'yimai_gso_image_library_list',
                 nonce: self.getNonce(),
                 page: 1, per_page: 100
             }, function(res) {
@@ -7062,7 +7062,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
             $('#ilib-edit-save').on('click', function() {
                 $.post(ajaxurl, {
-                    action: 'wpaip_image_library_update',
+                    action: 'yimai_gso_image_library_update',
                     nonce: self.getNonce(),
                     id: id,
                     weight: parseInt($('#ilib-edit-weight').val()) || 5,
@@ -7180,8 +7180,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     'use strict';
 
     window.initRewriteModule = function() {
-        if (window._wpaipRewriteInitDone) return;
-        window._wpaipRewriteInitDone = true;
+        if (window._yimaiGsoRewriteInitDone) return;
+        window._yimaiGsoRewriteInitDone = true;
         init();
     };
 
@@ -7201,45 +7201,45 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
     function init() {
         // 子标签切换
-        $(document).on('click', '.wpaip-rewrite-subtab', function() {
+        $(document).on('click', '.yimai-gso-rewrite-subtab', function() {
             var tab = $(this).data('rtab');
-            $('.wpaip-rewrite-subtab').removeClass('active');
+            $('.yimai-gso-rewrite-subtab').removeClass('active');
             $(this).addClass('active');
-            $('.wpaip-rewrite-panel').removeClass('active');
-            $('.wpaip-rewrite-panel[data-rtab="' + tab + '"]').addClass('active');
+            $('.yimai-gso-rewrite-panel').removeClass('active');
+            $('.yimai-gso-rewrite-panel[data-rtab="' + tab + '"]').addClass('active');
         });
 
         // === 粘贴原文改写 ===
-        $(document).on('click', '#wpaip-rw-paste-btn', doPasteRewrite);
+        $(document).on('click', '#yimai-gso-rw-paste-btn', doPasteRewrite);
 
         // === 单篇文章翻新 ===
-        $(document).on('click', '#wpaip-rw-single-search-btn', function() { state.singlePostId = 0; searchSinglePosts(); });
-        $(document).on('keypress', '#wpaip-rw-single-search', function(e) { if (e.which === 13) { state.singlePostId = 0; searchSinglePosts(); } });
-        $(document).on('click', '.wpaip-rw-single-rewrite-btn', function() {
+        $(document).on('click', '#yimai-gso-rw-single-search-btn', function() { state.singlePostId = 0; searchSinglePosts(); });
+        $(document).on('keypress', '#yimai-gso-rw-single-search', function(e) { if (e.which === 13) { state.singlePostId = 0; searchSinglePosts(); } });
+        $(document).on('click', '.yimai-gso-rw-single-rewrite-btn', function() {
             state.singlePostId = $(this).data('id');
-            $('#wpaip-rw-single-btn').prop('disabled', false);
+            $('#yimai-gso-rw-single-btn').prop('disabled', false);
             doSingleRewrite();
         });
-        $(document).on('click', '#wpaip-rw-single-btn', doSingleRewrite);
-        $(document).on('click', '.wpaip-rw-confirm-overwrite', function() {
+        $(document).on('click', '#yimai-gso-rw-single-btn', doSingleRewrite);
+        $(document).on('click', '.yimai-gso-rw-confirm-overwrite', function() {
             var postId = $(this).data('id');
             doSingleRewriteConfirm(postId);
         });
 
         // === 批量翻新 ===
-        $(document).on('click', '#wpaip-rw-batch-search-btn', function() { state.batchPage = 1; searchBatchPosts(); });
-        $(document).on('keypress', '#wpaip-rw-batch-search', function(e) { if (e.which === 13) { state.batchPage = 1; searchBatchPosts(); } });
-        $(document).on('click', '#wpaip-rw-batch-clear-btn', clearBatchSelection);
-        $(document).on('click', '#wpaip-rw-batch-start-btn', startBatchRewrite);
+        $(document).on('click', '#yimai-gso-rw-batch-search-btn', function() { state.batchPage = 1; searchBatchPosts(); });
+        $(document).on('keypress', '#yimai-gso-rw-batch-search', function(e) { if (e.which === 13) { state.batchPage = 1; searchBatchPosts(); } });
+        $(document).on('click', '#yimai-gso-rw-batch-clear-btn', clearBatchSelection);
+        $(document).on('click', '#yimai-gso-rw-batch-start-btn', startBatchRewrite);
     }
 
     // ==================== 粘贴原文改写 ====================
 
     // ── v2.6.0 输入区增强 ──
-    var $pasteTextarea = $('#wpaip-rw-paste-text');
-    var $pasteCount = $('#wpaip-rw-paste-count');
-    var $pasteWarn = $('#wpaip-rw-paste-warn');
-    var $pasteClear = $('#wpaip-rw-paste-clear');
+    var $pasteTextarea = $('#yimai-gso-rw-paste-text');
+    var $pasteCount = $('#yimai-gso-rw-paste-count');
+    var $pasteWarn = $('#yimai-gso-rw-paste-warn');
+    var $pasteClear = $('#yimai-gso-rw-paste-clear');
 
     function updateCharCount() {
         var len = ($pasteTextarea.val() || '').replace(/\s/g, '').length;
@@ -7250,11 +7250,11 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     $pasteTextarea.on('input', updateCharCount);
     updateCharCount();
 
-    $('#wpaip-rw-paste-clear').on('click', function() {
+    $('#yimai-gso-rw-paste-clear').on('click', function() {
         $pasteTextarea.val(''); updateCharCount(); $pasteTextarea.focus();
     });
 
-    $('#wpaip-rw-paste-sample').on('click', function() {
+    $('#yimai-gso-rw-paste-sample').on('click', function() {
         var sample = '人工智能正在重塑内容创作的未来。传统的内容生产需要大量的人力投入，从选题策划到资料收集，再到撰写和校对，往往需要数小时甚至数天时间。\n\n而如今，借助大型语言模型，创作者可以在几分钟内完成初稿，把更多精力放在创意和策略层面。根据研究数据，使用AI辅助创作的团队效率平均提升40%以上。\n\n但AI并非万能。它需要正确的引导、清晰的需求描述，以及人工的最终审核。最理想的状态是：AI负责快速生成，人类负责判断和优化。这种"人机协作"模式正在成为行业共识。';
         $pasteTextarea.val(sample); updateCharCount(); $pasteTextarea.focus();
     });
@@ -7263,44 +7263,44 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         var source = $pasteTextarea.val().trim();
         if (!source) { alert('请输入需要改写的原文内容'); return; }
 
-        var strength = $('#wpaip-rw-paste-strength').val();
-        var style = $('#wpaip-rw-paste-style').val();
-        var keywords = $('#wpaip-rw-paste-keywords').val().trim();
+        var strength = $('#yimai-gso-rw-paste-strength').val();
+        var style = $('#yimai-gso-rw-paste-style').val();
+        var keywords = $('#yimai-gso-rw-paste-keywords').val().trim();
         var fields = [];
-        $('.wpaip-rw-field:checked').each(function() { fields.push($(this).val()); });
+        $('.yimai-gso-rw-field:checked').each(function() { fields.push($(this).val()); });
 
         if (fields.length === 0) { alert('请至少选择一个改写字段'); return; }
 
         var sourceText = source;
 
-        $('#wpaip-rw-paste-btn').prop('disabled', true).text('改写中...');
-        $('#wpaip-rw-paste-progress').show();
-        $('#wpaip-rw-paste-result-content').html('<div style="text-align:center;padding:40px 0;color:#94a3b8">AI 改写中...</div>');
-        $('#wpaip-rw-paste-actions').hide();
-        $('#wpaip-rw-result-stats').hide();
+        $('#yimai-gso-rw-paste-btn').prop('disabled', true).text('改写中...');
+        $('#yimai-gso-rw-paste-progress').show();
+        $('#yimai-gso-rw-paste-result-content').html('<div style="text-align:center;padding:40px 0;color:#94a3b8">AI 改写中...</div>');
+        $('#yimai-gso-rw-paste-actions').hide();
+        $('#yimai-gso-rw-result-stats').hide();
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_rewrite_text', nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_rewrite_text', nonce: yimaiGsoData.nonce,
             source_text: source, strength: strength,
             style: style, keywords: keywords, fields: fields
         }, function(res) {
             if (!res.success) {
-                $('#wpaip-rw-paste-result-content').html('<div style="text-align:center;padding:40px 0;color:#ef4444">❌ ' + (res.data.message || '改写失败') + '</div>');
+                $('#yimai-gso-rw-paste-result-content').html('<div style="text-align:center;padding:40px 0;color:#ef4444">❌ ' + (res.data.message || '改写失败') + '</div>');
                 return;
             }
             renderPasteResult(res.data, sourceText, fields);
         }).fail(function() {
-            $('#wpaip-rw-paste-result-content').html('<div style="text-align:center;padding:40px 0;color:#ef4444">❌ 网络请求失败</div>');
+            $('#yimai-gso-rw-paste-result-content').html('<div style="text-align:center;padding:40px 0;color:#ef4444">❌ 网络请求失败</div>');
         }).always(function() {
-            $('#wpaip-rw-paste-btn').prop('disabled', false).text('开始改写');
+            $('#yimai-gso-rw-paste-btn').prop('disabled', false).text('开始改写');
         });
     }
 
     function renderPasteResult(data, sourceText, fields) {
-        $('#wpaip-rw-paste-progress').hide();
-        var $content = $('#wpaip-rw-paste-result-content');
-        var $actions = $('#wpaip-rw-paste-actions');
-        var $stats = $('#wpaip-rw-result-stats');
+        $('#yimai-gso-rw-paste-progress').hide();
+        var $content = $('#yimai-gso-rw-paste-result-content');
+        var $actions = $('#yimai-gso-rw-paste-actions');
+        var $stats = $('#yimai-gso-rw-result-stats');
 
         if ( ! data.content || ! data.content.trim() ) {
             $content.html('<div style="text-align:center;padding:40px 0;color:#999">⚠️ AI 未返回正文内容，请重试或更换改写力度</div>');
@@ -7330,18 +7330,18 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         // 构建结果内容
         var html = '';
         if (data.title) {
-            html += '<div class="wpaip-rw-result-title" style="margin-bottom:8px">📝 ' + escapeHtml(data.title) + '</div>';
+            html += '<div class="yimai-gso-rw-result-title" style="margin-bottom:8px">📝 ' + escapeHtml(data.title) + '</div>';
         }
-        html += '<div class="wpaip-rw-result-preview" style="font-size:13px;line-height:1.7;color:#334155">' + escapeHtml(shortPreview).replace(/\n/g, '<br>') + '</div>';
+        html += '<div class="yimai-gso-rw-result-preview" style="font-size:13px;line-height:1.7;color:#334155">' + escapeHtml(shortPreview).replace(/\n/g, '<br>') + '</div>';
         if (isLong) {
-            html += '<button class="button button-small wpaip-rw-toggle-full" style="margin-top:8px">展开全文</button>';
+            html += '<button class="button button-small yimai-gso-rw-toggle-full" style="margin-top:8px">展开全文</button>';
         }
 
         $content.css({textAlign:'left', color:'#334155'}).html(html);
         $actions.show();
 
         // 复制全文（HTML→纯文本，保留段落排版）
-        $actions.find('.wpaip-rw-copy-btn').off('click').on('click', function() {
+        $actions.find('.yimai-gso-rw-copy-btn').off('click').on('click', function() {
             var plainText = data.content
                 .replace(/<\/?(?:p|h[1-6]|li|div|br)[^>]*>/gi, '\n')
                 .replace(/<[^>]*>/g, '')
@@ -7351,17 +7351,17 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             ta.value = plainText; document.body.appendChild(ta); ta.select();
             document.execCommand('copy'); document.body.removeChild(ta);
             $(this).text('✅ 已复制');
-            setTimeout(function() { $('.wpaip-rw-copy-btn').text('📋 复制全文'); }, 2000);
+            setTimeout(function() { $('.yimai-gso-rw-copy-btn').text('📋 复制全文'); }, 2000);
         });
 
         // 存草稿
-        $actions.find('.wpaip-rw-draft-btn').off('click').on('click', function() {
-            saveAsDraft(data, $('#wpaip-rw-paste-strength').val());
+        $actions.find('.yimai-gso-rw-draft-btn').off('click').on('click', function() {
+            saveAsDraft(data, $('#yimai-gso-rw-paste-strength').val());
         });
 
         // 展开/收起
-        $content.off('click').on('click', '.wpaip-rw-toggle-full', function() {
-            var $preview = $(this).siblings('.wpaip-rw-result-preview');
+        $content.off('click').on('click', '.yimai-gso-rw-toggle-full', function() {
+            var $preview = $(this).siblings('.yimai-gso-rw-result-preview');
             if ($(this).text() === '展开全文') {
                 $preview.html(escapeHtml(previewText).replace(/\n/g, '<br>'));
                 $(this).text('收起全文');
@@ -7399,22 +7399,22 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
     function saveAsDraft(data, strength) {
         var category = 0; // 使用默认分类
-        var $btn = $('.wpaip-rw-draft-btn');
+        var $btn = $('.yimai-gso-rw-draft-btn');
         $btn.prop('disabled', true).text('保存中...');
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_rewrite_save_draft', nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_rewrite_save_draft', nonce: yimaiGsoData.nonce,
             title: data.title || '', content: data.content || '',
             excerpt: data.excerpt || '', tags: data.tags || '',
             category: category, strength: strength
         }, function(res) {
             if (!res.success) { alert('保存失败：' + (res.data.message || '')); return; }
             var editUrl = res.data.edit_url || '#';
-            var notice = '<div class="wpaip-rw-draft-saved-notice">' +
+            var notice = '<div class="yimai-gso-rw-draft-saved-notice">' +
                 '✅ 已保存为草稿！' +
                 '<a href="' + editUrl + '" target="_blank" class="button button-small" style="margin-left:auto;">📝 编辑草稿 →</a>' +
                 '</div>';
-            $('#wpaip-rw-paste-result-content').prepend(notice);
+            $('#yimai-gso-rw-paste-result-content').prepend(notice);
             $btn.replaceWith('<span style="color:#10b981;font-weight:500;">✅ 已存草稿</span>');
         }).fail(function() {
             alert('网络请求失败');
@@ -7425,67 +7425,67 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     // ==================== 单篇文章翻新 ====================
 
     function searchSinglePosts() {
-        var keyword = $('#wpaip-rw-single-search').val();
-        var catId = $('#wpaip-rw-single-category').val();
-        var $results = $('#wpaip-rw-single-results');
-        $results.html('<div class="wpaip-empty"><span class="wpaip-loading"></span> 搜索中...</div>');
+        var keyword = $('#yimai-gso-rw-single-search').val();
+        var catId = $('#yimai-gso-rw-single-category').val();
+        var $results = $('#yimai-gso-rw-single-results');
+        $results.html('<div class="yimai-gso-empty"><span class="yimai-gso-loading"></span> 搜索中...</div>');
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_search_posts', nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_search_posts', nonce: yimaiGsoData.nonce,
             keyword: keyword, category: catId, per_page: 20
         }, function(res) {
-            if (!res.success) { $results.html('<div class="wpaip-empty"><p>❌ ' + escapeHtml(res.data.message || '搜索失败') + '</p></div>'); return; }
+            if (!res.success) { $results.html('<div class="yimai-gso-empty"><p>❌ ' + escapeHtml(res.data.message || '搜索失败') + '</p></div>'); return; }
             var posts = res.data.posts || [];
-            if (!posts.length) { $results.html('<div class="wpaip-empty"><p>没有找到匹配的文章</p></div>'); return; }
+            if (!posts.length) { $results.html('<div class="yimai-gso-empty"><p>没有找到匹配的文章</p></div>'); return; }
             var html = '';
             posts.forEach(function(p) {
                 var pTitle = p.title || p.post_title || '(无标题)';
                 var statusMap = {publish:'已发布', draft:'草稿', future:'定时', pending:'待审'};
                 var pStatus = statusMap[p.post_status] || p.post_status;
                 var pDate = p.post_date ? p.post_date.substring(0, 10) : '';
-                html += '<div class="wpaip-rw-single-row">' +
+                html += '<div class="yimai-gso-rw-single-row">' +
                     '<span class="rw-post-title">' + escapeHtml(pTitle) + '</span>' +
                     '<span class="rw-post-status">' + pStatus + '</span>' +
                     '<span class="rw-post-date">' + pDate + '</span>' +
-                    '<button class="button button-small wpaip-rw-single-rewrite-btn" data-id="' + (p.id || p.ID) + '">翻新</button>' +
+                    '<button class="button button-small yimai-gso-rw-single-rewrite-btn" data-id="' + (p.id || p.ID) + '">翻新</button>' +
                     '</div>';
             });
             $results.html(html);
         }).fail(function() {
-            $results.html('<div class="wpaip-empty"><p>❌ 网络请求失败</p></div>');
+            $results.html('<div class="yimai-gso-empty"><p>❌ 网络请求失败</p></div>');
         });
     }
 
     function doSingleRewrite() {
         var postId = state.singlePostId;
         if (!postId) { alert('请先选择一篇文章'); return; }
-        var strength = $('#wpaip-rw-single-strength').val();
+        var strength = $('#yimai-gso-rw-single-strength').val();
 
-        $('#wpaip-rw-single-btn').prop('disabled', true).text('改写中...');
-        $('#wpaip-rw-single-progress').show();
-        $('#wpaip-rw-single-result').hide();
+        $('#yimai-gso-rw-single-btn').prop('disabled', true).text('改写中...');
+        $('#yimai-gso-rw-single-progress').show();
+        $('#yimai-gso-rw-single-result').hide();
 
         // 始终先预览（overwrite=0），勾选状态决定「确认覆盖」按钮点击后是否直接覆盖
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_rewrite_post', nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_rewrite_post', nonce: yimaiGsoData.nonce,
             post_id: postId, strength: strength, overwrite: 0
         }, function(res) {
             if (!res.success) {
-                $('#wpaip-rw-single-progress-text').text('❌ ' + (res.data.message || '改写失败'));
+                $('#yimai-gso-rw-single-progress-text').text('❌ ' + (res.data.message || '改写失败'));
                 return;
             }
             renderSingleResult(res.data);
         }).fail(function() {
-            $('#wpaip-rw-single-progress-text').text('❌ 网络请求失败');
+            $('#yimai-gso-rw-single-progress-text').text('❌ 网络请求失败');
         }).always(function() {
-            $('#wpaip-rw-single-btn').prop('disabled', false).text('翻新所选文章');
-            $('#wpaip-rw-single-progress').hide();
+            $('#yimai-gso-rw-single-btn').prop('disabled', false).text('翻新所选文章');
+            $('#yimai-gso-rw-single-progress').hide();
         });
     }
 
     function renderSingleResult(data) {
-        var $result = $('#wpaip-rw-single-result');
-        var $content = $('#wpaip-rw-single-result-content');
+        var $result = $('#yimai-gso-rw-single-result');
+        var $content = $('#yimai-gso-rw-single-result-content');
 
         var previewText = (data.content || '').replace(/<[^>]*>/g, '').replace(/\n{3,}/g, '\n\n').trim();
         var isLong = previewText.length > 500;
@@ -7495,17 +7495,17 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         var title = data.title || '改写结果';
 
         var html = '';
-        html += '<div class="wpaip-rw-result-title">📝 ' + escapeHtml(title) + '</div>';
-        html += '<div class="wpaip-rw-result-preview">' + escapeHtml(shortPreview).replace(/\n/g, '<br>') + '</div>';
+        html += '<div class="yimai-gso-rw-result-title">📝 ' + escapeHtml(title) + '</div>';
+        html += '<div class="yimai-gso-rw-result-preview">' + escapeHtml(shortPreview).replace(/\n/g, '<br>') + '</div>';
         if (isLong) {
-            html += '<button class="button button-small wpaip-rw-toggle-full" style="margin-bottom:12px;">展开全文</button>';
+            html += '<button class="button button-small yimai-gso-rw-toggle-full" style="margin-bottom:12px;">展开全文</button>';
         }
-        html += '<div class="wpaip-rw-result-actions">' +
-            '<button class="button wpaip-rw-copy-btn">📋 复制全文</button>';
+        html += '<div class="yimai-gso-rw-result-actions">' +
+            '<button class="button yimai-gso-rw-copy-btn">📋 复制全文</button>';
 
         // 始终显示确认覆盖按钮
         if (postId) {
-            html += '<button class="wpaip-rw-overwrite-btn wpaip-rw-confirm-overwrite" data-id="' + postId + '">✅ 确认覆盖原文章</button>';
+            html += '<button class="yimai-gso-rw-overwrite-btn yimai-gso-rw-confirm-overwrite" data-id="' + postId + '">✅ 确认覆盖原文章</button>';
         }
         html += '</div>';
 
@@ -7513,8 +7513,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         $result.show();
 
         // 展开/收起全文
-        $content.off('click', '.wpaip-rw-toggle-full').on('click', '.wpaip-rw-toggle-full', function() {
-            var $preview = $(this).siblings('.wpaip-rw-result-preview');
+        $content.off('click', '.yimai-gso-rw-toggle-full').on('click', '.yimai-gso-rw-toggle-full', function() {
+            var $preview = $(this).siblings('.yimai-gso-rw-result-preview');
             if ($(this).text() === '展开全文') {
                 $preview.html(escapeHtml(previewText).replace(/\n/g, '<br>'));
                 $(this).text('收起全文');
@@ -7525,7 +7525,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         });
 
         // 复制全文（转换为格式化的纯文本，保留段落结构）
-        $content.off('click', '.wpaip-rw-copy-btn').on('click', '.wpaip-rw-copy-btn', function() {
+        $content.off('click', '.yimai-gso-rw-copy-btn').on('click', '.yimai-gso-rw-copy-btn', function() {
             // 将 HTML 转换为格式化的纯文本
             var tempDiv = document.createElement('div');
             tempDiv.innerHTML = fullContent;
@@ -7546,30 +7546,30 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             ta.value = text; document.body.appendChild(ta); ta.select();
             document.execCommand('copy'); document.body.removeChild(ta);
             $(this).text('✅ 已复制');
-            setTimeout(function() { $content.find('.wpaip-rw-copy-btn').text('📋 复制全文'); }, 2000);
+            setTimeout(function() { $content.find('.yimai-gso-rw-copy-btn').text('📋 复制全文'); }, 2000);
         });
     }
 
     function doSingleRewriteConfirm(postId) {
-        var strength = $('#wpaip-rw-single-strength').val();
-        var autoOverwrite = $('#wpaip-rw-single-overwrite').is(':checked');
+        var strength = $('#yimai-gso-rw-single-strength').val();
+        var autoOverwrite = $('#yimai-gso-rw-single-overwrite').is(':checked');
 
         // 如果勾选了「直接覆盖」，不需要确认对话框
         if (!autoOverwrite) {
             if (!confirm('确定要将改写内容覆盖原文章吗？此操作不可撤销。')) return;
         }
 
-        var $btn = $('.wpaip-rw-confirm-overwrite');
+        var $btn = $('.yimai-gso-rw-confirm-overwrite');
         $btn.prop('disabled', true).text('覆盖中...');
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_rewrite_post', nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_rewrite_post', nonce: yimaiGsoData.nonce,
             post_id: postId, strength: strength, overwrite: 1
         }, function(res) {
             if (!res.success) { alert('覆盖失败：' + (res.data.message || '')); return; }
             // 显示覆盖成功
-            var $result = $('#wpaip-rw-single-result-content');
-            $result.html('<div class="wpaip-rw-draft-saved-notice">✅ 已直接覆盖原文章！' +
+            var $result = $('#yimai-gso-rw-single-result-content');
+            $result.html('<div class="yimai-gso-rw-draft-saved-notice">✅ 已直接覆盖原文章！' +
                 (res.data.edit_url ? ' <a href="' + res.data.edit_url + '" target="_blank" class="button button-small" style="margin-left:auto;">查看编辑 →</a>' : '') +
                 '</div>');
         }).fail(function() {
@@ -7580,28 +7580,28 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     // ==================== 批量翻新改写 ====================
 
     function searchBatchPosts() {
-        var keyword = $('#wpaip-rw-batch-search').val();
-        var catId = $('#wpaip-rw-batch-category').val();
-        var status = $('#wpaip-rw-batch-status').val();
-        var $results = $('#wpaip-rw-batch-results');
-        $results.html('<div class="wpaip-empty"><span class="wpaip-loading"></span> 搜索中...</div>');
+        var keyword = $('#yimai-gso-rw-batch-search').val();
+        var catId = $('#yimai-gso-rw-batch-category').val();
+        var status = $('#yimai-gso-rw-batch-status').val();
+        var $results = $('#yimai-gso-rw-batch-results');
+        $results.html('<div class="yimai-gso-empty"><span class="yimai-gso-loading"></span> 搜索中...</div>');
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_search_posts', nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_search_posts', nonce: yimaiGsoData.nonce,
             keyword: keyword, category: catId, post_status: status, per_page: 20
         }, function(res) {
-            if (!res.success) { $results.html('<div class="wpaip-empty"><p>❌ ' + escapeHtml(res.data.message || '搜索失败') + '</p></div>'); return; }
+            if (!res.success) { $results.html('<div class="yimai-gso-empty"><p>❌ ' + escapeHtml(res.data.message || '搜索失败') + '</p></div>'); return; }
             var posts = res.data.posts || [];
-            if (!posts.length) { $results.html('<div class="wpaip-empty"><p>没有找到匹配的文章</p></div>'); return; }
-            var html = '<div class="wpaip-batch-rewrite-list">';
+            if (!posts.length) { $results.html('<div class="yimai-gso-empty"><p>没有找到匹配的文章</p></div>'); return; }
+            var html = '<div class="yimai-gso-batch-rewrite-list">';
             posts.forEach(function(p) {
                 var pId = p.id || p.ID;
                 var pTitle = p.title || p.post_title || '(无标题)';
                 var isSelected = state.batchSelected.indexOf(pId) >= 0;
                 var statusMap = {publish:'已发布', draft:'草稿', future:'定时', pending:'待审'};
                 var pStatus = statusMap[p.post_status] || p.post_status;
-                html += '<label class="wpaip-br-post-item" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer;">' +
-                    '<input type="checkbox" class="wpaip-rw-batch-check" value="' + pId + '" ' + (isSelected ? 'checked' : '') + '>' +
+                html += '<label class="yimai-gso-br-post-item" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer;">' +
+                    '<input type="checkbox" class="yimai-gso-rw-batch-check" value="' + pId + '" ' + (isSelected ? 'checked' : '') + '>' +
                     '<span style="flex:1;font-size:13px;">' + escapeHtml(pTitle) + '</span>' +
                     '<span style="width:70px;font-size:12px;color:#64748b;">' + pStatus + '</span>' +
                     '<span style="width:90px;font-size:11px;color:#94a3b8;">' + (p.post_date || '').substring(0,10) + '</span>' +
@@ -7611,7 +7611,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             $results.html(html);
 
             // 选中事件
-            $('.wpaip-rw-batch-check').off('change').on('change', function() {
+            $('.yimai-gso-rw-batch-check').off('change').on('change', function() {
                 var id = parseInt($(this).val());
                 if ($(this).is(':checked')) {
                     if (state.batchSelected.indexOf(id) < 0) state.batchSelected.push(id);
@@ -7624,33 +7624,33 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             // 更新已选状态
             updateBatchSelectedUI();
         }).fail(function() {
-            $results.html('<div class="wpaip-empty"><p>❌ 网络请求失败</p></div>');
+            $results.html('<div class="yimai-gso-empty"><p>❌ 网络请求失败</p></div>');
         });
     }
 
     function updateBatchSelectedUI() {
         var count = state.batchSelected.length;
-        $('#wpaip-rw-batch-count').text(count);
+        $('#yimai-gso-rw-batch-count').text(count);
         if (count > 0) {
-            $('#wpaip-rw-batch-clear-btn').show();
+            $('#yimai-gso-rw-batch-clear-btn').show();
             var names = [];
             state.batchSelected.forEach(function(id) {
-                var $label = $('.wpaip-rw-batch-check[value="' + id + '"]').closest('.wpaip-br-post-item');
+                var $label = $('.yimai-gso-rw-batch-check[value="' + id + '"]').closest('.yimai-gso-br-post-item');
                 var title = $label.length ? $label.find('span:first').text() : '文章 #' + id;
                 names.push('<span style="display:inline-block;background:#e0e7ff;color:#4338ca;padding:2px 10px;border-radius:12px;font-size:12px;margin:2px;">' + escapeHtml(title) + '</span>');
             });
-            $('#wpaip-rw-batch-selected').html(names.join(''));
+            $('#yimai-gso-rw-batch-selected').html(names.join(''));
         } else {
-            $('#wpaip-rw-batch-clear-btn').hide();
-            $('#wpaip-rw-batch-selected').html('<p style="color:#999;margin:8px 0;">从下方搜索并勾选需要翻新改写的文章</p>');
+            $('#yimai-gso-rw-batch-clear-btn').hide();
+            $('#yimai-gso-rw-batch-selected').html('<p style="color:#999;margin:8px 0;">从下方搜索并勾选需要翻新改写的文章</p>');
         }
         var btnText = count > 0 ? '开始批量改写（' + count + ' 篇）' : '开始批量改写';
-        $('#wpaip-rw-batch-start-btn').text(btnText);
+        $('#yimai-gso-rw-batch-start-btn').text(btnText);
     }
 
     function clearBatchSelection() {
         state.batchSelected = [];
-        $('.wpaip-rw-batch-check').prop('checked', false);
+        $('.yimai-gso-rw-batch-check').prop('checked', false);
         updateBatchSelectedUI();
     }
 
@@ -7664,11 +7664,11 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         state.batchSuccess = 0;
         state.batchFailed = 0;
 
-        var strength = $('#wpaip-rw-batch-strength').val();
+        var strength = $('#yimai-gso-rw-batch-strength').val();
         var $btn = $(this);
         $btn.prop('disabled', true).text('改写中...');
-        $('#wpaip-rw-batch-progress').show();
-        $('#wpaip-rw-batch-logs').show().empty();
+        $('#yimai-gso-rw-batch-progress').show();
+        $('#yimai-gso-rw-batch-logs').show().empty();
         updateBatchProgress();
 
         var ids = state.batchSelected.slice();
@@ -7678,10 +7678,10 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     function processBatchNext(ids, index, strength) {
         if (index >= ids.length) {
             state.batchRunning = false;
-            $('#wpaip-rw-batch-start-btn').prop('disabled', false).text('批量改写完成 ✅');
+            $('#yimai-gso-rw-batch-start-btn').prop('disabled', false).text('批量改写完成 ✅');
             // 停止进度条动画并固定到100%
-            $('#wpaip-rw-batch-fill').css({width: '100%', animation: 'none', transition: 'none'});
-            $('#wpaip-rw-batch-progress-text').text('已完成 ' + state.batchProcessed + '/' + state.batchTotal + ' 篇');
+            $('#yimai-gso-rw-batch-fill').css({width: '100%', animation: 'none', transition: 'none'});
+            $('#yimai-gso-rw-batch-progress-text').text('已完成 ' + state.batchProcessed + '/' + state.batchTotal + ' 篇');
             addBatchLog('全部 ' + ids.length + ' 篇改写完成！成功 ' + state.batchSuccess + ' 篇，失败 ' + state.batchFailed + ' 篇', '');
             return;
         }
@@ -7689,8 +7689,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         var postId = ids[index];
         addBatchLog('⏳ ' + getPostTitle(postId) + ' — 改写中...', 'pending');
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_batch_rewrite', nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_batch_rewrite', nonce: yimaiGsoData.nonce,
             post_id: postId, strength: strength, index: index, total: ids.length
         }, function(res) {
             state.batchProcessed++;
@@ -7717,23 +7717,23 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
     function updateBatchProgress() {
         var pct = state.batchTotal > 0 ? Math.round((state.batchProcessed / state.batchTotal) * 100) : 0;
-        $('#wpaip-rw-batch-fill').css('width', pct + '%');
-        $('#wpaip-rw-batch-progress-text').text('已完成 ' + state.batchProcessed + '/' + state.batchTotal + ' 篇');
-        var statsHtml = '<span class="wpaip-rw-batch-stat stat-success">✅ 成功 ' + state.batchSuccess + '</span>' +
-            '<span class="wpaip-rw-batch-stat stat-pending">⏳ 处理中 ' + (state.batchTotal - state.batchProcessed) + '</span>' +
-            '<span class="wpaip-rw-batch-stat stat-failed">❌ 失败 ' + state.batchFailed + '</span>';
-        $('#wpaip-rw-batch-stats').html(statsHtml);
+        $('#yimai-gso-rw-batch-fill').css('width', pct + '%');
+        $('#yimai-gso-rw-batch-progress-text').text('已完成 ' + state.batchProcessed + '/' + state.batchTotal + ' 篇');
+        var statsHtml = '<span class="yimai-gso-rw-batch-stat stat-success">✅ 成功 ' + state.batchSuccess + '</span>' +
+            '<span class="yimai-gso-rw-batch-stat stat-pending">⏳ 处理中 ' + (state.batchTotal - state.batchProcessed) + '</span>' +
+            '<span class="yimai-gso-rw-batch-stat stat-failed">❌ 失败 ' + state.batchFailed + '</span>';
+        $('#yimai-gso-rw-batch-stats').html(statsHtml);
     }
 
     function addBatchLog(text, cls) {
-        var $logs = $('#wpaip-rw-batch-logs');
-        var rowClass = cls ? 'wpaip-rw-batch-log-item ' + cls : 'wpaip-rw-batch-log-item';
+        var $logs = $('#yimai-gso-rw-batch-logs');
+        var rowClass = cls ? 'yimai-gso-rw-batch-log-item ' + cls : 'yimai-gso-rw-batch-log-item';
         $logs.append('<div class="' + rowClass + '">' + text + '</div>');
         $logs.scrollTop($logs[0].scrollHeight);
     }
 
     function getPostTitle(postId) {
-        var $item = $('.wpaip-rw-batch-check[value="' + postId + '"]').closest('.wpaip-br-post-item');
+        var $item = $('.yimai-gso-rw-batch-check[value="' + postId + '"]').closest('.yimai-gso-br-post-item');
         return $item.length ? $item.find('span:first').text() : '文章 #' + postId;
     }
 
@@ -7759,17 +7759,17 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         var pollTimer = null;
 
         function init() {
-            console.log('[WPAIP] RebuildLinks.init() called');
-            var $startBtn = $('#wpaip-rebuild-links-start');
-            var $stopBtn = $('#wpaip-rebuild-links-stop');
-            console.log('[WPAIP] Start button found:', $startBtn.length > 0);
-            console.log('[WPAIP] Stop button found:', $stopBtn.length > 0);
+            console.log('[YIMAI GSO] RebuildLinks.init() called');
+            var $startBtn = $('#yimai-gso-rebuild-links-start');
+            var $stopBtn = $('#yimai-gso-rebuild-links-stop');
+            console.log('[YIMAI GSO] Start button found:', $startBtn.length > 0);
+            console.log('[YIMAI GSO] Stop button found:', $stopBtn.length > 0);
 
             if ($startBtn.length) {
-                $startBtn.off('click.wpaip').on('click.wpaip', startRebuild);
+                $startBtn.off('click.yimaiGso').on('click.yimaiGso', startRebuild);
             }
             if ($stopBtn.length) {
-                $stopBtn.off('click.wpaip').on('click.wpaip', stopRebuild);
+                $stopBtn.off('click.yimaiGso').on('click.yimaiGso', stopRebuild);
             }
         }
 
@@ -7777,41 +7777,41 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             if (isRunning) return;
             isRunning = true;
 
-            $('#wpaip-rebuild-links-start').hide();
-            $('#wpaip-rebuild-links-stop').show().prop('disabled', true);
-            $('#wpaip-rebuild-links-progress').show();
-            $('#wpaip-rebuild-links-logs').show().empty();
-            $('#wpaip-rebuild-links-fill').css({width: '0%', animation: 'none'});
-            $('#wpaip-rebuild-links-progress-text').text('正在启动批量重建...');
-            $('#wpaip-rebuild-links-progress-percent').text('0%');
-            $('#wpaip-rebuild-links-stats').html('');
-            $('#wpaip-rebuild-history-empty').hide();
-            $('#wpaip-rebuild-history-list').show().empty();
+            $('#yimai-gso-rebuild-links-start').hide();
+            $('#yimai-gso-rebuild-links-stop').show().prop('disabled', true);
+            $('#yimai-gso-rebuild-links-progress').show();
+            $('#yimai-gso-rebuild-links-logs').show().empty();
+            $('#yimai-gso-rebuild-links-fill').css({width: '0%', animation: 'none'});
+            $('#yimai-gso-rebuild-links-progress-text').text('正在启动批量重建...');
+            $('#yimai-gso-rebuild-links-progress-percent').text('0%');
+            $('#yimai-gso-rebuild-links-stats').html('');
+            $('#yimai-gso-rebuild-history-empty').hide();
+            $('#yimai-gso-rebuild-history-list').show().empty();
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_start_rebuild_links',
-                nonce: wpaipData.nonce
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_start_rebuild_links',
+                nonce: yimaiGsoData.nonce
             }, function(res) {
                 if (res.success) {
-                    $('#wpaip-rebuild-links-progress-text').text(res.data.message);
-                    $('#wpaip-rebuild-links-stop').prop('disabled', false);
+                    $('#yimai-gso-rebuild-links-progress-text').text(res.data.message);
+                    $('#yimai-gso-rebuild-links-stop').prop('disabled', false);
                     addRebuildLog('批量重建已启动，共 ' + res.data.total + ' 篇文章', 'info');
                     // 更新顶部统计
-                    $('#wpaip-rebuild-stat-total').text(res.data.total || 0);
+                    $('#yimai-gso-rebuild-stat-total').text(res.data.total || 0);
                     startPolling();
                 } else {
                     isRunning = false;
-                    $('#wpaip-rebuild-links-start').show();
-                    $('#wpaip-rebuild-links-stop').hide();
-                    $('#wpaip-rebuild-links-progress').hide();
+                    $('#yimai-gso-rebuild-links-start').show();
+                    $('#yimai-gso-rebuild-links-stop').hide();
+                    $('#yimai-gso-rebuild-links-progress').hide();
                     alert(res.data.message || '启动失败');
                 }
             }).fail(function(xhr, status, error) {
                 isRunning = false;
-                $('#wpaip-rebuild-links-start').show();
-                $('#wpaip-rebuild-links-stop').hide();
-                $('#wpaip-rebuild-links-progress').hide();
-                console.error('[WPAIP] Rebuild start failed:', status, error, xhr.responseText);
+                $('#yimai-gso-rebuild-links-start').show();
+                $('#yimai-gso-rebuild-links-stop').hide();
+                $('#yimai-gso-rebuild-links-progress').hide();
+                console.error('[YIMAI GSO] Rebuild start failed:', status, error, xhr.responseText);
                 alert('网络请求失败: ' + status + (error ? ' (' + error + ')' : '') + '\n请检查浏览器控制台查看详细信息。');
             });
         }
@@ -7822,11 +7822,11 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                 clearInterval(pollTimer);
                 pollTimer = null;
             }
-            $('#wpaip-rebuild-links-start').show();
-            $('#wpaip-rebuild-links-stop').hide();
-            $('#wpaip-rebuild-links-fill').css({width: '100%', animation: 'none'});
-            $('#wpaip-rebuild-links-progress-text').text('已停止');
-            $('#wpaip-rebuild-links-progress-percent').text('');
+            $('#yimai-gso-rebuild-links-start').show();
+            $('#yimai-gso-rebuild-links-stop').hide();
+            $('#yimai-gso-rebuild-links-fill').css({width: '100%', animation: 'none'});
+            $('#yimai-gso-rebuild-links-progress-text').text('已停止');
+            $('#yimai-gso-rebuild-links-progress-percent').text('');
             addRebuildLog('用户手动停止重建', 'warning');
         }
 
@@ -7837,9 +7837,9 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                     pollTimer = null;
                     return;
                 }
-                $.post(wpaipData.ajaxUrl, {
-                    action: 'wpaip_get_rebuild_progress',
-                    nonce: wpaipData.nonce
+                $.post(yimaiGsoData.ajaxUrl, {
+                    action: 'yimai_gso_get_rebuild_progress',
+                    nonce: yimaiGsoData.nonce
                 }, function(res) {
                     if (!res.success || !res.data) return;
                     var data = res.data;
@@ -7848,22 +7848,22 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
                     if (total > 0) {
                         var pct = Math.round((processed / total) * 100);
-                        $('#wpaip-rebuild-links-fill').css('width', pct + '%');
-                        $('#wpaip-rebuild-links-progress-text').text('已处理 ' + processed + '/' + total + ' 篇');
-                        $('#wpaip-rebuild-links-progress-percent').text(pct + '%');
-                        $('#wpaip-rebuild-links-stats').html(
+                        $('#yimai-gso-rebuild-links-fill').css('width', pct + '%');
+                        $('#yimai-gso-rebuild-links-progress-text').text('已处理 ' + processed + '/' + total + ' 篇');
+                        $('#yimai-gso-rebuild-links-progress-percent').text(pct + '%');
+                        $('#yimai-gso-rebuild-links-stats').html(
                             '<span style="color:#10b981;font-weight:600;">✅ 成功: ' + (data.success || 0) + '</span>' +
                             '<span style="color:#ef4444;font-weight:600;">❌ 失败: ' + (data.failed || 0) + '</span>' +
                             '<span style="color:#64748b;">⏭️ 跳过: ' + (data.skipped || 0) + '</span>'
                         );
                         // 更新顶部统计
-                        $('#wpaip-rebuild-stat-success').text(data.success || 0);
-                        $('#wpaip-rebuild-stat-inserted').text(data.inserted || 0);
+                        $('#yimai-gso-rebuild-stat-success').text(data.success || 0);
+                        $('#yimai-gso-rebuild-stat-inserted').text(data.inserted || 0);
                     }
 
                     // 更新日志
                     if (data.logs && data.logs.length) {
-                        $('#wpaip-rebuild-links-logs').empty();
+                        $('#yimai-gso-rebuild-links-logs').empty();
                         data.logs.forEach(function(log) {
                             var cls = log.status === 'success' ? 'success' : 'failed';
                             var icon = log.status === 'success' ? '✅' : '❌';
@@ -7876,12 +7876,12 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                         isRunning = false;
                         clearInterval(pollTimer);
                         pollTimer = null;
-                        $('#wpaip-rebuild-links-start').show();
-                        $('#wpaip-rebuild-links-stop').hide();
-                        $('#wpaip-rebuild-links-fill').css({width: '100%', animation: 'none'});
-                        $('#wpaip-rebuild-links-progress-percent').text('100%');
+                        $('#yimai-gso-rebuild-links-start').show();
+                        $('#yimai-gso-rebuild-links-stop').hide();
+                        $('#yimai-gso-rebuild-links-fill').css({width: '100%', animation: 'none'});
+                        $('#yimai-gso-rebuild-links-progress-percent').text('100%');
                         if (data.status === 'completed') {
-                            $('#wpaip-rebuild-links-progress-text').text('批量重建完成！');
+                            $('#yimai-gso-rebuild-links-progress-text').text('批量重建完成！');
                             addRebuildLog('批量重建完成', 'success');
                         }
                     }
@@ -7890,9 +7890,9 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         }
 
         function addRebuildLog(text, cls) {
-            var $logs = $('#wpaip-rebuild-links-logs');
+            var $logs = $('#yimai-gso-rebuild-links-logs');
             var color = cls === 'success' ? '#10b981' : (cls === 'failed' ? '#ef4444' : (cls === 'warning' ? '#f59e0b' : '#64748b'));
-            var entry = '<div class="wpaip-link-log-entry" style="color:' + color + ';">' + text + '</div>';
+            var entry = '<div class="yimai-gso-link-log-entry" style="color:' + color + ';">' + text + '</div>';
             $logs.append(entry);
             $logs.scrollTop($logs[0].scrollHeight);
         }
@@ -7905,63 +7905,63 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         var auditPollTimer = null;
 
         function init() {
-            console.log('[WPAIP] BrokenLinkAudit.init() called');
-            var $startBtn = $('#wpaip-broken-link-start');
-            console.log('[WPAIP] Audit start button found:', $startBtn.length > 0);
+            console.log('[YIMAI GSO] BrokenLinkAudit.init() called');
+            var $startBtn = $('#yimai-gso-broken-link-start');
+            console.log('[YIMAI GSO] Audit start button found:', $startBtn.length > 0);
 
             if ($startBtn.length) {
-                $startBtn.off('click.wpaip').on('click.wpaip', startAudit);
+                $startBtn.off('click.yimaiGso').on('click.yimaiGso', startAudit);
             }
             // 重新巡检按钮
-            $(document).off('click.wpaip-recheck').on('click.wpaip-recheck', '#wpaip-audit-recheck', startAudit);
-            $(document).off('click.wpaip-remove').on('click.wpaip-remove', '.wpaip-broken-link-remove', removeBrokenLink);
+            $(document).off('click.yimai-gso-recheck').on('click.yimai-gso-recheck', '#yimai-gso-audit-recheck', startAudit);
+            $(document).off('click.yimai-gso-remove').on('click.yimai-gso-remove', '.yimai-gso-broken-link-remove', removeBrokenLink);
 
             // 页面加载时自动获取上次巡检结果
             loadLastAuditResult();
         }
 
         function loadLastAuditResult() {
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_get_broken_link_audit_result',
-                nonce: wpaipData.nonce
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_get_broken_link_audit_result',
+                nonce: yimaiGsoData.nonce
             }, function(res) {
                 if (res.success && res.data && res.data.total_links) {
                     renderAuditResult(res.data);
                 }
             }).fail(function(xhr, status, error) {
-                console.error('[WPAIP] Load last audit result failed:', status, error);
+                console.error('[YIMAI GSO] Load last audit result failed:', status, error);
             });
         }
 
         function startAudit() {
-            var $btn = $('#wpaip-broken-link-start');
+            var $btn = $('#yimai-gso-broken-link-start');
             $btn.prop('disabled', true).text('启动中...');
-            $('#wpaip-broken-link-progress').show();
-            $('#wpaip-broken-link-result').hide().empty();
-            $('#wpaip-audit-empty').hide();
-            $('#wpaip-audit-quick-actions').hide();
-            $('#wpaip-audit-result-badge').hide();
-            $('#wpaip-broken-link-fill').css({width: '10%', animation: 'wpaip-progress-pulse 1.5s infinite'});
-            $('#wpaip-broken-link-progress-text').text('正在启动巡检...');
-            $('#wpaip-broken-link-progress-percent').text('0%');
+            $('#yimai-gso-broken-link-progress').show();
+            $('#yimai-gso-broken-link-result').hide().empty();
+            $('#yimai-gso-audit-empty').hide();
+            $('#yimai-gso-audit-quick-actions').hide();
+            $('#yimai-gso-audit-result-badge').hide();
+            $('#yimai-gso-broken-link-fill').css({width: '10%', animation: 'yimai-gso-progress-pulse 1.5s infinite'});
+            $('#yimai-gso-broken-link-progress-text').text('正在启动巡检...');
+            $('#yimai-gso-broken-link-progress-percent').text('0%');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_start_broken_link_audit',
-                nonce: wpaipData.nonce
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_start_broken_link_audit',
+                nonce: yimaiGsoData.nonce
             }, function(res) {
                 if (res.success) {
                     $btn.text('巡检中...');
-                    $('#wpaip-broken-link-progress-text').text(res.data.message || '巡检进行中...');
+                    $('#yimai-gso-broken-link-progress-text').text(res.data.message || '巡检进行中...');
                     startAuditPolling();
                 } else {
                     $btn.prop('disabled', false).text('开始巡检');
-                    $('#wpaip-broken-link-progress').hide();
+                    $('#yimai-gso-broken-link-progress').hide();
                     alert(res.data.message || '巡检启动失败');
                 }
             }).fail(function(xhr, status, error) {
                 $btn.prop('disabled', false).text('开始巡检');
-                $('#wpaip-broken-link-progress').hide();
-                console.error('[WPAIP] Audit start failed:', status, error, xhr.responseText);
+                $('#yimai-gso-broken-link-progress').hide();
+                console.error('[YIMAI GSO] Audit start failed:', status, error, xhr.responseText);
                 alert('网络请求失败: ' + status + (error ? ' (' + error + ')' : '') + '\n请检查浏览器控制台查看详细信息。');
             });
         }
@@ -7972,9 +7972,9 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             }
 
             auditPollTimer = setInterval(function() {
-                $.post(wpaipData.ajaxUrl, {
-                    action: 'wpaip_get_broken_link_audit_progress',
-                    nonce: wpaipData.nonce
+                $.post(yimaiGsoData.ajaxUrl, {
+                    action: 'yimai_gso_get_broken_link_audit_progress',
+                    nonce: yimaiGsoData.nonce
                 }, function(res) {
                     if (!res.success || !res.data) return;
                     var data = res.data;
@@ -7984,30 +7984,30 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                     // 更新进度
                     if (total > 0) {
                         var pct = Math.round((checked / total) * 100);
-                        $('#wpaip-broken-link-fill').css({width: pct + '%', animation: 'none'});
-                        $('#wpaip-broken-link-progress-text').text('已检测 ' + checked + '/' + total + ' 个链接');
-                        $('#wpaip-broken-link-progress-percent').text(pct + '%');
+                        $('#yimai-gso-broken-link-fill').css({width: pct + '%', animation: 'none'});
+                        $('#yimai-gso-broken-link-progress-text').text('已检测 ' + checked + '/' + total + ' 个链接');
+                        $('#yimai-gso-broken-link-progress-percent').text(pct + '%');
                     }
 
                     // 完成或空闲状态
                     if (data.status === 'completed' || data.status === 'idle') {
                         clearInterval(auditPollTimer);
                         auditPollTimer = null;
-                        $('#wpaip-broken-link-start').prop('disabled', false).text('开始巡检');
-                        $('#wpaip-broken-link-progress').hide();
+                        $('#yimai-gso-broken-link-start').prop('disabled', false).text('开始巡检');
+                        $('#yimai-gso-broken-link-progress').hide();
 
                         if (data.result) {
                             renderAuditResult(data.result);
                         }
                     }
                 }).fail(function(xhr, status, error) {
-                    console.error('[WPAIP] Audit poll failed:', status, error);
+                    console.error('[YIMAI GSO] Audit poll failed:', status, error);
                 });
             }, 3000);
         }
 
         function renderAuditResult(data) {
-            var $result = $('#wpaip-broken-link-result');
+            var $result = $('#yimai-gso-broken-link-result');
             var html = '';
 
             var totalLinks = data.total_links || data.total || 0;
@@ -8016,13 +8016,13 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             var healthRate = totalLinks > 0 ? Math.round((okCount / totalLinks) * 100) + '%' : '-';
 
             // 更新顶部统计
-            $('#wpaip-audit-stat-total').text(totalLinks);
-            $('#wpaip-audit-stat-ok').text(okCount);
-            $('#wpaip-audit-stat-broken').text(brokenCount);
-            $('#wpaip-audit-stat-rate').text(healthRate);
+            $('#yimai-gso-audit-stat-total').text(totalLinks);
+            $('#yimai-gso-audit-stat-ok').text(okCount);
+            $('#yimai-gso-audit-stat-broken').text(brokenCount);
+            $('#yimai-gso-audit-stat-rate').text(healthRate);
 
             // 更新结果徽章
-            var $badge = $('#wpaip-audit-result-badge');
+            var $badge = $('#yimai-gso-audit-result-badge');
             if (brokenCount > 0) {
                 $badge.text(brokenCount + ' 个失效').css({background: '#fee2e2', color: '#dc2626'}).show();
             } else {
@@ -8030,7 +8030,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             }
 
             // 显示快速操作
-            $('#wpaip-audit-quick-actions').show();
+            $('#yimai-gso-audit-quick-actions').show();
 
             html += '<div style="margin-bottom:16px;padding:14px 16px;border-radius:10px;background:' + (brokenCount > 0 ? '#fef2f2' : '#f0fdf4') + ';border:1px solid ' + (brokenCount > 0 ? '#fecaca' : '#bbf7d0') + ';">';
             html += '<strong style="font-size:14px;color:' + (brokenCount > 0 ? '#991b1b' : '#065f46') + ';">';
@@ -8060,7 +8060,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                     html += '<td style="word-break:break-all;"><a href="' + escapeHtml(item.url) + '" target="_blank">' + escapeHtml(item.url) + '</a></td>';
                     html += '<td><span style="color:#ef4444;font-weight:bold;">' + (item.status || '错误') + '</span></td>';
                     html += '<td>' + escapeHtml(postTitles) + '</td>';
-                    html += '<td><button type="button" class="button button-small wpaip-broken-link-remove" data-url="' + escapeHtml(item.url) + '">移除死链</button></td>';
+                    html += '<td><button type="button" class="button button-small yimai-gso-broken-link-remove" data-url="' + escapeHtml(item.url) + '">移除死链</button></td>';
                     html += '</tr>';
                 });
 
@@ -8081,9 +8081,9 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
             $btn.prop('disabled', true).text('移除中...');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_remove_broken_links',
-                nonce: wpaipData.nonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_remove_broken_links',
+                nonce: yimaiGsoData.nonce,
                 url: url
             }, function(res) {
                 if (res.success) {
@@ -8106,34 +8106,34 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     // ==================== 智能内链 - 主开关Toggle ====================
     var InternalLinkMasterToggle = (function() {
         function init() {
-            var $toggle = $('#wpaip-internal-link-master-toggle');
+            var $toggle = $('#yimai-gso-internal-link-master-toggle');
             if (!$toggle.length) return;
 
-            $toggle.off('change.wpaip').on('change.wpaip', function() {
+            $toggle.off('change.yimaiGso').on('change.yimaiGso', function() {
                 var enabled = $(this).is(':checked') ? 1 : 0;
-                var $label = $(this).closest('.wpaip-link-master-toggle');
+                var $label = $(this).closest('.yimai-gso-link-master-toggle');
 
                 // 立即更新UI
                 $label.toggleClass('is-on', enabled);
-                $label.find('.wpaip-link-toggle-label').text(enabled ? '已开启' : '已关闭');
+                $label.find('.yimai-gso-link-toggle-label').text(enabled ? '已开启' : '已关闭');
 
-                $.post(wpaipData.ajaxUrl, {
-                    action: 'wpaip_toggle_internal_link',
-                    nonce: wpaipData.nonce,
+                $.post(yimaiGsoData.ajaxUrl, {
+                    action: 'yimai_gso_toggle_internal_link',
+                    nonce: yimaiGsoData.nonce,
                     enabled: enabled
                 }, function(res) {
                     if (res.success) {
-                        console.log('[WPAIP] Internal link toggle:', res.data.message);
+                        console.log('[YIMAI GSO] Internal link toggle:', res.data.message);
                     } else {
                         // 失败时恢复UI
                         $label.toggleClass('is-on', !enabled);
-                        $label.find('.wpaip-link-toggle-label').text(!enabled ? '已开启' : '已关闭');
+                        $label.find('.yimai-gso-link-toggle-label').text(!enabled ? '已开启' : '已关闭');
                         $toggle.prop('checked', !enabled);
                         alert(res.data.message || '切换失败');
                     }
                 }).fail(function() {
                     $label.toggleClass('is-on', !enabled);
-                    $label.find('.wpaip-link-toggle-label').text(!enabled ? '已开启' : '已关闭');
+                    $label.find('.yimai-gso-link-toggle-label').text(!enabled ? '已开启' : '已关闭');
                     $toggle.prop('checked', !enabled);
                     alert('网络请求失败');
                 });
@@ -8143,8 +8143,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     })();
 
     // 全局调试：监听智能内链按钮点击
-    $(document).on('click', '#wpaip-rebuild-links-start, #wpaip-broken-link-start', function(e) {
-        console.log('[WPAIP] Button clicked:', this.id, 'Target:', e.target.tagName);
+    $(document).on('click', '#yimai-gso-rebuild-links-start, #yimai-gso-broken-link-start', function(e) {
+        console.log('[YIMAI GSO] Button clicked:', this.id, 'Target:', e.target.tagName);
     });
 
     $(document).ready(function() {
@@ -8152,19 +8152,19 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         if (typeof initRewriteModule === 'function') {
             initRewriteModule();
         } else {
-            console.error('[WPAIP] initRewriteModule not defined');
+            console.error('[YIMAI GSO] initRewriteModule not defined');
         }
 
-        console.log('[WPAIP] Document ready - initializing smart link modules');
+        console.log('[YIMAI GSO] Document ready - initializing smart link modules');
         if (typeof RebuildLinks !== 'undefined') {
             RebuildLinks.init();
         } else {
-            console.error('[WPAIP] RebuildLinks not defined');
+            console.error('[YIMAI GSO] RebuildLinks not defined');
         }
         if (typeof BrokenLinkAudit !== 'undefined') {
             BrokenLinkAudit.init();
         } else {
-            console.error('[WPAIP] BrokenLinkAudit not defined');
+            console.error('[YIMAI GSO] BrokenLinkAudit not defined');
         }
         if (typeof InternalLinkMasterToggle !== 'undefined') {
             InternalLinkMasterToggle.init();
@@ -8173,8 +8173,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
     // ==================== 侧边栏折叠面板 ====================
     (function() {
-        var STORAGE_KEY = 'wpaip_sidebar_groups';
-        var $groups = $('.wpaip-sidebar-group');
+        var STORAGE_KEY = 'yimai_gso_sidebar_groups';
+        var $groups = $('.yimai-gso-sidebar-group');
 
         if (!$groups.length) return;
 
@@ -8185,7 +8185,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         $groups.each(function() {
             var $group = $(this);
             var groupId = $group.data('group') || '';
-            var $label  = $group.find('.wpaip-sidebar-group-label');
+            var $label  = $group.find('.yimai-gso-sidebar-group-label');
 
             // 恢复上次状态（localStorage 优先，其次看有没有 .collapsed class）
             if (saved.hasOwnProperty(groupId)) {
@@ -8213,9 +8213,9 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     var freshnessSelected = {};
 
     function loadFreshnessStats() {
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_get_freshness_stats',
-            nonce: wpaipData.nonce
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_get_freshness_stats',
+            nonce: yimaiGsoData.nonce
         }, function(res) {
             if (!res.success) return;
             var d = res.data;
@@ -8223,13 +8223,13 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             var fresh = parseInt(d.fresh) || 0;
             var pct = parseFloat(d.fresh_pct) || 0;
 
-            $('#wpaip-freshness-stats [data-stat="fresh"]').text(d.fresh || 0);
-            $('#wpaip-freshness-stats [data-stat="normal"]').text(d.normal || 0);
-            $('#wpaip-freshness-stats [data-stat="stale"]').text(d.stale || 0);
-            $('#wpaip-freshness-stats [data-stat="old"]').text(d.old || 0);
+            $('#yimai-gso-freshness-stats [data-stat="fresh"]').text(d.fresh || 0);
+            $('#yimai-gso-freshness-stats [data-stat="normal"]').text(d.normal || 0);
+            $('#yimai-gso-freshness-stats [data-stat="stale"]').text(d.stale || 0);
+            $('#yimai-gso-freshness-stats [data-stat="old"]').text(d.old || 0);
 
-            $('#wpaip-freshness-pct').text(pct + '%');
-            var $bar = $('#wpaip-freshness-bar-fill');
+            $('#yimai-gso-freshness-pct').text(pct + '%');
+            var $bar = $('#yimai-gso-freshness-bar-fill');
             $bar.css('width', pct + '%');
             $bar.removeClass('warn danger');
             if (pct < 40) $bar.addClass('danger');
@@ -8245,37 +8245,37 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         freshnessSelected = {};
         updateBatchBar();
 
-        var $list = $('#wpaip-freshness-list');
-        $list.html('<div class="wpaip-loading-state"><span class="wpaip-loading"></span>加载中...</div>');
+        var $list = $('#yimai-gso-freshness-list');
+        $list.html('<div class="yimai-gso-loading-state"><span class="yimai-gso-loading"></span>加载中...</div>');
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_get_freshness_posts',
-            nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_get_freshness_posts',
+            nonce: yimaiGsoData.nonce,
             page: freshnessPage,
-            level: $('#wpaip-f-level').val(),
-            search: $('#wpaip-f-search').val()
+            level: $('#yimai-gso-f-level').val(),
+            search: $('#yimai-gso-f-search').val()
         }, function(res) {
             if (!res.success) {
-                $list.html('<div class="wpaip-empty-state">加载失败</div>');
+                $list.html('<div class="yimai-gso-empty-state">加载失败</div>');
                 return;
             }
             var d = res.data;
             if (!d.posts.length) {
-                $list.html('<div class="wpaip-empty-state">没有找到匹配的文章</div>');
-                $('#wpaip-freshness-pagination').html('');
+                $list.html('<div class="yimai-gso-empty-state">没有找到匹配的文章</div>');
+                $('#yimai-gso-freshness-pagination').html('');
                 return;
             }
             renderFreshnessTable(d.posts);
             renderFreshnessPagination(d);
         }).fail(function(jqXHR, textStatus, errorThrown) {
-            $list.html('<div class="wpaip-empty-state">加载失败，请检查网络连接后重试</div>');
+            $list.html('<div class="yimai-gso-empty-state">加载失败，请检查网络连接后重试</div>');
             console.warn('[一麦GSO] 新鲜度文章列表加载失败:', textStatus, errorThrown);
         });
     }
 
     function renderFreshnessTable(posts) {
         var html = '<table class="wp-list-table widefat fixed striped"><thead><tr>';
-        html += '<th style="width:40px;"><input type="checkbox" id="wpaip-f-check-all" class="wpaip-f-checkbox"></th>';
+        html += '<th style="width:40px;"><input type="checkbox" id="yimai-gso-f-check-all" class="yimai-gso-f-checkbox"></th>';
         html += '<th>文章标题</th>';
         html += '<th style="width:90px;">类型</th>';
         html += '<th style="width:100px;">新鲜度</th>';
@@ -8287,23 +8287,23 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         for (var i = 0; i < posts.length; i++) {
             var p = posts[i];
             html += '<tr data-id="' + p.id + '">';
-            html += '<td><input type="checkbox" class="wpaip-f-checkbox wpaip-f-row-cb" data-id="' + p.id + '"></td>';
+            html += '<td><input type="checkbox" class="yimai-gso-f-checkbox yimai-gso-f-row-cb" data-id="' + p.id + '"></td>';
             html += '<td><strong><a href="' + (p.edit_url || '#') + '" target="_blank">' + escapeHtml(p.title || '(无标题)') + '</a></strong></td>';
             html += '<td><span style="font-size:12px;color:#64748b;">' + escapeHtml(p.type) + '</span></td>';
-            html += '<td><span class="wpaip-freshness-badge" style="background:' + p.color + '">' + p.label + '</span></td>';
+            html += '<td><span class="yimai-gso-freshness-badge" style="background:' + p.color + '">' + p.label + '</span></td>';
             html += '<td><span style="font-size:13px;color:#475569;">' + p.days + ' 天</span></td>';
             html += '<td><strong style="color:' + p.color + '">' + p.score + '/7</strong></td>';
-            html += '<td><button class="button button-small wpaip-f-refresh-btn" data-id="' + p.id + '">标记已审核</button></td>';
+            html += '<td><button class="button button-small yimai-gso-f-refresh-btn" data-id="' + p.id + '">标记已审核</button></td>';
             html += '</tr>';
         }
 
         html += '</tbody></table>';
-        $('#wpaip-freshness-list').html(html);
+        $('#yimai-gso-freshness-list').html(html);
 
         // 全选/取消
-        $('#wpaip-f-check-all').on('change', function() {
+        $('#yimai-gso-f-check-all').on('change', function() {
             var checked = $(this).prop('checked');
-            $('.wpaip-f-row-cb').prop('checked', checked).each(function() {
+            $('.yimai-gso-f-row-cb').prop('checked', checked).each(function() {
                 var id = $(this).data('id');
                 if (checked) freshnessSelected[id] = true;
                 else delete freshnessSelected[id];
@@ -8312,7 +8312,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         });
 
         // 单行勾选
-        $('.wpaip-f-row-cb').on('change', function() {
+        $('.yimai-gso-f-row-cb').on('change', function() {
             var id = $(this).data('id');
             if ($(this).prop('checked')) freshnessSelected[id] = true;
             else delete freshnessSelected[id];
@@ -8320,14 +8320,14 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         });
 
         // 单篇刷新
-        $('.wpaip-f-refresh-btn').on('click', function() {
+        $('.yimai-gso-f-refresh-btn').on('click', function() {
             var $btn = $(this);
             var postId = $btn.data('id');
             $btn.prop('disabled', true).text('处理中...');
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_refresh_content',
-                nonce: wpaipData.nonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_refresh_content',
+                nonce: yimaiGsoData.nonce,
                 post_id: postId
             }, function(res) {
                 if (res.success) {
@@ -8344,38 +8344,38 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     function renderFreshnessPagination(d) {
         var html = '';
         if (d.pages <= 1) {
-            $('#wpaip-freshness-pagination').html('');
+            $('#yimai-gso-freshness-pagination').html('');
             return;
         }
         html += '<span class="displaying-num">共 ' + d.total + ' 篇</span>';
         if (d.page > 1) {
-            html += '<button class="button wpaip-f-page-btn" data-page="' + (d.page - 1) + '">&laquo; 上一页</button>';
+            html += '<button class="button yimai-gso-f-page-btn" data-page="' + (d.page - 1) + '">&laquo; 上一页</button>';
         }
         for (var i = 1; i <= d.pages; i++) {
             if (i === d.page) {
                 html += '<span class="button button-primary">' + i + '</span>';
             } else if (Math.abs(i - d.page) <= 2 || i === 1 || i === d.pages) {
-                html += '<button class="button wpaip-f-page-btn" data-page="' + i + '">' + i + '</button>';
+                html += '<button class="button yimai-gso-f-page-btn" data-page="' + i + '">' + i + '</button>';
             } else if (Math.abs(i - d.page) === 3) {
-                html += '<span class="wpaip-page-dots">...</span>';
+                html += '<span class="yimai-gso-page-dots">...</span>';
             }
         }
         if (d.page < d.pages) {
-            html += '<button class="button wpaip-f-page-btn" data-page="' + (d.page + 1) + '">下一页 &raquo;</button>';
+            html += '<button class="button yimai-gso-f-page-btn" data-page="' + (d.page + 1) + '">下一页 &raquo;</button>';
         }
-        $('#wpaip-freshness-pagination').html(html);
+        $('#yimai-gso-freshness-pagination').html(html);
 
-        $('.wpaip-f-page-btn').on('click', function() {
+        $('.yimai-gso-f-page-btn').on('click', function() {
             loadFreshnessPosts(parseInt($(this).data('page')));
         });
     }
 
     function updateBatchBar() {
         var ids = Object.keys(freshnessSelected);
-        var $info = $('#wpaip-f-batch-info');
+        var $info = $('#yimai-gso-f-batch-info');
         if (ids.length > 0) {
             $info.show();
-            $('#wpaip-f-selected-count').text(ids.length);
+            $('#yimai-gso-f-selected-count').text(ids.length);
         } else {
             $info.hide();
         }
@@ -8384,40 +8384,40 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     // 注意：escapeHtml 已在文件顶部定义（行12），此处不再重复定义，避免覆盖
 
     // 筛选按钮
-    $('#wpaip-f-search-btn').on('click', function() {
+    $('#yimai-gso-f-search-btn').on('click', function() {
         loadFreshnessPosts(1);
         loadFreshnessStats();
     });
 
     // 重置按钮
-    $('#wpaip-f-reset-btn').on('click', function() {
-        $('#wpaip-f-level').val('');
-        $('#wpaip-f-search').val('');
+    $('#yimai-gso-f-reset-btn').on('click', function() {
+        $('#yimai-gso-f-level').val('');
+        $('#yimai-gso-f-search').val('');
         loadFreshnessPosts(1);
         loadFreshnessStats();
     });
 
     // 搜索回车
-    $('#wpaip-f-search').on('keypress', function(e) {
+    $('#yimai-gso-f-search').on('keypress', function(e) {
         if (e.key === 'Enter') loadFreshnessPosts(1);
     });
 
     // 等级下拉变化
-    $('#wpaip-f-level').on('change', function() {
+    $('#yimai-gso-f-level').on('change', function() {
         loadFreshnessPosts(1);
         loadFreshnessStats();
     });
 
     // 全选当前页
-    $('#wpaip-f-select-all').on('click', function() {
-        $('.wpaip-f-row-cb').prop('checked', true).each(function() {
+    $('#yimai-gso-f-select-all').on('click', function() {
+        $('.yimai-gso-f-row-cb').prop('checked', true).each(function() {
             freshnessSelected[$(this).data('id')] = true;
         });
         updateBatchBar();
     });
 
     // 批量标记
-    $('#wpaip-f-batch-fresh').on('click', function() {
+    $('#yimai-gso-f-batch-fresh').on('click', function() {
         var ids = Object.keys(freshnessSelected);
         if (!ids.length) return;
 
@@ -8426,9 +8426,9 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         var $btn = $(this);
         $btn.prop('disabled', true).text('处理中...');
 
-        $.post(wpaipData.ajaxUrl, {
-            action: 'wpaip_batch_mark_fresh',
-            nonce: wpaipData.nonce,
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_batch_mark_fresh',
+            nonce: yimaiGsoData.nonce,
             post_ids: ids
         }, function(res) {
             $btn.prop('disabled', false).text('标记为已审核');
@@ -8449,13 +8449,13 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
     var SEOGeoBridge = (function () {
         'use strict';
 
-        var $panel = $('#wpaip-bridge-conflict-list').closest('.wpaip-main-panel');
+        var $panel = $('#yimai-gso-bridge-conflict-list').closest('.yimai-gso-main-panel');
         var isScanning = false;
 
         // ---- 页面加载 ----
         function init() {
             // 只有在面板可见时才加载（元素始终存在，但只有 active 时才真正显示）
-            if ($('.wpaip-main-panel[data-tab="seo-geo-bridge"].active').length === 0) return;
+            if ($('.yimai-gso-main-panel[data-tab="seo-geo-bridge"].active').length === 0) return;
             loadStatus();
             loadConflicts();
         }
@@ -8463,8 +8463,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         // ---- 加载桥接状态摘要 ----
         function loadStatus() {
             $.post(ajaxurl, {
-                action: 'wpaip_seo_geo_get_status',
-                nonce: wpaipData.nonce
+                action: 'yimai_gso_seo_geo_get_status',
+                nonce: yimaiGsoData.nonce
             }, function (res) {
                 if (!res.success) return;
                 var d = res.data;
@@ -8482,15 +8482,15 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         }
 
         function updateStatCard(key, value, cssClass) {
-            var $card = $('#wpaip-bridge-stat-' + key);
-            $card.find('.wpaip-bridge-stat-value').text(value);
+            var $card = $('#yimai-gso-bridge-stat-' + key);
+            $card.find('.yimai-gso-bridge-stat-value').text(value);
             $card.removeClass('good warn bad');
             if (cssClass) $card.addClass(cssClass);
         }
 
         function renderPluginCards(plugins, hasAny) {
-            var $container = $('#wpaip-bridge-plugin-cards');
-            var $noPlugin = $('#wpaip-bridge-no-plugin');
+            var $container = $('#yimai-gso-bridge-plugin-cards');
+            var $noPlugin = $('#yimai-gso-bridge-no-plugin');
 
             if (!hasAny || $.isEmptyObject(plugins)) {
                 $container.hide();
@@ -8502,7 +8502,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             $container.show().empty();
 
             $.each(plugins, function (key, info) {
-                var card = $('<div class="wpaip-bridge-plugin-card compatible">');
+                var card = $('<div class="yimai-gso-bridge-plugin-card compatible">');
                 card.append('<div class="plugin-name">' + esc(info.name || key) + '</div>');
                 if (info.version) {
                     card.append('<div class="plugin-version">v' + esc(info.version) + '</div>');
@@ -8514,12 +8514,12 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
         // ---- 加载冲突列表 ----
         function loadConflicts() {
-            var $list = $('#wpaip-bridge-conflict-list');
+            var $list = $('#yimai-gso-bridge-conflict-list');
             $list.html('<div style="padding:16px;color:#94a3b8;font-size:0.85rem;text-align:center;">检测中...</div>');
 
             $.post(ajaxurl, {
-                action: 'wpaip_seo_geo_get_conflicts',
-                nonce: wpaipData.nonce
+                action: 'yimai_gso_seo_geo_get_conflicts',
+                nonce: yimaiGsoData.nonce
             }, function (res) {
                 if (!res.success) {
                     $list.html('<div style="padding:16px;color:#ef4444;font-size:0.85rem;text-align:center;">检测失败：' + esc(res.data.message || '') + '</div>');
@@ -8532,8 +8532,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         }
 
         function renderConflicts(conflicts, fixable) {
-            var $list = $('#wpaip-bridge-conflict-list');
-            var $fixAll = $('#wpaip-bridge-fix-all-btn');
+            var $list = $('#yimai-gso-bridge-conflict-list');
+            var $fixAll = $('#yimai-gso-bridge-fix-all-btn');
 
             if (conflicts.length === 0) {
                 $list.html('<div style="padding:16px;text-align:center;color:#10b981;font-size:0.85rem;">✅ 未检测到冲突，SEO 与 GEO 协同正常</div>');
@@ -8547,18 +8547,18 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                 var severityLabel = { 'info': '信息', 'low': '低', 'medium': '中', 'high': '高' }[c.severity] || c.severity;
                 var severityClass = c.severity;
 
-                var item = $('<div class="wpaip-bridge-conflict-item severity-' + severityClass + '">');
+                var item = $('<div class="yimai-gso-bridge-conflict-item severity-' + severityClass + '">');
 
-                var header = $('<div class="wpaip-bridge-conflict-header">');
-                header.append('<span class="wpaip-bridge-conflict-title">' + esc(c.title) + '</span>');
+                var header = $('<div class="yimai-gso-bridge-conflict-header">');
+                header.append('<span class="yimai-gso-bridge-conflict-title">' + esc(c.title) + '</span>');
 
                 var badgeRow = $('<span>');
-                badgeRow.append('<span class="wpaip-bridge-severity-badge ' + severityClass + '">' + severityLabel + '</span>');
+                badgeRow.append('<span class="yimai-gso-bridge-severity-badge ' + severityClass + '">' + severityLabel + '</span>');
 
                 if (c.fixed) {
-                    badgeRow.append(' <span class="wpaip-bridge-fixed-badge">已处理</span>');
+                    badgeRow.append(' <span class="yimai-gso-bridge-fixed-badge">已处理</span>');
                 } else if (c.auto_fix) {
-                    var fixBtn = $('<button type="button" class="button button-small wpaip-bridge-fix-btn">修复</button>');
+                    var fixBtn = $('<button type="button" class="button button-small yimai-gso-bridge-fix-btn">修复</button>');
                     // IIFE 锁定当前迭代的 c.id 和 fixBtn，避免 var 函数级作用域闭包陷阱
                     (function(conflictId, $fixBtn) {
                         fixBtn.on('click', function () { applyFix(conflictId, $fixBtn); });
@@ -8569,7 +8569,7 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
                 header.append(badgeRow);
                 item.append(header);
 
-                item.append('<div class="wpaip-bridge-conflict-desc">' + esc(c.description) + '</div>');
+                item.append('<div class="yimai-gso-bridge-conflict-desc">' + esc(c.description) + '</div>');
                 $list.append(item);
             });
 
@@ -8586,8 +8586,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             $btn.prop('disabled', true).text('修复中...');
 
             $.post(ajaxurl, {
-                action: 'wpaip_seo_geo_apply_fix',
-                nonce: wpaipData.nonce,
+                action: 'yimai_gso_seo_geo_apply_fix',
+                nonce: yimaiGsoData.nonce,
                 conflict_id: conflictId
             }, function (res) {
                 if (res.success) {
@@ -8608,13 +8608,13 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
         function applyAllFixes() {
             if (!confirm('将自动修复所有可自动处理的冲突项，确定继续？')) return;
 
-            var $btn = $('#wpaip-bridge-fix-all-btn');
+            var $btn = $('#yimai-gso-bridge-fix-all-btn');
             $btn.prop('disabled', true).text('修复中...');
 
             // 获取可修复冲突列表
             $.post(ajaxurl, {
-                action: 'wpaip_seo_geo_get_conflicts',
-                nonce: wpaipData.nonce
+                action: 'yimai_gso_seo_geo_get_conflicts',
+                nonce: yimaiGsoData.nonce
             }, function (res) {
                 if (!res.success) { alert('获取冲突列表失败'); $btn.prop('disabled', false).text('一键修复'); return; }
 
@@ -8642,8 +8642,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             }
 
             $.post(ajaxurl, {
-                action: 'wpaip_seo_geo_apply_fix',
-                nonce: wpaipData.nonce,
+                action: 'yimai_gso_seo_geo_apply_fix',
+                nonce: yimaiGsoData.nonce,
                 conflict_id: ids[index]
             }, function () {
                 applyFixesBatch(ids, index + 1, $btn);
@@ -8657,10 +8657,10 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             if (isScanning) return;
             isScanning = true;
 
-            var $btn = $('#wpaip-bridge-scan-btn');
-            var $progress = $('#wpaip-bridge-scan-progress');
-            var $bar = $('#wpaip-bridge-scan-bar');
-            var $text = $('#wpaip-bridge-scan-text');
+            var $btn = $('#yimai-gso-bridge-scan-btn');
+            var $progress = $('#yimai-gso-bridge-scan-progress');
+            var $bar = $('#yimai-gso-bridge-scan-bar');
+            var $text = $('#yimai-gso-bridge-scan-text');
 
             $btn.prop('disabled', true);
             $progress.show();
@@ -8672,8 +8672,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
         function scanBatch(offset) {
             $.post(ajaxurl, {
-                action: 'wpaip_seo_geo_run_scan',
-                nonce: wpaipData.nonce,
+                action: 'yimai_gso_seo_geo_run_scan',
+                nonce: yimaiGsoData.nonce,
                 offset: offset
             }, function (res) {
                 if (!res.success) {
@@ -8683,8 +8683,8 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
                 var d = res.data;
                 var pct = d.total > 0 ? Math.min(100, Math.round(d.scan_total / d.total * 100)) : 100;
-                $('#wpaip-bridge-scan-bar').css('width', pct + '%');
-                $('#wpaip-bridge-scan-text').text('已扫描 ' + d.scan_total + ' 篇文章...');
+                $('#yimai-gso-bridge-scan-bar').css('width', pct + '%');
+                $('#yimai-gso-bridge-scan-text').text('已扫描 ' + d.scan_total + ' 篇文章...');
 
                 if (d.has_more && d.scan_total < 50) {
                     // 继续扫描下一批
@@ -8701,27 +8701,27 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
         function finishScan(msg) {
             isScanning = false;
-            $('#wpaip-bridge-scan-btn').prop('disabled', false);
-            $('#wpaip-bridge-scan-text').text(msg);
+            $('#yimai-gso-bridge-scan-btn').prop('disabled', false);
+            $('#yimai-gso-bridge-scan-text').text(msg);
             setTimeout(function () {
-                $('#wpaip-bridge-scan-progress').fadeOut();
+                $('#yimai-gso-bridge-scan-progress').fadeOut();
             }, 2000);
         }
 
         // ---- 事件绑定 ----
-        $('#wpaip-bridge-scan-btn').on('click', runScan);
+        $('#yimai-gso-bridge-scan-btn').on('click', runScan);
 
         // 根据可见容器里是否包含我们的 panel 来判断 tab 切入
         $(document).on('click', '[data-tab="seo-geo-bridge"]', function () {
             setTimeout(function () {
-                if ($('.wpaip-main-panel[data-tab="seo-geo-bridge"].active').length > 0) {
+                if ($('.yimai-gso-main-panel[data-tab="seo-geo-bridge"].active').length > 0) {
                     init();
                 }
             }, 100);
         });
 
         // 首次进入页面的兜底
-        if ($('.wpaip-main-panel[data-tab="seo-geo-bridge"].active').length > 0) {
+        if ($('.yimai-gso-main-panel[data-tab="seo-geo-bridge"].active').length > 0) {
             init();
         }
 

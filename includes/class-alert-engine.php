@@ -15,17 +15,17 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
-// WPAIP_VERSION 防御性定义：防止部署异常或 opcache 导致常量未定义 Fatal Error
-defined( 'WPAIP_VERSION' ) || define( 'WPAIP_VERSION', '2.2.1' );
+// YIMAI_GSO_VERSION 防御性定义：防止部署异常或 opcache 导致常量未定义 Fatal Error
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.0' );
 
 
 
-class WPAIP_OULA {
+class YIMAI_GSO_Alert_Engine {
 
     private static $instance = null;
 
-    const TABLE_NAME  = 'wpaip_alert_logs';
-    const CONFIG_KEY  = 'wpaip_alert_config';
+    const TABLE_NAME  = 'yimai_gso_alert_logs';
+    const CONFIG_KEY  = 'yimai_gso_alert_config';
 
     /** 默认配置 */
     const DEFAULT_CONFIG = array(
@@ -46,27 +46,27 @@ class WPAIP_OULA {
 
     private function __construct() {
         // AJAX 端点
-        add_action( 'wp_ajax_wpaip_l5_alerts_list',        array( $this, 'ajax_list' ) );
-        add_action( 'wp_ajax_wpaip_l5_alerts_count',       array( $this, 'ajax_count' ) );
-        add_action( 'wp_ajax_wpaip_l5_alerts_acknowledge',  array( $this, 'ajax_acknowledge' ) );
-        add_action( 'wp_ajax_wpaip_l5_alerts_resolve',      array( $this, 'ajax_resolve' ) );
-        add_action( 'wp_ajax_wpaip_l5_alerts_dismiss',      array( $this, 'ajax_dismiss' ) );
-        add_action( 'wp_ajax_wpaip_l5_alerts_config',       array( $this, 'ajax_save_config' ) );
-        add_action( 'wp_ajax_wpaip_l5_alerts_run_all',       array( $this, 'ajax_run_all' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_alerts_list',        array( $this, 'ajax_list' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_alerts_count',       array( $this, 'ajax_count' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_alerts_acknowledge',  array( $this, 'ajax_acknowledge' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_alerts_resolve',      array( $this, 'ajax_resolve' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_alerts_dismiss',      array( $this, 'ajax_dismiss' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_alerts_config',       array( $this, 'ajax_save_config' ) );
+        add_action( 'wp_ajax_yimai_gso_l5_alerts_run_all',       array( $this, 'ajax_run_all' ) );
 
         // Admin Notice 显示（已关闭全局弹窗，仅保留左侧菜单角标与仪表盘内提示）
         // add_action( 'admin_notices', array( $this, 'show_critical_notices' ) );
 
         // 事件触发即时检测
-        add_action( 'wpaip_schema_rebuilt', array( $this, 'check_schema_errors' ) );
-        add_action( 'wpaip_crawler_rules_saved', array( $this, 'check_crawler_blocked' ) );
-        add_action( 'wpaip_seo_score_batch_done', array( $this, 'check_score_drop' ) );
+        add_action( 'yimai_gso_schema_rebuilt', array( $this, 'check_schema_errors' ) );
+        add_action( 'yimai_gso_crawler_rules_saved', array( $this, 'check_crawler_blocked' ) );
+        add_action( 'yimai_gso_seo_score_batch_done', array( $this, 'check_score_drop' ) );
 
         // 定时检测 Cron
-        add_action( 'wpaip_l5_alert_schema',  array( $this, 'check_schema_errors' ) );
-        add_action( 'wpaip_l5_alert_crawler', array( $this, 'check_crawler_blocked' ) );
-        add_action( 'wpaip_l5_alert_score',   array( $this, 'check_score_drop' ) );
-        add_action( 'wpaip_l5_alert_traffic', array( $this, 'check_traffic_drop' ) );
+        add_action( 'yimai_gso_l5_alert_schema',  array( $this, 'check_schema_errors' ) );
+        add_action( 'yimai_gso_l5_alert_crawler', array( $this, 'check_crawler_blocked' ) );
+        add_action( 'yimai_gso_l5_alert_score',   array( $this, 'check_score_drop' ) );
+        add_action( 'yimai_gso_l5_alert_traffic', array( $this, 'check_traffic_drop' ) );
     }
 
     // ==================== 配置 ====================
@@ -140,8 +140,8 @@ class WPAIP_OULA {
      * 确保表存在
      */
     public static function ensure_table() {
-        if ( false === get_transient( 'wpaip_alert_table_checked' ) ) {
-            set_transient( 'wpaip_alert_table_checked', 1, HOUR_IN_SECONDS );
+        if ( false === get_transient( 'yimai_gso_alert_table_checked' ) ) {
+            set_transient( 'yimai_gso_alert_table_checked', 1, HOUR_IN_SECONDS );
             self::create_table();
         }
     }
@@ -228,14 +228,14 @@ class WPAIP_OULA {
         $errors = array();
 
         // 检查首页 Organization Schema
-        $org_option = get_option( 'wpaip_geo_entity_settings', array() );
+        $org_option = get_option( 'yimai_gso_geo_entity_settings', array() );
         if ( ! empty( $org_option['entity_name'] ) && empty( $org_option['entity_type'] ) ) {
             $errors[] = 'Organization Schema 缺少实体类型';
         }
 
         // 检查最近发布的文章 Schema
         $recent_posts = get_posts( array(
-            'post_type'      => WPAIP_B7PQ::get_supported(),
+            'post_type'      => YIMAI_GSO_Post_Type_Helper::get_supported(),
             'post_status'    => 'publish',
             'posts_per_page' => 5,
             'orderby'        => 'date',
@@ -244,7 +244,7 @@ class WPAIP_OULA {
 
         $missing_schema = 0;
         foreach ( $recent_posts as $post ) {
-            $schema_type = get_post_meta( $post->ID, 'wpaip_schema_type', true );
+            $schema_type = get_post_meta( $post->ID, 'yimai_gso_schema_type', true );
             if ( empty( $schema_type ) ) {
                 $missing_schema++;
             }
@@ -279,8 +279,8 @@ class WPAIP_OULA {
         $issues = array();
 
         // 检查 1: Crawler_Editor 规则 vs 实际 robots.txt
-        if ( class_exists( 'WPAIP_9IIH' ) ) {
-            $editor_rules = WPAIP_9IIH::get_rules();
+        if ( class_exists( 'YIMAI_GSO_Crawler_Editor' ) ) {
+            $editor_rules = YIMAI_GSO_Crawler_Editor::get_rules();
 
             // 尝试获取实际 robots.txt
             $response = wp_remote_get( home_url( '/robots.txt' ), array( 'timeout' => 10, 'sslverify' => false ) );
@@ -315,8 +315,8 @@ class WPAIP_OULA {
         }
 
         // 检查 2: 最近7天关键爬虫访问量是否归零
-        if ( class_exists( 'WPAIP_9W9L' ) ) {
-            $stats = WPAIP_9W9L::get_stats( 7 );
+        if ( class_exists( 'YIMAI_GSO_Crawler_Tracker' ) ) {
+            $stats = YIMAI_GSO_Crawler_Tracker::get_stats( 7 );
             $by_crawler = array();
             if ( ! empty( $stats['by_crawler'] ) ) {
                 foreach ( $stats['by_crawler'] as $row ) {
@@ -403,7 +403,7 @@ class WPAIP_OULA {
     private static function compute_avg_score_in_period( $pt_list, $start, $end = null ) {
         global $wpdb;
 
-        $where = "pm.meta_key = 'wpaip_seo_score' AND p.post_status = 'publish' AND p.post_type IN ({$pt_list})";
+        $where = "pm.meta_key = 'yimai_gso_seo_score' AND p.post_status = 'publish' AND p.post_type IN ({$pt_list})";
         $where .= $wpdb->prepare( ' AND p.post_modified >= %s', gmdate( 'Y-m-d H:i:s', $start ) );
         if ( null !== $end ) {
             $where .= $wpdb->prepare( ' AND p.post_modified < %s', gmdate( 'Y-m-d H:i:s', $end ) );
@@ -446,7 +446,7 @@ class WPAIP_OULA {
         $config = self::get_config();
         $threshold = (int) $config['score_drop_threshold'];
 
-        $pt_list = WPAIP_B7PQ::sql_type_list();
+        $pt_list = YIMAI_GSO_Post_Type_Helper::sql_type_list();
 
         // 最近24小时修改的文章 SEO 评分均值（PHP 层反序列化，兼容 serialize）
         $recent_avg = self::compute_avg_score_in_period( $pt_list, strtotime( '-24 hours' ), null );
@@ -480,7 +480,7 @@ class WPAIP_OULA {
             return;
         }
 
-        if ( ! class_exists( 'WPAIP_4BA2' ) ) {
+        if ( ! class_exists( 'YIMAI_GSO_Referral_Tracker' ) ) {
             return;
         }
 
@@ -488,13 +488,13 @@ class WPAIP_OULA {
         $drop_pct      = (int) $config['traffic_drop_pct'];
 
         // 最近 7 天日均流量
-        $recent_7d = WPAIP_4BA2::get_stats( 7 );
+        $recent_7d = YIMAI_GSO_Referral_Tracker::get_stats( 7 );
         $recent_daily = ! empty( $recent_7d['total_visits'] ) ? ceil( $recent_7d['total_visits'] / 7 ) : 0;
 
         // 前 30 天（不含最近 7 天）日均流量
         global $wpdb;
-        $table = WPAIP_4BA2::table_name();
-        WPAIP_4BA2::ensure_table();
+        $table = YIMAI_GSO_Referral_Tracker::table_name();
+        YIMAI_GSO_Referral_Tracker::ensure_table();
 
         $prev_total = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM `{$table}`
@@ -534,7 +534,7 @@ class WPAIP_OULA {
         }
 
         $alerts = self::get_active_critical_alerts( 3 );
-        $alert_page = admin_url( 'admin.php?page=wpaip-dashboard&tab=l5-alerts' );
+        $alert_page = admin_url( 'admin.php?page=yimai-gso-dashboard&tab=l5-alerts' );
 
         echo '<div class="notice notice-warning is-dismissible">';
         echo '<p><strong>🔔 白雀 SEO-GEO 预警：</strong>检测到 ' . esc_html( $count ) . ' 个需要关注的问题</p>';
@@ -585,7 +585,7 @@ class WPAIP_OULA {
      * AJAX: 获取预警列表
      */
     public function ajax_list() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -638,12 +638,12 @@ class WPAIP_OULA {
      * AJAX: 获取未处理预警数量
      */
     public function ajax_count() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
-        $cache_key = 'wpaip_l5_alert_count_' . WPAIP_VERSION;
+        $cache_key = 'yimai_gso_l5_alert_count_' . YIMAI_GSO_VERSION;
         $cached    = get_transient( $cache_key );
         if ( false !== $cached ) {
             wp_send_json_success( array( 'count' => (int) $cached ) );
@@ -672,7 +672,7 @@ class WPAIP_OULA {
      * AJAX: 确认预警
      */
     public function ajax_acknowledge() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -686,9 +686,9 @@ class WPAIP_OULA {
         $table = self::table_name();
         $wpdb->update( $table, array( 'status' => 'acknowledged' ), array( 'id' => $id ) );
 
-        delete_transient( 'wpaip_l5_alert_count_' . WPAIP_VERSION );
-        delete_transient( 'wpaip_l5_alert_badge_' . WPAIP_VERSION );
-        delete_transient( 'wpaip_l5_overview_' . WPAIP_VERSION );
+        delete_transient( 'yimai_gso_l5_alert_count_' . YIMAI_GSO_VERSION );
+        delete_transient( 'yimai_gso_l5_alert_badge_' . YIMAI_GSO_VERSION );
+        delete_transient( 'yimai_gso_l5_overview_' . YIMAI_GSO_VERSION );
         wp_send_json_success( array( 'message' => '已确认' ) );
     }
 
@@ -696,7 +696,7 @@ class WPAIP_OULA {
      * AJAX: 解决预警
      */
     public function ajax_resolve() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -713,9 +713,9 @@ class WPAIP_OULA {
             'resolved_at' => current_time( 'mysql' ),
         ), array( 'id' => $id ) );
 
-        delete_transient( 'wpaip_l5_alert_count_' . WPAIP_VERSION );
-        delete_transient( 'wpaip_l5_alert_badge_' . WPAIP_VERSION );
-        delete_transient( 'wpaip_l5_overview_' . WPAIP_VERSION );
+        delete_transient( 'yimai_gso_l5_alert_count_' . YIMAI_GSO_VERSION );
+        delete_transient( 'yimai_gso_l5_alert_badge_' . YIMAI_GSO_VERSION );
+        delete_transient( 'yimai_gso_l5_overview_' . YIMAI_GSO_VERSION );
         wp_send_json_success( array( 'message' => '已解决' ) );
     }
 
@@ -723,7 +723,7 @@ class WPAIP_OULA {
      * AJAX: 永久忽略预警
      */
     public function ajax_dismiss() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -737,9 +737,9 @@ class WPAIP_OULA {
         $table = self::table_name();
         $wpdb->update( $table, array( 'status' => 'dismissed' ), array( 'id' => $id ) );
 
-        delete_transient( 'wpaip_l5_alert_count_' . WPAIP_VERSION );
-        delete_transient( 'wpaip_l5_alert_badge_' . WPAIP_VERSION );
-        delete_transient( 'wpaip_l5_overview_' . WPAIP_VERSION );
+        delete_transient( 'yimai_gso_l5_alert_count_' . YIMAI_GSO_VERSION );
+        delete_transient( 'yimai_gso_l5_alert_badge_' . YIMAI_GSO_VERSION );
+        delete_transient( 'yimai_gso_l5_overview_' . YIMAI_GSO_VERSION );
         wp_send_json_success( array( 'message' => '已忽略' ) );
     }
 
@@ -747,7 +747,7 @@ class WPAIP_OULA {
      * AJAX: 保存预警配置
      */
     public function ajax_save_config() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -770,7 +770,7 @@ class WPAIP_OULA {
      * 用于初次部署或调试时立即检查，无需等待 WP-Cron
      */
     public function ajax_run_all() {
-        check_ajax_referer( 'wpaip_ajax_nonce', 'security' );
+        check_ajax_referer( 'yimai_gso_ajax_nonce', 'security' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -806,9 +806,9 @@ class WPAIP_OULA {
         );
 
         // 清除所有预警相关缓存
-        delete_transient( 'wpaip_l5_alert_count_' . WPAIP_VERSION );
-        delete_transient( 'wpaip_l5_alert_badge_' . WPAIP_VERSION );
-        delete_transient( 'wpaip_l5_overview_' . WPAIP_VERSION );
+        delete_transient( 'yimai_gso_l5_alert_count_' . YIMAI_GSO_VERSION );
+        delete_transient( 'yimai_gso_l5_alert_badge_' . YIMAI_GSO_VERSION );
+        delete_transient( 'yimai_gso_l5_overview_' . YIMAI_GSO_VERSION );
 
         // 获取当前活跃预警数
         $active_count = self::get_active_critical_count();
@@ -841,17 +841,17 @@ class WPAIP_OULA {
      * 注册定时检测任务
      */
     public static function schedule_crons() {
-        if ( ! wp_next_scheduled( 'wpaip_l5_alert_schema' ) ) {
-            wp_schedule_event( time(), 'six_hours', 'wpaip_l5_alert_schema' );
+        if ( ! wp_next_scheduled( 'yimai_gso_l5_alert_schema' ) ) {
+            wp_schedule_event( time(), 'six_hours', 'yimai_gso_l5_alert_schema' );
         }
-        if ( ! wp_next_scheduled( 'wpaip_l5_alert_crawler' ) ) {
-            wp_schedule_event( time() + 600, 'hourly', 'wpaip_l5_alert_crawler' );
+        if ( ! wp_next_scheduled( 'yimai_gso_l5_alert_crawler' ) ) {
+            wp_schedule_event( time() + 600, 'hourly', 'yimai_gso_l5_alert_crawler' );
         }
-        if ( ! wp_next_scheduled( 'wpaip_l5_alert_score' ) ) {
-            wp_schedule_event( time() + 1200, 'daily', 'wpaip_l5_alert_score' );
+        if ( ! wp_next_scheduled( 'yimai_gso_l5_alert_score' ) ) {
+            wp_schedule_event( time() + 1200, 'daily', 'yimai_gso_l5_alert_score' );
         }
-        if ( ! wp_next_scheduled( 'wpaip_l5_alert_traffic' ) ) {
-            wp_schedule_event( time() + 1800, 'daily', 'wpaip_l5_alert_traffic' );
+        if ( ! wp_next_scheduled( 'yimai_gso_l5_alert_traffic' ) ) {
+            wp_schedule_event( time() + 1800, 'daily', 'yimai_gso_l5_alert_traffic' );
         }
     }
 
@@ -859,10 +859,10 @@ class WPAIP_OULA {
      * 取消定时检测任务
      */
     public static function unschedule_crons() {
-        wp_clear_scheduled_hook( 'wpaip_l5_alert_schema' );
-        wp_clear_scheduled_hook( 'wpaip_l5_alert_crawler' );
-        wp_clear_scheduled_hook( 'wpaip_l5_alert_score' );
-        wp_clear_scheduled_hook( 'wpaip_l5_alert_traffic' );
+        wp_clear_scheduled_hook( 'yimai_gso_l5_alert_schema' );
+        wp_clear_scheduled_hook( 'yimai_gso_l5_alert_crawler' );
+        wp_clear_scheduled_hook( 'yimai_gso_l5_alert_score' );
+        wp_clear_scheduled_hook( 'yimai_gso_l5_alert_traffic' );
     }
 
     /**

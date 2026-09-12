@@ -8,7 +8,7 @@
  * - NLP 关键词推荐（基于 DeepSeek API）
  * - 编辑页 Meta Box 展示
  *
- * 存储: post_meta (wpaip_focus_keywords + wpaip_keyword_analysis)
+ * 存储: post_meta (yimai_gso_focus_keywords + yimai_gso_keyword_analysis)
  *
  * @package BaiqueAI_SEO_Content_Engine
  * @since 2.9.0
@@ -16,7 +16,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_I7YV {
+class YIMAI_GSO_Keyword_Analyzer {
 
     private static $instance = null;
 
@@ -31,9 +31,9 @@ class WPAIP_I7YV {
     }
 
     private function __construct() {
-        add_action( 'wp_ajax_wpaip_analyze_keywords', array( $this, 'ajax_analyze_keywords' ) );
-        add_action( 'wp_ajax_wpaip_save_keywords', array( $this, 'ajax_save_keywords' ) );
-        add_action( 'wp_ajax_wpaip_suggest_keywords', array( $this, 'ajax_suggest_keywords' ) );
+        add_action( 'wp_ajax_yimai_gso_analyze_keywords', array( $this, 'ajax_analyze_keywords' ) );
+        add_action( 'wp_ajax_yimai_gso_save_keywords', array( $this, 'ajax_save_keywords' ) );
+        add_action( 'wp_ajax_yimai_gso_suggest_keywords', array( $this, 'ajax_suggest_keywords' ) );
     }
 
     // ==================== AJAX 关键词分析 ====================
@@ -42,7 +42,7 @@ class WPAIP_I7YV {
      * AJAX: 分析关键词覆盖
      */
     public function ajax_analyze_keywords() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( '权限不足' );
@@ -113,8 +113,8 @@ class WPAIP_I7YV {
         ) );
 
         // 保存
-        update_post_meta( $post_id, 'wpaip_focus_keywords', $keywords );
-        update_post_meta( $post_id, 'wpaip_keyword_analysis', $results );
+        update_post_meta( $post_id, 'yimai_gso_focus_keywords', $keywords );
+        update_post_meta( $post_id, 'yimai_gso_keyword_analysis', $results );
 
         // 渲染 HTML
         ob_start();
@@ -144,7 +144,7 @@ class WPAIP_I7YV {
      * AJAX: 保存关键词
      */
     public function ajax_save_keywords() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( '权限不足' );
@@ -155,7 +155,7 @@ class WPAIP_I7YV {
         $keywords = array_values( array_filter( array_map( 'sanitize_text_field', $keywords ) ) );
 
         if ( $post_id ) {
-            update_post_meta( $post_id, 'wpaip_focus_keywords', array_slice( $keywords, 0, self::MAX_KEYWORDS ) );
+            update_post_meta( $post_id, 'yimai_gso_focus_keywords', array_slice( $keywords, 0, self::MAX_KEYWORDS ) );
         }
 
         wp_send_json_success( array( 'message' => '关键词已保存' ) );
@@ -165,7 +165,7 @@ class WPAIP_I7YV {
      * AJAX: AI 推荐关键词
      */
     public function ajax_suggest_keywords() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( '权限不足' );
@@ -177,7 +177,7 @@ class WPAIP_I7YV {
         }
 
         // 使用缓存
-        $cache_key = 'wpaip_kw_suggest_' . $post_id;
+        $cache_key = 'yimai_gso_kw_suggest_' . $post_id;
         $cached    = get_transient( $cache_key );
         if ( $cached ) {
             wp_send_json_success( array( 'keywords' => $cached ) );
@@ -202,9 +202,9 @@ class WPAIP_I7YV {
      * 调用 AI API 推荐关键词
      */
     private function call_ai_suggest( $title, $sample ) {
-        $api_key = WPAIP_9XCU::get( 'ai_api_key', '' );
-        $api_url = WPAIP_9XCU::get( 'ai_api_url', '' );
-        $model   = WPAIP_9XCU::get( 'ai_model', 'gpt-4o' );
+        $api_key = YIMAI_GSO_Settings::get( 'ai_api_key', '' );
+        $api_url = YIMAI_GSO_Settings::get( 'ai_api_url', '' );
+        $model   = YIMAI_GSO_Settings::get( 'ai_model', 'gpt-4o' );
 
         if ( empty( $api_key ) || empty( $api_url ) ) {
             return null;

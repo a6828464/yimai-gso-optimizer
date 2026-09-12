@@ -7,7 +7,7 @@
  * - 预置策略模板一键切换
  * - 动态生成 robots.txt 中的 AI 爬虫区块
  *
- * 存储: option wpaip_robots_crawler_rules (JSON)
+ * 存储: option yimai_gso_robots_crawler_rules (JSON)
  *
  * @package BaiqueAI_SEO_Content_Engine
  * @since 2.9.0
@@ -15,7 +15,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_9IIH {
+class YIMAI_GSO_Crawler_Editor {
 
     private static $instance = null;
 
@@ -67,10 +67,10 @@ class WPAIP_9IIH {
     }
 
     private function __construct() {
-        add_action( 'wp_ajax_wpaip_crawler_save_rules', array( $this, 'ajax_save_rules' ) );
+        add_action( 'wp_ajax_yimai_gso_crawler_save_rules', array( $this, 'ajax_save_rules' ) );
 
         // 注入 robots.txt 生成逻辑
-        add_filter( 'wpaip_robots_crawler_block', array( $this, 'render_crawler_block' ), 10, 2 );
+        add_filter( 'yimai_gso_robots_crawler_block', array( $this, 'render_crawler_block' ), 10, 2 );
     }
 
     // ==================== 数据层 ====================
@@ -79,7 +79,7 @@ class WPAIP_9IIH {
      * 获取当前爬虫规则
      */
     public static function get_rules() {
-        $raw = WPAIP_9XCU::get( 'robots_crawler_rules', '' );
+        $raw = YIMAI_GSO_Settings::get( 'robots_crawler_rules', '' );
         $rules = array();
         if ( ! empty( $raw ) ) {
             $decoded = json_decode( $raw, true );
@@ -106,7 +106,7 @@ class WPAIP_9IIH {
                 $valid[ $key ] = $action;
             }
         }
-        WPAIP_9XCU::set( 'robots_crawler_rules', wp_json_encode( $valid, JSON_UNESCAPED_UNICODE ) );
+        YIMAI_GSO_Settings::set( 'robots_crawler_rules', wp_json_encode( $valid, JSON_UNESCAPED_UNICODE ) );
     }
 
     // ==================== robots.txt 区块生成 ====================
@@ -134,7 +134,7 @@ class WPAIP_9IIH {
      * AJAX: 保存爬虫规则
      */
     public function ajax_save_rules() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );

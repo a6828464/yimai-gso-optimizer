@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_9XCU {
+class YIMAI_GSO_Settings {
 
     private static $instance = null;
 
@@ -31,17 +31,17 @@ class WPAIP_9XCU {
 
     /**
      * 获取加密密钥（确定性密钥，无需存储到数据库）
-     * 优先级：WPAIP_ENCRYPTION_KEY 常量（wp-config.php 可自定义） > wp_salt('auth') 派生密钥
+     * 优先级：YIMAI_GSO_ENCRYPTION_KEY 常量（wp-config.php 可自定义） > wp_salt('auth') 派生密钥
      * 
-     * ★ v1.50.4 修复：不再存储随机二进制密钥到 options 表，
+     * ★  修复：不再存储随机二进制密钥到 options 表，
      *   因为 MySQL utf8mb4 字符集会破坏二进制数据（null 字节、无效 UTF-8 序列），
      *   导致加密和解密用不同 Key，解密后得到乱码 API Key。
      *   改用 wp_salt('auth') 派生的确定性哈希密钥，无需存储、跨请求一致。
      */
     private static function get_encryption_key() {
-        // 方式1：独立密钥（推荐，在 wp-config.php 中定义 WPAIP_ENCRYPTION_KEY）
-        if ( defined( 'WPAIP_ENCRYPTION_KEY' ) && strlen( constant( 'WPAIP_ENCRYPTION_KEY' ) ) >= 32 ) {
-            return substr( constant( 'WPAIP_ENCRYPTION_KEY' ), 0, 32 );
+        // 方式1：独立密钥（推荐，在 wp-config.php 中定义 YIMAI_GSO_ENCRYPTION_KEY）
+        if ( defined( 'YIMAI_GSO_ENCRYPTION_KEY' ) && strlen( constant( 'YIMAI_GSO_ENCRYPTION_KEY' ) ) >= 32 ) {
+            return substr( constant( 'YIMAI_GSO_ENCRYPTION_KEY' ), 0, 32 );
         }
         // 方式2：使用 wp_salt('auth') 派生确定性密钥（无需存储，避免二进制数据被 MySQL utf8mb4 损坏）
         return substr( hash( 'sha256', wp_salt( 'auth' ), true ), 0, 32 );
@@ -50,7 +50,7 @@ class WPAIP_9XCU {
 
     /**
      * 使用 AES-256-CBC 加密
-     * 密钥优先级：WPAIP_ENCRYPTION_KEY 常量 > 自动生成的独立密钥
+     * 密钥优先级：YIMAI_GSO_ENCRYPTION_KEY 常量 > 自动生成的独立密钥
      */
     private static function encrypt( $data ) {
         if ( ! function_exists( 'openssl_encrypt' ) || ! is_string( $data ) || '' === $data ) {
@@ -67,7 +67,7 @@ class WPAIP_9XCU {
 
     /**
      * 解密 AES-256-CBC 密文
-     * 向后兼容：按顺序尝试 新密钥 → 旧随机密钥（v1.50.0-1.50.2） → wp_salt('auth')
+     * 向后兼容：按顺序尝试 新密钥 → 旧随机密钥 → wp_salt('auth')
      */
     private static function decrypt( $data ) {
         if ( ! function_exists( 'openssl_decrypt' ) || ! is_string( $data ) || '' === $data ) {
@@ -88,13 +88,13 @@ class WPAIP_9XCU {
             return $decrypted;
         }
 
-        // 尝试2：【向后兼容 v1.50.0-1.50.2】读取旧版存储的随机密钥（wpaip_encryption_key）
-        $old_stored = get_option( 'wpaip_encryption_key', '' );
+        // 尝试2：【向后兼容 】读取旧版存储的随机密钥（yimai_gso_encryption_key）
+        $old_stored = get_option( 'yimai_gso_encryption_key', '' );
         if ( ! empty( $old_stored ) && strlen( $old_stored ) === 32 ) {
             $decrypted = @openssl_decrypt( $ciphertext, 'aes-256-cbc', $old_stored, OPENSSL_RAW_DATA, $iv );
             if ( false !== $decrypted ) {
                 // 解密成功：旧密钥仍有效，但已被 wp_salt 派生替换，清理旧 option
-                delete_option( 'wpaip_encryption_key' );
+                delete_option( 'yimai_gso_encryption_key' );
                 return $decrypted;
             }
         }
@@ -115,10 +115,10 @@ class WPAIP_9XCU {
     private function __construct() {
         add_action( 'admin_init', array( $this, 'register_settings' ) );
         // 防止通过 Settings API (options.php) 写入时明文存储
-        add_filter( 'pre_update_option_wpaip_ai_api_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
-        add_filter( 'pre_update_option_wpaip_ai_image_doubao_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
-        add_filter( 'pre_update_option_wpaip_ai_image_zhipu_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
-        add_filter( 'pre_update_option_wpaip_ai_image_wanxiang_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
+        add_filter( 'pre_update_option_yimai_gso_ai_api_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
+        add_filter( 'pre_update_option_yimai_gso_ai_image_doubao_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
+        add_filter( 'pre_update_option_yimai_gso_ai_image_zhipu_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
+        add_filter( 'pre_update_option_yimai_gso_ai_image_wanxiang_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
     }
 
     /**
@@ -166,7 +166,7 @@ class WPAIP_9XCU {
             'schema_social_profiles',
             'geo_entity_settings',
             'noindex_post_types',
-            // L4 综合评估（v2.9.0）
+            // L4 综合评估
             'product_seo_title_template',
             'product_seo_desc_template',
             'product_image_alt_template',
@@ -182,7 +182,7 @@ class WPAIP_9XCU {
             } else {
                 $callback = 'sanitize_text_field';
             }
-            register_setting( 'wpaip_settings_group', 'wpaip_' . $field, array(
+            register_setting( 'yimai_gso_settings_group', 'yimai_gso_' . $field, array(
                 'sanitize_callback' => $callback,
             ) );
         }
@@ -214,14 +214,14 @@ class WPAIP_9XCU {
 
     public static function get( $key, $default = '' ) {
         // 安全加固：敏感配置优先从环境变量读取
-        $env_key = 'WPAIP_' . strtoupper( $key );
+        $env_key = 'YIMAI_GSO_' . strtoupper( $key );
         $env_value = getenv( $env_key );
 
         if ( $env_value !== false && $env_value !== '' ) {
             return $env_value;
         }
 
-        $option_name = 'wpaip_' . $key;
+        $option_name = 'yimai_gso_' . $key;
 
         // 单请求内内存缓存：同一个 option 只读一次数据库
         if ( ! array_key_exists( $option_name, self::$option_cache ) ) {
@@ -247,7 +247,7 @@ class WPAIP_9XCU {
     public static function set( $key, $value ) {
         // ★ 注意：加密统一由 pre_update_option_{$option_name} filter 处理
         // （filter_encrypt_on_save），set() 方法不再重复加密，避免双重加密
-        $option_name = 'wpaip_' . $key;
+        $option_name = 'yimai_gso_' . $key;
         // 更新后清除内存缓存，确保同一请求内再次 get() 读到新值
         unset( self::$option_cache[ $option_name ] );
         return update_option( $option_name, $value );

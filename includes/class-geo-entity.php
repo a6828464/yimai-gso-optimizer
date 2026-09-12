@@ -7,7 +7,7 @@
  * - sameAs 身份验证链接管理
  * - 增强 Organization Schema 输出（含 sameAs + 实体信息）
  *
- * 数据存储: wpaip_geo_entity_settings (JSON option)
+ * 数据存储: yimai_gso_geo_entity_settings (JSON option)
  *
  * @package BaiqueAI_SEO_Content_Engine
  * @since 2.9.0
@@ -15,7 +15,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_PY7N {
+class YIMAI_GSO_GEO_Entity {
 
     private static $instance = null;
 
@@ -54,8 +54,8 @@ class WPAIP_PY7N {
     }
 
     private function __construct() {
-        add_action( 'wp_ajax_wpaip_geo_entity_save', array( $this, 'ajax_save' ) );
-        add_action( 'wp_ajax_wpaip_geo_entity_check_link', array( $this, 'ajax_check_link' ) );
+        add_action( 'wp_ajax_yimai_gso_geo_entity_save', array( $this, 'ajax_save' ) );
+        add_action( 'wp_ajax_yimai_gso_geo_entity_check_link', array( $this, 'ajax_check_link' ) );
 
         // 增强 Organization Schema — 在现有独立 Schema 之后输出增强版
         add_action( 'wp_head', array( $this, 'output_enhanced_organization_schema' ), 11 );
@@ -73,7 +73,7 @@ class WPAIP_PY7N {
             return self::$entity_cache;
         }
 
-        $raw = WPAIP_9XCU::get( 'geo_entity_settings', '' );
+        $raw = YIMAI_GSO_Settings::get( 'geo_entity_settings', '' );
         $data = array();
 
         if ( ! empty( $raw ) ) {
@@ -121,7 +121,7 @@ class WPAIP_PY7N {
         }
 
         $json = wp_json_encode( $data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
-        WPAIP_9XCU::set( 'geo_entity_settings', $json );
+        YIMAI_GSO_Settings::set( 'geo_entity_settings', $json );
 
         // 保存后清除缓存
         self::$entity_cache = null;
@@ -154,8 +154,8 @@ class WPAIP_PY7N {
      */
     public function output_enhanced_organization_schema() {
         // 第三方SEO插件冲突检测：若已存在 Organization Schema，不重复输出
-        if ( class_exists( 'WPAIP_T6G5' )
-             && ! empty( WPAIP_T6G5::detect_conflict_plugins() ) ) {
+        if ( class_exists( 'YIMAI_GSO_Schema_Generator' )
+             && ! empty( YIMAI_GSO_Schema_Generator::detect_conflict_plugins() ) ) {
             return;
         }
 
@@ -225,7 +225,7 @@ class WPAIP_PY7N {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
 
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         // 权限检查
         if ( ! true ) {
@@ -287,7 +287,7 @@ class WPAIP_PY7N {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
 
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         $url = isset( $_POST['url'] ) ? esc_url_raw( wp_unslash( $_POST['url'] ) ) : '';
         if ( empty( $url ) ) {

@@ -4,9 +4,9 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_HXVV {
+class YIMAI_GSO_Autopilot_Plan {
 
-    const OPTION_KEY = 'wpaip_autopilot_settings';
+    const OPTION_KEY = 'yimai_gso_autopilot_settings';
 
     public static function get_defaults() {
         return array(
@@ -15,9 +15,9 @@ class WPAIP_HXVV {
             'daily_count'    => 3,
             'topic_keywords' => '',
             'extra_prompt'   => '',
-            'category_id'    => absint( get_option( 'wpaip_default_category', 1 ) ),
-            'word_count'     => absint( get_option( 'wpaip_word_count', 1000 ) ),
-            'image_count'    => absint( get_option( 'wpaip_image_count', 1 ) ),
+            'category_id'    => absint( get_option( 'yimai_gso_default_category', 1 ) ),
+            'word_count'     => absint( get_option( 'yimai_gso_word_count', 1000 ) ),
+            'image_count'    => absint( get_option( 'yimai_gso_image_count', 1 ) ),
             'tags'           => '',
             'use_ai_tags'    => 1,
             'post_status'    => 'publish',
@@ -203,7 +203,7 @@ class WPAIP_HXVV {
         $snapshot['resolved_topic_keyword'] = $topic_seed;
         $snapshot['run_key']                = $run_key;
         $snapshot['trigger_source']         = $trigger_source;
-        $snapshot['language']               = WPAIP_9XCU::get( 'article_language', 'zh_CN' );
+        $snapshot['language']               = YIMAI_GSO_Settings::get( 'article_language', 'zh_CN' );
         $snapshot['created_local_time']     = current_time( 'mysql' );
 
         return $snapshot;

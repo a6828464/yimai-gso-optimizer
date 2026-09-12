@@ -11,7 +11,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_4SRU {
+class YIMAI_GSO_Content_Extractability {
 
     private static $instance = null;
 
@@ -40,7 +40,7 @@ class WPAIP_4SRU {
     private function __construct() {
         add_action( 'save_post', array( $this, 'schedule_analysis' ), 20 );
         add_action( 'shutdown', array( $this, 'process_scheduled' ) );
-        add_action( 'wp_ajax_wpaip_get_extractability', array( $this, 'ajax_get_extractability' ) );
+        add_action( 'wp_ajax_yimai_gso_get_extractability', array( $this, 'ajax_get_extractability' ) );
     }
 
     /* ================================================
@@ -55,7 +55,7 @@ class WPAIP_4SRU {
      */
     public function schedule_analysis( $post_id ) {
         if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) return;
-        if ( class_exists( 'WPAIP_B7PQ' ) && ! WPAIP_B7PQ::is_supported( $post_id ) ) return;
+        if ( class_exists( 'YIMAI_GSO_Post_Type_Helper' ) && ! YIMAI_GSO_Post_Type_Helper::is_supported( $post_id ) ) return;
 
         self::$pending[] = $post_id;
     }
@@ -160,7 +160,7 @@ class WPAIP_4SRU {
             'analyzed_at'       => current_time( 'timestamp' ),
         );
 
-        update_post_meta( $post_id, 'wpaip_extractability', $result );
+        update_post_meta( $post_id, 'yimai_gso_extractability', $result );
 
         return $result;
     }
@@ -177,7 +177,7 @@ class WPAIP_4SRU {
         $para    = trim( $para );
         $length  = mb_strlen( $para );
 
-        // ---------- 1. 语义完整性 (40%) ----------
+        // ---------- 1. 语义完整性 (40%) ---------
         $sem_score = 40;
         $first_char = mb_substr( $para, 0, 1 );
 
@@ -214,7 +214,7 @@ class WPAIP_4SRU {
 
         $sem_score = max( 0, $sem_score );
 
-        // ---------- 2. 信息自足性 (30%) ----------
+        // ---------- 2. 信息自足性 (30%) ---------
         $info_score = 30;
 
         // 检测是否包含具体信息（数字、百分比、时间、地点）
@@ -241,7 +241,7 @@ class WPAIP_4SRU {
 
         $info_score = max( 0, $info_score );
 
-        // ---------- 3. 长度适宜性 (20%) ----------
+        // ---------- 3. 长度适宜性 (20%) ---------
         $len_score = 20;
 
         if ( $length > self::TOO_LONG ) {
@@ -257,7 +257,7 @@ class WPAIP_4SRU {
         }
         // 80-200 区间得满分 20
 
-        // ---------- 4. 结构友好性 (10%) ----------
+        // ---------- 4. 结构友好性 (10%) ---------
         $struct_score = 10;
 
         // 检测问答结构（问号 + 紧接着的陈述）
@@ -274,7 +274,7 @@ class WPAIP_4SRU {
 
         $struct_score = min( 10, $struct_score );
 
-        // ---------- 综合 ----------
+        // ---------- 综合 ---------
         $total = $sem_score * 0.4 + $info_score * 0.3 + $len_score * 0.2 + $struct_score * 0.1;
         $total = round( $total );
 
@@ -296,7 +296,7 @@ class WPAIP_4SRU {
      * 获取文章的可提取性评分（优先读缓存）
      */
     public function get_score( $post_id ) {
-        $cached = get_post_meta( $post_id, 'wpaip_extractability', true );
+        $cached = get_post_meta( $post_id, 'yimai_gso_extractability', true );
         if ( ! empty( $cached ) && isset( $cached['score'] ) ) {
             return $cached;
         }
@@ -316,7 +316,7 @@ class WPAIP_4SRU {
      * ================================================ */
 
     public function ajax_get_extractability() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );

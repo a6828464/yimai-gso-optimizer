@@ -5,13 +5,13 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_9KKY {
+class YIMAI_GSO_Image_Alt_Admin {
 
     /**
      * AJAX：保存设置
      */
     public static function ajax_save_settings() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -21,9 +21,9 @@ class WPAIP_9KKY {
         $mode = isset( $_POST['mode'] ) ? sanitize_text_field( $_POST['mode'] ) : 'rule';
         $skip_existing = isset( $_POST['skip_existing'] ) ? (int) $_POST['skip_existing'] : 1;
 
-        WPAIP_9XCU::set( 'auto_image_alt_enabled', $enabled );
-        WPAIP_9XCU::set( 'auto_image_alt_mode', $mode );
-        WPAIP_9XCU::set( 'auto_image_alt_skip_existing', $skip_existing );
+        YIMAI_GSO_Settings::set( 'auto_image_alt_enabled', $enabled );
+        YIMAI_GSO_Settings::set( 'auto_image_alt_mode', $mode );
+        YIMAI_GSO_Settings::set( 'auto_image_alt_skip_existing', $skip_existing );
 
         wp_send_json_success( array( 'message' => '设置已保存' ) );
     }
@@ -32,7 +32,7 @@ class WPAIP_9KKY {
      * AJAX：批量处理
      */
     public static function ajax_batch_process() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -53,7 +53,7 @@ class WPAIP_9KKY {
 
         // 检查是否有 AI 模式权限
         if ( true && true ) {
-            $current_mode = WPAIP_9XCU::get( 'auto_image_alt_mode', 'rule' );
+            $current_mode = YIMAI_GSO_Settings::get( 'auto_image_alt_mode', 'rule' );
             if ( $current_mode === 'ai' ) {
                 $options['mode'] = 'ai';
             }
@@ -68,7 +68,7 @@ class WPAIP_9KKY {
      * AJAX：预估处理数量
      */
     public static function ajax_estimate_count() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         $scope = isset( $_POST['scope'] ) ? sanitize_text_field( $_POST['scope'] ) : 'all';
         $category = isset( $_POST['category'] ) ? (int) $_POST['category'] : 0;
@@ -87,13 +87,13 @@ class WPAIP_9KKY {
     public static function get_stats() {
         global $wpdb;
         
-        $pt_list = WPAIP_B7PQ::sql_type_list();
+        $pt_list = YIMAI_GSO_Post_Type_Helper::sql_type_list();
         
         // 获取已优化ALT的图片总数
         $total_optimized = (int) $wpdb->get_var(
             "SELECT COUNT(DISTINCT p.ID)
              FROM {$wpdb->posts} p
-             INNER JOIN {$wpdb->postmeta} pm1 ON p.ID = pm1.post_id AND pm1.meta_key = 'wpaip_generated' AND pm1.meta_value = '1'
+             INNER JOIN {$wpdb->postmeta} pm1 ON p.ID = pm1.post_id AND pm1.meta_key = 'yimai_gso_generated' AND pm1.meta_value = '1'
              INNER JOIN {$wpdb->posts} img_post ON img_post.post_parent = p.ID AND img_post.post_type = 'attachment' AND img_post.post_mime_type LIKE 'image/%'
              INNER JOIN {$wpdb->postmeta} pm2 ON img_post.ID = pm2.post_id AND pm2.meta_key = '_wp_attachment_image_alt'
              WHERE p.post_type IN ({$pt_list}) AND p.post_status = 'publish'"
@@ -106,7 +106,7 @@ class WPAIP_9KKY {
                 "SELECT COUNT(DISTINCT pm3.post_id)
                  FROM {$wpdb->postmeta} pm3
                  INNER JOIN {$wpdb->posts} p ON p.ID = pm3.post_id
-                 WHERE pm3.meta_key = 'wpaip_alt_optimized_at'
+                 WHERE pm3.meta_key = 'yimai_gso_alt_optimized_at'
                  AND pm3.meta_value >= %s
                  AND p.post_type IN ({$pt_list}) AND p.post_status = 'publish'",
                 $month_start
@@ -140,7 +140,7 @@ class WPAIP_9KKY {
     public static function get_history( $limit = 20 ) {
         global $wpdb;
         
-        $pt_list = WPAIP_B7PQ::sql_type_list();
+        $pt_list = YIMAI_GSO_Post_Type_Helper::sql_type_list();
         
         $results = $wpdb->get_results(
             $wpdb->prepare(
@@ -148,7 +148,7 @@ class WPAIP_9KKY {
                         p.post_title, p.guid as post_url
                  FROM {$wpdb->postmeta} pm
                  INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-                 WHERE pm.meta_key = 'wpaip_alt_batch_at'
+                 WHERE pm.meta_key = 'yimai_gso_alt_batch_at'
                  AND p.post_type IN ({$pt_list}) AND p.post_status != 'trash'
                  ORDER BY pm.meta_value DESC
                  LIMIT %d",
@@ -168,7 +168,7 @@ class WPAIP_9KKY {
             if ( $post_id <= 0 || $title === '' ) {
                 continue;
             }
-            $log_data = get_post_meta( $post_id, 'wpaip_alt_batch_log', true );
+            $log_data = get_post_meta( $post_id, 'yimai_gso_alt_batch_log', true );
             // 如果 meta 值损坏（非数组且非空字符串），跳过
             if ( ! is_array( $log_data ) && $log_data !== '' ) {
                 continue;
@@ -201,7 +201,7 @@ class WPAIP_9KKY {
         
         global $wpdb;
         
-        $pt_list = WPAIP_B7PQ::sql_type_list();
+        $pt_list = YIMAI_GSO_Post_Type_Helper::sql_type_list();
         
         $sql = "SELECT p.ID, p.post_title, p.guid as post_url,
                        (SELECT COUNT(*) FROM {$wpdb->posts} img 
@@ -252,7 +252,7 @@ class WPAIP_9KKY {
         if ( ! empty( $options['post_ids'] ) ) {
             $posts = get_posts( array(
                 'post__in'       => $options['post_ids'],
-                'post_type'      => WPAIP_B7PQ::get_supported(),
+                'post_type'      => YIMAI_GSO_Post_Type_Helper::get_supported(),
                 'post_status'    => 'publish',
                 'posts_per_page' => $options['limit'],
             ) );
@@ -260,15 +260,15 @@ class WPAIP_9KKY {
             $posts = get_posts( array(
                 'category'       => $options['category'],
                 'tag_id'         => $options['tag'],
-                'post_type'      => WPAIP_B7PQ::get_supported(),
+                'post_type'      => YIMAI_GSO_Post_Type_Helper::get_supported(),
                 'post_status'    => 'publish',
                 'posts_per_page' => $options['limit'],
             ) );
         }
         
-        // AI模式需要确保有 WPAIP_JJXL
+        // AI模式需要确保有 YIMAI_GSO_Image_Alt_Generator
         if ( $options['mode'] === 'ai' ) {
-            if ( ! class_exists( 'WPAIP_JJXL' ) ) {
+            if ( ! class_exists( 'YIMAI_GSO_Image_Alt_Generator' ) ) {
                 $options['mode'] = 'rule';
             }
         }
@@ -347,7 +347,7 @@ class WPAIP_9KKY {
             );
             
             // 获取关键词
-            $keywords = get_post_meta( $post->ID, '_wpaip_seo_keywords', true );
+            $keywords = get_post_meta( $post->ID, '_yimai_gso_seo_keywords', true );
             if ( ! empty( $keywords ) ) {
                 $context['keyword'] = is_array( $keywords ) ? $keywords[0] : $keywords;
             }
@@ -387,9 +387,9 @@ class WPAIP_9KKY {
             
             // 记录处理结果
             if ( ! empty( $processed_images ) ) {
-                update_post_meta( $post->ID, 'wpaip_alt_batch_at', current_time( 'mysql' ) );
-                update_post_meta( $post->ID, 'wpaip_alt_batch_log', $processed_images );
-                update_post_meta( $post->ID, 'wpaip_alt_optimized_at', current_time( 'mysql' ) );
+                update_post_meta( $post->ID, 'yimai_gso_alt_batch_at', current_time( 'mysql' ) );
+                update_post_meta( $post->ID, 'yimai_gso_alt_batch_log', $processed_images );
+                update_post_meta( $post->ID, 'yimai_gso_alt_optimized_at', current_time( 'mysql' ) );
                 
                 $results['processed']++;
                 $results['details'][] = array(
@@ -444,7 +444,7 @@ class WPAIP_9KKY {
         
         global $wpdb;
         
-        $pt_list = WPAIP_B7PQ::sql_type_list();
+        $pt_list = YIMAI_GSO_Post_Type_Helper::sql_type_list();
         
         $sql = "SELECT COUNT(DISTINCT p.ID)
                 FROM {$wpdb->posts} p

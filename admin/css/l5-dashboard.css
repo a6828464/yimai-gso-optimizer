@@ -1,21 +1,21 @@
 /**
  * 一麦GSO L5 监控与仪表盘 — 专属样式
  *
- * 复用 wpaip-dashboard-* 设计系统，补充 L5 特有组件
+ * 复用 yimai-gso-dashboard-* 设计系统，补充 L5 特有组件
  *
  * @package 一麦GSO SEO-GEO
  * @since 2.10.0
  */
 
 /* ==================== 统计卡片行 ==================== */
-.wpaip-l5-stats-row {
+.yimai-gso-l5-stats-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 12px;
     margin-bottom: 20px;
 }
 
-.wpaip-l5-stat-card {
+.yimai-gso-l5-stat-card {
     background: #fff;
     border-radius: 10px;
     padding: 16px;
@@ -26,29 +26,29 @@
     box-sizing: border-box;
 }
 
-.wpaip-l5-stat-card:hover {
+.yimai-gso-l5-stat-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,.1);
 }
 
-.wpaip-l5-stat-card.skeleton .wpaip-l5-stat-value {
+.yimai-gso-l5-stat-card.skeleton .yimai-gso-l5-stat-value {
     color: #d1d5db !important;
 }
 
-.wpaip-l5-stat-value {
+.yimai-gso-l5-stat-value {
     font-size: 1.8rem;
     font-weight: 800;
     line-height: 1.2;
 }
 
-.wpaip-l5-stat-label {
+.yimai-gso-l5-stat-label {
     font-size: .75rem;
     color: #6b7280;
     margin-top: 4px;
 }
 
 /* ==================== 图表面板 ==================== */
-.wpaip-l5-row {
+.yimai-gso-l5-row {
     display: flex;
     flex-wrap: wrap;
     align-items: stretch;   /* 关键：让列等高 */
@@ -57,12 +57,12 @@
     box-sizing: border-box; /* 修复：确保容器宽度计算准确 */
 }
 
-.wpaip-l5-col-12,
-.wpaip-l5-col-8,
-.wpaip-l5-col-7,
-.wpaip-l5-col-6,
-.wpaip-l5-col-5,
-.wpaip-l5-col-4 {
+.yimai-gso-l5-col-12,
+.yimai-gso-l5-col-8,
+.yimai-gso-l5-col-7,
+.yimai-gso-l5-col-6,
+.yimai-gso-l5-col-5,
+.yimai-gso-l5-col-4 {
     display: flex;            /* 关键：列本身也是 flex 容器 */
     flex-direction: column;
     box-sizing: border-box;   /* 修复：确保 padding/border 计入宽度 */
@@ -70,14 +70,14 @@
     flex-shrink: 0;           /* 修复：禁止收缩导致重叠 */
 }
 
-.wpaip-l5-col-12 { width: 100%; max-width: 100%; }
-.wpaip-l5-col-8   { width: calc(66.667% - 8px); max-width: calc(66.667% - 8px); }
-.wpaip-l5-col-7   { width: calc(58.333% - 8px); max-width: calc(58.333% - 8px); }
-.wpaip-l5-col-6   { width: calc(50% - 8px); max-width: calc(50% - 8px); }
-.wpaip-l5-col-5   { width: calc(41.667% - 8px); max-width: calc(41.667% - 8px); }
-.wpaip-l5-col-4   { width: calc(33.333% - 8px); max-width: calc(33.333% - 8px); }
+.yimai-gso-l5-col-12 { width: 100%; max-width: 100%; }
+.yimai-gso-l5-col-8   { width: calc(66.667% - 8px); max-width: calc(66.667% - 8px); }
+.yimai-gso-l5-col-7   { width: calc(58.333% - 8px); max-width: calc(58.333% - 8px); }
+.yimai-gso-l5-col-6   { width: calc(50% - 8px); max-width: calc(50% - 8px); }
+.yimai-gso-l5-col-5   { width: calc(41.667% - 8px); max-width: calc(41.667% - 8px); }
+.yimai-gso-l5-col-4   { width: calc(33.333% - 8px); max-width: calc(33.333% - 8px); }
 
-.wpaip-l5-chart-panel {
+.yimai-gso-l5-chart-panel {
     background: #fff;
     border-radius: 10px;
     padding: 18px 20px;
@@ -91,14 +91,14 @@
     overflow: hidden;         /* 修复：防止子元素溢出导致视觉重叠 */
 }
 
-.wpaip-l5-chart-title {
+.yimai-gso-l5-chart-title {
     font-size: .9rem;
     font-weight: 700;
     color: #1f2937;
     margin: 0 0 12px;
 }
 
-.wpaip-l5-chart-wrap {
+.yimai-gso-l5-chart-wrap {
     position: relative;
     height: 260px;
     width: 100%;
@@ -106,20 +106,20 @@
     box-sizing: border-box;
 }
 
-.wpaip-l5-chart-wrap canvas {
+.yimai-gso-l5-chart-wrap canvas {
     max-width: 100%;
     height: 100% !important;
 }
 
 /* ==================== 时间筛选按钮 ==================== */
-.wpaip-l5-time-filter {
+.yimai-gso-l5-time-filter {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 16px;
 }
 
-.wpaip-l5-time-btn {
+.yimai-gso-l5-time-btn {
     background: #f3f4f6;
     border: 1px solid #d1d5db;
     border-radius: 6px;
@@ -129,42 +129,42 @@
     transition: all .15s;
 }
 
-.wpaip-l5-time-btn:hover {
+.yimai-gso-l5-time-btn:hover {
     background: #e5e7eb;
 }
 
-.wpaip-l5-time-btn.active {
+.yimai-gso-l5-time-btn.active {
     background: #7c3aed;
     color: #fff;
     border-color: #7c3aed;
 }
 
-.wpaip-l5-auto-refresh {
+.yimai-gso-l5-auto-refresh {
     margin-left: auto;
     font-size: .75rem;
     color: #9ca3af;
 }
 
 /* ==================== 表格样式 ==================== */
-.wpaip-l5-top-pages {
+.yimai-gso-l5-top-pages {
     overflow-x: auto;
     max-width: 100%;
 }
 
-.wpaip-l5-table {
+.yimai-gso-l5-table {
     width: 100%;
     border-collapse: collapse;
     font-size: .82rem;
     table-layout: auto;
 }
 
-.wpaip-l5-table th,
-.wpaip-l5-table td {
+.yimai-gso-l5-table th,
+.yimai-gso-l5-table td {
     word-break: break-word;
     overflow-wrap: anywhere;
 }
 
-.wpaip-l5-table th {
+.yimai-gso-l5-table th {
     text-align: left;
     padding: 8px 10px;
     border-bottom: 2px solid #e5e7eb;
@@ -173,39 +173,39 @@
     font-size: .76rem;
 }
 
-.wpaip-l5-table td {
+.yimai-gso-l5-table td {
     padding: 7px 10px;
     border-bottom: 1px solid #f3f4f6;
     font-size: .8rem;
 }
 
-.wpaip-l5-table tr:hover {
+.yimai-gso-l5-table tr:hover {
     background: #fafefb;
 }
 
-.wpaip-l5-crawler-cell {
+.yimai-gso-l5-crawler-cell {
     font-size: 11px;
     color: #64748b;
     word-break: break-word;
 }
 
 /* ==================== 骨架屏 ==================== */
-.wpaip-l5-skeleton-item {
+.yimai-gso-l5-skeleton-item {
     height: 24px;
     background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
     background-size: 200% 100%;
-    animation: wpaip-l5-skeleton-shimmer 1.5s infinite;
+    animation: yimai-gso-l5-skeleton-shimmer 1.5s infinite;
     border-radius: 4px;
     margin-bottom: 8px;
 }
 
-@keyframes wpaip-l5-skeleton-shimmer {
+@keyframes yimai-gso-l5-skeleton-shimmer {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
 
 /* ==================== 诊断面板 ==================== */
-.wpaip-l5-action-bar {
+.yimai-gso-l5-action-bar {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -216,16 +216,16 @@
     box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
 
-.wpaip-l5-diagnosis-status {
+.yimai-gso-l5-diagnosis-status {
     font-size: .82rem;
     color: #6b7280;
 }
 
-.wpaip-l5-diag-overview {
+.yimai-gso-l5-diag-overview {
     margin-bottom: 20px;
 }
 
-.wpaip-l5-diag-score {
+.yimai-gso-l5-diag-score {
     background: #fff;
     border-radius: 10px;
     padding: 24px;
@@ -234,25 +234,25 @@
     box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
 
-.wpaip-l5-diag-score-num {
+.yimai-gso-l5-diag-score-num {
     font-size: 3rem;
     font-weight: 800;
     line-height: 1.1;
 }
 
-.wpaip-l5-diag-score-label {
+.yimai-gso-l5-diag-score-label {
     font-size: 1rem;
     color: #374151;
     margin-top: 4px;
 }
 
-.wpaip-l5-diag-score-time {
+.yimai-gso-l5-diag-score-time {
     font-size: .75rem;
     color: #9ca3af;
     margin-top: 8px;
 }
 
-.wpaip-l5-diag-check {
+.yimai-gso-l5-diag-check {
     background: #fff;
     border-radius: 8px;
     padding: 14px 16px;
@@ -261,7 +261,7 @@
     border: 1px solid #f3f4f6;
 }
 
-.wpaip-l5-diag-check-header {
+.yimai-gso-l5-diag-check-header {
     display: flex;
     justify-content: space-between;
     font-size: .85rem;
@@ -269,7 +269,7 @@
     margin-bottom: 8px;
 }
 
-.wpaip-l5-diag-check-bar {
+.yimai-gso-l5-diag-check-bar {
     height: 6px;
     background: #f3f4f6;
     border-radius: 3px;
@@ -277,51 +277,51 @@
     margin-bottom: 6px;
 }
 
-.wpaip-l5-diag-check-fill {
+.yimai-gso-l5-diag-check-fill {
     height: 100%;
     border-radius: 3px;
     transition: width .6s ease;
 }
 
-.wpaip-l5-diag-check-detail {
+.yimai-gso-l5-diag-check-detail {
     font-size: .78rem;
     color: #6b7280;
 }
 
-.wpaip-l5-diag-check-score {
+.yimai-gso-l5-diag-check-score {
     font-weight: 700;
 }
 
 /* ==================== 空状态 ==================== */
-.wpaip-l5-empty-state {
+.yimai-gso-l5-empty-state {
     text-align: center;
     padding: 48px 20px;
     color: #9ca3af;
 }
 
-.wpaip-l5-empty-icon {
+.yimai-gso-l5-empty-icon {
     font-size: 3rem;
     margin-bottom: 12px;
 }
 
-.wpaip-l5-empty-hint {
+.yimai-gso-l5-empty-hint {
     font-size: .78rem;
     margin-top: 8px;
 }
 
 /* ==================== 预警列表 ==================== */
-.wpaip-l5-alert-filters {
+.yimai-gso-l5-alert-filters {
     display: flex;
     gap: 10px;
     align-items: center;
     margin-bottom: 16px;
 }
 
-.wpaip-l5-alert-filters select {
+.yimai-gso-l5-alert-filters select {
     min-width: 120px;
 }
 
-.wpaip-l5-alert-item {
+.yimai-gso-l5-alert-item {
     display: flex;
     align-items: flex-start;
     gap: 14px;
@@ -333,45 +333,45 @@
     border-left: 4px solid #d1d5db;
 }
 
-.wpaip-l5-alert-item.wpaip-l5-alert-critical {
+.yimai-gso-l5-alert-item.yimai-gso-l5-alert-critical {
     border-left-color: #ef4444;
     background: #fef2f2;
 }
 
-.wpaip-l5-alert-item.wpaip-l5-alert-warning {
+.yimai-gso-l5-alert-item.yimai-gso-l5-alert-warning {
     border-left-color: #f59e0b;
     background: #fffbeb;
 }
 
-.wpaip-l5-alert-item-body {
+.yimai-gso-l5-alert-item-body {
     flex: 1;
 }
 
-.wpaip-l5-alert-item-title {
+.yimai-gso-l5-alert-item-title {
     font-size: .85rem;
     font-weight: 600;
     color: #1f2937;
 }
 
-.wpaip-l5-alert-item-message {
+.yimai-gso-l5-alert-item-message {
     font-size: .8rem;
     color: #6b7280;
     margin-top: 4px;
 }
 
-.wpaip-l5-alert-item-meta {
+.yimai-gso-l5-alert-item-meta {
     font-size: .72rem;
     color: #9ca3af;
     margin-top: 4px;
 }
 
-.wpaip-l5-alert-item-actions {
+.yimai-gso-l5-alert-item-actions {
     white-space: nowrap;
     display: flex;
     gap: 4px;
 }
 
-.wpaip-l5-alert-severity {
+.yimai-gso-l5-alert-severity {
     display: inline-block;
     padding: 2px 8px;
     border-radius: 12px;
@@ -379,11 +379,11 @@
     font-weight: 700;
 }
 
-.wpaip-l5-alert-sev-critical { background: #fee2e2; color: #991b1b; }
-.wpaip-l5-alert-sev-warning  { background: #fef3c7; color: #92400e; }
-.wpaip-l5-alert-sev-info     { background: #dbeafe; color: #1e40af; }
+.yimai-gso-l5-alert-sev-critical { background: #fee2e2; color: #991b1b; }
+.yimai-gso-l5-alert-sev-warning  { background: #fef3c7; color: #92400e; }
+.yimai-gso-l5-alert-sev-info     { background: #dbeafe; color: #1e40af; }
 
-.wpaip-l5-alert-rule {
+.yimai-gso-l5-alert-rule {
     display: inline-block;
     padding: 1px 6px;
     background: #f3f4f6;
@@ -392,7 +392,7 @@
     color: #6b7280;
 }
 
-.wpaip-l5-alert-pagination {
+.yimai-gso-l5-alert-pagination {
     margin-top: 16px;
     display: flex;
     align-items: center;
@@ -400,7 +400,7 @@
 }
 
 /* ==================== 预警角标 ==================== */
-.wpaip-l5-alert-badge {
+.yimai-gso-l5-alert-badge {
     display: inline-block;
     min-width: 18px;
     height: 18px;
@@ -416,7 +416,7 @@
 }
 
 /* ==================== 弹窗 ==================== */
-.wpaip-l5-modal-overlay {
+.yimai-gso-l5-modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,.4);
@@ -426,7 +426,7 @@
     justify-content: center;
 }
 
-.wpaip-l5-modal {
+.yimai-gso-l5-modal {
     background: #fff;
     border-radius: 12px;
     width: 480px;
@@ -434,7 +434,7 @@
     box-shadow: 0 20px 60px rgba(0,0,0,.15);
 }
 
-.wpaip-l5-modal-header {
+.yimai-gso-l5-modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -442,12 +442,12 @@
     border-bottom: 1px solid #e5e7eb;
 }
 
-.wpaip-l5-modal-header h3 {
+.yimai-gso-l5-modal-header h3 {
     margin: 0;
     font-size: 1rem;
 }
 
-.wpaip-l5-modal-close {
+.yimai-gso-l5-modal-close {
     background: none;
     border: none;
     font-size: 1.3rem;
@@ -455,11 +455,11 @@
     color: #9ca3af;
 }
 
-.wpaip-l5-modal-body {
+.yimai-gso-l5-modal-body {
     padding: 16px 20px;
 }
 
-.wpaip-l5-modal-footer {
+.yimai-gso-l5-modal-footer {
     padding: 12px 20px;
     border-top: 1px solid #e5e7eb;
     display: flex;
@@ -467,7 +467,7 @@
     justify-content: flex-end;
 }
 
-.wpaip-l5-config-row {
+.yimai-gso-l5-config-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -480,7 +480,7 @@
    ================================================================ */
 
 /* ── 操作栏 ── */
-.wpaip-l5-diag-action-bar {
+.yimai-gso-l5-diag-action-bar {
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border: 1px solid #e2e8f0;
     border-radius: 12px;
@@ -488,14 +488,14 @@
     margin-bottom: 24px;
 }
 
-.wpaip-l5-diag-action-bar .button-hero {
+.yimai-gso-l5-diag-action-bar .button-hero {
     padding: 6px 20px;
     font-size: .92rem;
     height: auto;
     min-height: 36px;
 }
 
-.wpaip-l5-diag-action-bar .button-secondary {
+.yimai-gso-l5-diag-action-bar .button-secondary {
     padding: 6px 16px;
     font-size: .85rem;
     height: auto;
@@ -505,13 +505,13 @@
     background: #fff;
 }
 
-.wpaip-l5-diag-action-bar .button-secondary:hover {
+.yimai-gso-l5-diag-action-bar .button-secondary:hover {
     background: #f8fafc;
     border-color: #94a3b8;
 }
 
 /* ── 空状态 ── */
-.wpaip-l5-diag-empty-state {
+.yimai-gso-l5-diag-empty-state {
     text-align: center;
     padding: 56px 24px 48px;
     background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
@@ -520,7 +520,7 @@
     margin-top: 8px;
 }
 
-.wpaip-l5-diag-empty-icon {
+.yimai-gso-l5-diag-empty-icon {
     width: 72px;
     height: 72px;
     background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
@@ -531,21 +531,21 @@
     margin-bottom: 20px;
 }
 
-.wpaip-l5-diag-empty-icon .dashicons {
+.yimai-gso-l5-diag-empty-icon .dashicons {
     font-size: 32px;
     width: 32px;
     height: 32px;
     color: #7c3aed;
 }
 
-.wpaip-l5-diag-empty-title {
+.yimai-gso-l5-diag-empty-title {
     font-size: 1.15rem;
     font-weight: 700;
     color: #1e293b;
     margin: 0 0 8px;
 }
 
-.wpaip-l5-diag-empty-desc {
+.yimai-gso-l5-diag-empty-desc {
     font-size: .88rem;
     color: #64748b;
     margin: 0 0 24px;
@@ -555,7 +555,7 @@
     line-height: 1.6;
 }
 
-.wpaip-l5-diag-empty-features {
+.yimai-gso-l5-diag-empty-features {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -563,7 +563,7 @@
     margin-bottom: 20px;
 }
 
-.wpaip-l5-diag-empty-feature {
+.yimai-gso-l5-diag-empty-feature {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -575,21 +575,21 @@
     padding: 5px 12px;
 }
 
-.wpaip-l5-diag-empty-feature .dashicons {
+.yimai-gso-l5-diag-empty-feature .dashicons {
     font-size: 14px;
     width: 14px;
     height: 14px;
     color: #10b981;
 }
 
-.wpaip-l5-diag-empty-hint {
+.yimai-gso-l5-diag-empty-hint {
     font-size: .78rem;
     color: #94a3b8;
     margin: 0;
 }
 
 /* ── 总评分卡片 ── */
-.wpaip-l5-diag-score-card {
+.yimai-gso-l5-diag-score-card {
     display: flex;
     align-items: center;
     gap: 28px;
@@ -601,33 +601,33 @@
     box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
 
-.wpaip-l5-diag-score-ring-wrap {
+.yimai-gso-l5-diag-score-ring-wrap {
     position: relative;
     width: 140px;
     height: 140px;
     flex-shrink: 0;
 }
 
-.wpaip-l5-diag-score-ring {
+.yimai-gso-l5-diag-score-ring {
     width: 100%;
     height: 100%;
     transform: rotate(-90deg);
 }
 
-.wpaip-l5-diag-ring-bg {
+.yimai-gso-l5-diag-ring-bg {
     fill: none;
     stroke: #f1f5f9;
     stroke-width: 10;
 }
 
-.wpaip-l5-diag-ring-fg {
+.yimai-gso-l5-diag-ring-fg {
     fill: none;
     stroke-width: 10;
     stroke-linecap: round;
     transition: stroke-dashoffset 1.2s ease-out;
 }
 
-.wpaip-l5-diag-score-inner {
+.yimai-gso-l5-diag-score-inner {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -635,25 +635,25 @@
     text-align: center;
 }
 
-.wpaip-l5-diag-score-num {
+.yimai-gso-l5-diag-score-num {
     font-size: 2.4rem;
     font-weight: 800;
     line-height: 1;
 }
 
-.wpaip-l5-diag-score-den {
+.yimai-gso-l5-diag-score-den {
     font-size: .85rem;
     color: #94a3b8;
     font-weight: 600;
 }
 
-.wpaip-l5-diag-score-info {
+.yimai-gso-l5-diag-score-info {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.wpaip-l5-diag-score-grade {
+.yimai-gso-l5-diag-score-grade {
     display: inline-block;
     align-self: flex-start;
     font-size: .8rem;
@@ -663,26 +663,26 @@
     letter-spacing: .5px;
 }
 
-.wpaip-l5-diag-score-label {
+.yimai-gso-l5-diag-score-label {
     font-size: 1.1rem;
     font-weight: 700;
     color: #1e293b;
 }
 
-.wpaip-l5-diag-score-time {
+.yimai-gso-l5-diag-score-time {
     font-size: .78rem;
     color: #94a3b8;
 }
 
 /* ── 检查项卡片网格 ── */
-.wpaip-l5-diag-checks {
+.yimai-gso-l5-diag-checks {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 14px;
     margin-bottom: 20px;
 }
 
-.wpaip-l5-diag-check-card {
+.yimai-gso-l5-diag-check-card {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
@@ -691,31 +691,31 @@
     transition: transform .15s, box-shadow .15s, border-color .15s;
 }
 
-.wpaip-l5-diag-check-card:hover {
+.yimai-gso-l5-diag-check-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,.06);
 }
 
-.wpaip-l5-diag-check-card.pass {
+.yimai-gso-l5-diag-check-card.pass {
     border-left: 4px solid #10b981;
 }
 
-.wpaip-l5-diag-check-card.warn {
+.yimai-gso-l5-diag-check-card.warn {
     border-left: 4px solid #f59e0b;
 }
 
-.wpaip-l5-diag-check-card.fail {
+.yimai-gso-l5-diag-check-card.fail {
     border-left: 4px solid #ef4444;
 }
 
-.wpaip-l5-diag-check-top {
+.yimai-gso-l5-diag-check-top {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-bottom: 10px;
 }
 
-.wpaip-l5-diag-check-icon {
+.yimai-gso-l5-diag-check-icon {
     font-size: 18px;
     width: 28px;
     height: 28px;
@@ -726,40 +726,40 @@
     flex-shrink: 0;
 }
 
-.wpaip-l5-diag-check-card.pass .wpaip-l5-diag-check-icon {
+.yimai-gso-l5-diag-check-card.pass .yimai-gso-l5-diag-check-icon {
     background: #d1fae5;
     color: #059669;
 }
 
-.wpaip-l5-diag-check-card.warn .wpaip-l5-diag-check-icon {
+.yimai-gso-l5-diag-check-card.warn .yimai-gso-l5-diag-check-icon {
     background: #fef3c7;
     color: #d97706;
 }
 
-.wpaip-l5-diag-check-card.fail .wpaip-l5-diag-check-icon {
+.yimai-gso-l5-diag-check-card.fail .yimai-gso-l5-diag-check-icon {
     background: #fee2e2;
     color: #dc2626;
 }
 
-.wpaip-l5-diag-check-name {
+.yimai-gso-l5-diag-check-name {
     flex: 1;
     font-size: .88rem;
     font-weight: 600;
     color: #1f2937;
 }
 
-.wpaip-l5-diag-check-score-num {
+.yimai-gso-l5-diag-check-score-num {
     font-size: 1.1rem;
     font-weight: 800;
 }
 
-.wpaip-l5-diag-check-score-num small {
+.yimai-gso-l5-diag-check-score-num small {
     font-size: .72rem;
     font-weight: 500;
     color: #9ca3af;
 }
 
-.wpaip-l5-diag-check-bar {
+.yimai-gso-l5-diag-check-bar {
     height: 8px;
     background: #f3f4f6;
     border-radius: 4px;
@@ -767,35 +767,35 @@
     margin-bottom: 8px;
 }
 
-.wpaip-l5-diag-check-fill {
+.yimai-gso-l5-diag-check-fill {
     height: 100%;
     border-radius: 4px;
     transition: width .8s ease-out;
 }
 
-.wpaip-l5-diag-check-detail {
+.yimai-gso-l5-diag-check-detail {
     font-size: .78rem;
     color: #6b7280;
     line-height: 1.5;
 }
 
 /* ── 诊断详情双栏 ── */
-.wpaip-l5-diag-details-row {
+.yimai-gso-l5-diag-details-row {
     display: flex;
     gap: 16px;
     margin-bottom: 20px;
 }
 
-.wpaip-l5-diag-detail-col {
+.yimai-gso-l5-diag-detail-col {
     flex: 1;
     min-width: 0;
 }
 
-.wpaip-l5-diag-detail-col:empty {
+.yimai-gso-l5-diag-detail-col:empty {
     display: none;
 }
 
-.wpaip-l5-diag-detail-card {
+.yimai-gso-l5-diag-detail-card {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
@@ -804,15 +804,15 @@
     height: 100%;
 }
 
-.wpaip-l5-diag-detail-card.blocked {
+.yimai-gso-l5-diag-detail-card.blocked {
     border-top: 4px solid #ef4444;
 }
 
-.wpaip-l5-diag-detail-card.issues {
+.yimai-gso-l5-diag-detail-card.issues {
     border-top: 4px solid #f59e0b;
 }
 
-.wpaip-l5-diag-detail-header {
+.yimai-gso-l5-diag-detail-header {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -824,14 +824,14 @@
     color: #1f2937;
 }
 
-.wpaip-l5-diag-detail-header .dashicons {
+.yimai-gso-l5-diag-detail-header .dashicons {
     font-size: 18px;
     width: 18px;
     height: 18px;
     color: #6b7280;
 }
 
-.wpaip-l5-diag-detail-count {
+.yimai-gso-l5-diag-detail-count {
     margin-left: auto;
     background: #1f2937;
     color: #fff;
@@ -843,11 +843,11 @@
     text-align: center;
 }
 
-.wpaip-l5-diag-detail-body {
+.yimai-gso-l5-diag-detail-body {
     padding: 12px 18px;
 }
 
-.wpaip-l5-diag-detail-item {
+.yimai-gso-l5-diag-detail-item {
     display: flex;
     align-items: flex-start;
     gap: 10px;
@@ -856,23 +856,23 @@
     font-size: .82rem;
 }
 
-.wpaip-l5-diag-detail-item:last-child {
+.yimai-gso-l5-diag-detail-item:last-child {
     border-bottom: none;
 }
 
-.wpaip-l5-diag-detail-bot {
+.yimai-gso-l5-diag-detail-bot {
     font-weight: 700;
     color: #dc2626;
     white-space: nowrap;
     min-width: 100px;
 }
 
-.wpaip-l5-diag-detail-suggestion {
+.yimai-gso-l5-diag-detail-suggestion {
     color: #4b5563;
     line-height: 1.5;
 }
 
-.wpaip-l5-diag-detail-idx {
+.yimai-gso-l5-diag-detail-idx {
     width: 24px;
     height: 24px;
     display: flex;
@@ -886,14 +886,14 @@
     flex-shrink: 0;
 }
 
-.wpaip-l5-diag-detail-text {
+.yimai-gso-l5-diag-detail-text {
     color: #4b5563;
     line-height: 1.5;
     padding-top: 2px;
 }
 
 /* ── robots.txt 预览 ── */
-.wpaip-l5-diag-robots-panel {
+.yimai-gso-l5-diag-robots-panel {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
@@ -902,7 +902,7 @@
     margin-bottom: 20px;
 }
 
-.wpaip-l5-diag-robots-title {
+.yimai-gso-l5-diag-robots-title {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -915,25 +915,25 @@
     color: #1f2937;
 }
 
-.wpaip-l5-diag-robots-title .dashicons {
+.yimai-gso-l5-diag-robots-title .dashicons {
     font-size: 18px;
     width: 18px;
     height: 18px;
     color: #6b7280;
 }
 
-#wpaip-l5-robots-content {
+#yimai-gso-l5-robots-content {
     padding: 16px 18px;
 }
 
-.wpaip-l5-diag-robots-meta {
+.yimai-gso-l5-diag-robots-meta {
     display: flex;
     gap: 10px;
     margin-bottom: 14px;
     flex-wrap: wrap;
 }
 
-.wpaip-l5-diag-robots-tag {
+.yimai-gso-l5-diag-robots-tag {
     font-size: .78rem;
     color: #475569;
     background: #f3f4f6;
@@ -941,22 +941,22 @@
     border-radius: 6px;
 }
 
-.wpaip-l5-diag-robots-tag strong {
+.yimai-gso-l5-diag-robots-tag strong {
     color: #1f2937;
 }
 
-.wpaip-l5-diag-robots-uas {
+.yimai-gso-l5-diag-robots-uas {
     margin-bottom: 14px;
 }
 
-.wpaip-l5-diag-robots-subtitle {
+.yimai-gso-l5-diag-robots-subtitle {
     font-size: .8rem;
     font-weight: 600;
     color: #374151;
     margin-bottom: 8px;
 }
 
-.wpaip-l5-diag-robots-ua {
+.yimai-gso-l5-diag-robots-ua {
     display: inline-block;
     font-size: .75rem;
     color: #4b5563;
@@ -967,7 +967,7 @@
     margin: 3px 4px 3px 0;
 }
 
-.wpaip-l5-diag-robots-table {
+.yimai-gso-l5-diag-robots-table {
     width: 100%;
     border-collapse: collapse;
     font-size: .82rem;
@@ -976,28 +976,28 @@
     overflow: hidden;
 }
 
-.wpaip-l5-diag-robots-table thead {
+.yimai-gso-l5-diag-robots-table thead {
     background: #f9fafb;
 }
 
-.wpaip-l5-diag-robots-table th,
-.wpaip-l5-diag-robots-table td {
+.yimai-gso-l5-diag-robots-table th,
+.yimai-gso-l5-diag-robots-table td {
     padding: 8px 12px;
     text-align: left;
     border-bottom: 1px solid #f3f4f6;
 }
 
-.wpaip-l5-diag-robots-table th {
+.yimai-gso-l5-diag-robots-table th {
     font-weight: 600;
     color: #374151;
     font-size: .78rem;
 }
 
-.wpaip-l5-diag-robots-table td {
+.yimai-gso-l5-diag-robots-table td {
     color: #4b5563;
 }
 
-.wpaip-l5-diag-robots-table code {
+.yimai-gso-l5-diag-robots-table code {
     background: #f3f4f6;
     padding: 2px 6px;
     border-radius: 4px;
@@ -1005,7 +1005,7 @@
     color: #374151;
 }
 
-.wpaip-l5-diag-robots-directive {
+.yimai-gso-l5-diag-robots-directive {
     display: inline-block;
     font-size: .75rem;
     font-weight: 700;
@@ -1014,58 +1014,58 @@
     text-transform: uppercase;
 }
 
-.wpaip-l5-diag-robots-directive.allow {
+.yimai-gso-l5-diag-robots-directive.allow {
     background: #d1fae5;
     color: #059669;
 }
 
-.wpaip-l5-diag-robots-directive.disallow {
+.yimai-gso-l5-diag-robots-directive.disallow {
     background: #fee2e2;
     color: #dc2626;
 }
 
 /* ── 诊断响应式 ── */
 @media (max-width: 768px) {
-    .wpaip-l5-diag-score-card {
+    .yimai-gso-l5-diag-score-card {
         flex-direction: column;
         text-align: center;
         gap: 16px;
         padding: 20px;
     }
 
-    .wpaip-l5-diag-score-grade {
+    .yimai-gso-l5-diag-score-grade {
         align-self: center;
     }
 
-    .wpaip-l5-diag-details-row {
+    .yimai-gso-l5-diag-details-row {
         flex-direction: column;
     }
 
-    .wpaip-l5-diag-checks {
+    .yimai-gso-l5-diag-checks {
         grid-template-columns: 1fr;
     }
 
-    .wpaip-l5-diag-empty-features {
+    .yimai-gso-l5-diag-empty-features {
         flex-direction: column;
         align-items: center;
     }
 }
 @media (max-width: 1024px) {
-    .wpaip-l5-col-7, .wpaip-l5-col-6, .wpaip-l5-col-5, .wpaip-l5-col-4, .wpaip-l5-col-8 {
+    .yimai-gso-l5-col-7, .yimai-gso-l5-col-6, .yimai-gso-l5-col-5, .yimai-gso-l5-col-4, .yimai-gso-l5-col-8 {
         width: 100%;
     }
 
-    .wpaip-l5-stats-row {
+    .yimai-gso-l5-stats-row {
         grid-template-columns: repeat(2, 1fr);
     }
 }
 
 @media (max-width: 600px) {
-    .wpaip-l5-stats-row {
+    .yimai-gso-l5-stats-row {
         grid-template-columns: 1fr;
     }
 
-    .wpaip-l5-chart-wrap {
+    .yimai-gso-l5-chart-wrap {
         height: 200px;
     }
 }

@@ -9,7 +9,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_6DVW {
+class YIMAI_GSO_AI_Image_Generator {
 
     private $provider;
     private $api_key;
@@ -22,12 +22,12 @@ class WPAIP_6DVW {
      * @param string|null $api_key   用户自备 API Key（可选，不传则从 settings 读取）
      */
     public function __construct( $provider = null, $api_key = null ) {
-        $this->provider = $provider ?: WPAIP_9XCU::get( 'ai_image_provider', 'doubao' );
+        $this->provider = $provider ?: YIMAI_GSO_Settings::get( 'ai_image_provider', 'doubao' );
         $this->api_key  = $api_key ?: $this->get_stored_api_key();
-        $this->model    = WPAIP_9XCU::get( 'ai_image_model', '' );
-        $this->size     = WPAIP_9XCU::get( 'ai_image_size', '2K' );
+        $this->model    = YIMAI_GSO_Settings::get( 'ai_image_model', '' );
+        $this->size     = YIMAI_GSO_Settings::get( 'ai_image_size', '2K' );
         // 自定义提示词模板（变量替换用）
-        $this->custom_prompt_tpl = WPAIP_9XCU::get( 'ai_image_custom_prompt', '' );
+        $this->custom_prompt_tpl = YIMAI_GSO_Settings::get( 'ai_image_custom_prompt', '' );
     }
 
     // ──────────────────────────────────────────────
@@ -87,7 +87,7 @@ class WPAIP_6DVW {
             ),
         );
 
-        return apply_filters( 'wpaip_ai_image_providers', $providers );
+        return apply_filters( 'yimai_gso_ai_image_providers', $providers );
     }
 
     /**
@@ -119,7 +119,7 @@ class WPAIP_6DVW {
 
         // 分发到具体 Provider
         $images = array();
-        $log_prefix = '[WPAIP_AI_IMG] ';
+        $log_prefix = '[YIMAI_GSO_AI_IMG] ';
 
         for ( $i = 0; $i < $gen_count; $i++ ) {
             // 为每张图追加唯一性标记，强制模型生成不同画面
@@ -298,7 +298,7 @@ class WPAIP_6DVW {
             'watermark'     => false,
         );
 
-        $log_prefix = '[WPAIP_AI_IMG:doubao] ';
+        $log_prefix = '[YIMAI_GSO_AI_IMG:doubao] ';
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( $log_prefix . '请求 model=' . $this->model . ' size=' . $api_size );
         }
@@ -520,7 +520,7 @@ class WPAIP_6DVW {
 
     /**
      * 从 WordPress option 中读取 API Key（自动解密）
-     * 复用 WPAIP_9XCU::get() 的 ENCRYPTED_KEYS 加密/解密机制
+     * 复用 YIMAI_GSO_Settings::get() 的 ENCRYPTED_KEYS 加密/解密机制
      */
     private function get_stored_api_key() {
         $provider_cfg = $this->get_provider_config();
@@ -533,7 +533,7 @@ class WPAIP_6DVW {
             return '';
         }
 
-        return WPAIP_9XCU::get( $setting_key, '' );
+        return YIMAI_GSO_Settings::get( $setting_key, '' );
     }
 
     /**
@@ -550,6 +550,6 @@ class WPAIP_6DVW {
             return '';
         }
 
-        return WPAIP_9XCU::get( $setting_key, '' );
+        return YIMAI_GSO_Settings::get( $setting_key, '' );
     }
 }

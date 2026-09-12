@@ -2,7 +2,7 @@
 /**
  * AI 平台中枢适配引擎
  *
- * 从 WPAIP_H402 读取 12 个平台配置，按需调度适配逻辑：
+ * 从 YIMAI_GSO_AI_Platform_Registry 读取 12 个平台配置，按需调度适配逻辑：
  * - wp_head 输出平台专属 Meta 标签
  * - wp_head 追加平台优化的 Schema JSON-LD
  * - llms.txt / llms-full.txt 追加平台覆盖区块
@@ -14,8 +14,8 @@
  * - 性能优先：所有重计算在 save_post 时异步完成并缓存
  *
  * 数据存储：
- * - 平台配置：option wpaip_ai_platform_config (JSON)
- * - 文章适配缓存：post_meta wpaip_platform_adapt (JSON)
+ * - 平台配置：option yimai_gso_ai_platform_config (JSON)
+ * - 文章适配缓存：post_meta yimai_gso_platform_adapt (JSON)
  *
  * @package BaiqueAI_SEO_Content_Engine
  * @since 3.0.0
@@ -23,7 +23,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_P40M {
+class YIMAI_GSO_AI_Platform_Adapter {
 
     private static $instance = null;
 
@@ -34,10 +34,10 @@ class WPAIP_P40M {
     private $active_keys = array();
 
     /** @var string 平台配置 option key */
-    const OPTION_KEY = 'wpaip_ai_platform_config';
+    const OPTION_KEY = 'yimai_gso_ai_platform_config';
 
     /** @var string 文章适配缓存 post_meta key */
-    const META_KEY = 'wpaip_platform_adapt';
+    const META_KEY = 'yimai_gso_platform_adapt';
 
     public static function get_instance() {
         if ( null === self::$instance ) {
@@ -73,10 +73,10 @@ class WPAIP_P40M {
         add_action( 'init', array( $this, 'maybe_start_llms_buffer' ), 1 );
 
         // AJAX 端点
-        add_action( 'wp_ajax_wpaip_platform_save_config', array( $this, 'ajax_save_config' ) );
-        add_action( 'wp_ajax_wpaip_platform_preview', array( $this, 'ajax_preview' ) );
-        add_action( 'wp_ajax_wpaip_platform_batch_adapt', array( $this, 'ajax_batch_adapt' ) );
-        add_action( 'wp_ajax_wpaip_platform_get_config', array( $this, 'ajax_get_config' ) );
+        add_action( 'wp_ajax_yimai_gso_platform_save_config', array( $this, 'ajax_save_config' ) );
+        add_action( 'wp_ajax_yimai_gso_platform_preview', array( $this, 'ajax_preview' ) );
+        add_action( 'wp_ajax_yimai_gso_platform_batch_adapt', array( $this, 'ajax_batch_adapt' ) );
+        add_action( 'wp_ajax_yimai_gso_platform_get_config', array( $this, 'ajax_get_config' ) );
     }
 
     // ==================== 数据层 ====================
@@ -85,7 +85,7 @@ class WPAIP_P40M {
      * 刷新平台配置（从 option 读取 + 合并注册表默认值）
      */
     private function refresh_platforms() {
-        $all_platforms = WPAIP_H402::get_all();
+        $all_platforms = YIMAI_GSO_AI_Platform_Registry::get_all();
         $saved = $this->get_saved_config();
 
         $this->platforms  = array();
@@ -117,7 +117,7 @@ class WPAIP_P40M {
      * @return array
      */
     private function get_saved_config() {
-        $raw = WPAIP_9XCU::get( self::OPTION_KEY, '' );
+        $raw = YIMAI_GSO_Settings::get( self::OPTION_KEY, '' );
         if ( empty( $raw ) ) {
             return array();
         }
@@ -131,7 +131,7 @@ class WPAIP_P40M {
      * @param array $config
      */
     private function save_config( $config ) {
-        WPAIP_9XCU::set( self::OPTION_KEY, wp_json_encode( $config, JSON_UNESCAPED_UNICODE ) );
+        YIMAI_GSO_Settings::set( self::OPTION_KEY, wp_json_encode( $config, JSON_UNESCAPED_UNICODE ) );
         // 刷新内存缓存
         $this->refresh_platforms();
     }
@@ -169,7 +169,7 @@ class WPAIP_P40M {
      */
     public function output_platform_meta() {
         // 预览请求跳过
-        if ( function_exists( 'wpaip_is_preview_request' ) && wpaip_is_preview_request() ) {
+        if ( function_exists( 'yimai_gso_is_preview_request' ) && yimai_gso_is_preview_request() ) {
             return;
         }
 
@@ -222,8 +222,8 @@ class WPAIP_P40M {
         echo '<meta name="ai-citation-available" content="' . esc_attr( $citation_available ) . '">' . "\n";
 
         // 实体类型（从 GEO 实体模块读取）
-        if ( class_exists( 'WPAIP_PY7N' ) ) {
-            $entity_data = WPAIP_PY7N::get_entity_data();
+        if ( class_exists( 'YIMAI_GSO_GEO_Entity' ) ) {
+            $entity_data = YIMAI_GSO_GEO_Entity::get_entity_data();
             if ( ! empty( $entity_data['entity_type'] ) ) {
                 echo '<meta name="ai-entity-type" content="' . esc_attr( $entity_data['entity_type'] ) . '">' . "\n";
             }
@@ -247,11 +247,11 @@ class WPAIP_P40M {
     /**
      * wp_head(13): 输出平台优化的额外 Schema JSON-LD
      *
-     * 在 WPAIP_T6G5（priority=10）和 WPAIP_PY7N（priority=11）之后，
+     * 在 YIMAI_GSO_Schema_Generator（priority=10）和 YIMAI_GSO_GEO_Entity（priority=11）之后，
      * 追加平台专属的 JSON-LD 块，不修改已有输出。
      */
     public function output_platform_schema() {
-        if ( function_exists( 'wpaip_is_preview_request' ) && wpaip_is_preview_request() ) {
+        if ( function_exists( 'yimai_gso_is_preview_request' ) && yimai_gso_is_preview_request() ) {
             return;
         }
 
@@ -313,8 +313,8 @@ class WPAIP_P40M {
         $citations = array();
 
         // 尝试从 Citation_Helper 获取引用数据
-        if ( class_exists( 'WPAIP_NADX' ) ) {
-            $citation_data = get_post_meta( $post_id, 'wpaip_citation_data', true );
+        if ( class_exists( 'YIMAI_GSO_Citation_Helper' ) ) {
+            $citation_data = get_post_meta( $post_id, 'yimai_gso_citation_data', true );
             if ( ! empty( $citation_data ) && is_array( $citation_data ) ) {
                 foreach ( $citation_data as $cite ) {
                     if ( ! empty( $cite['url'] ) ) {
@@ -389,13 +389,13 @@ class WPAIP_P40M {
         $author_id = $post->post_author;
         $eeat_data = array();
 
-        if ( class_exists( 'WPAIP_RHZS' ) ) {
+        if ( class_exists( 'YIMAI_GSO_Author_Profile' ) ) {
             $eeat_data['author_profile'] = true;
         }
 
         // 读取实体数据
-        if ( class_exists( 'WPAIP_PY7N' ) ) {
-            $entity = WPAIP_PY7N::get_entity_data();
+        if ( class_exists( 'YIMAI_GSO_GEO_Entity' ) ) {
+            $entity = YIMAI_GSO_GEO_Entity::get_entity_data();
             if ( ! empty( $entity['same_as'] ) ) {
                 $eeat_data['entity_verified'] = true;
                 $eeat_data['same_as'] = array_values( $entity['same_as'] );
@@ -502,7 +502,7 @@ class WPAIP_P40M {
             return;
         }
         // 检查内容类型支持
-        if ( class_exists( 'WPAIP_B7PQ' ) && ! WPAIP_B7PQ::is_supported( $post->post_type ) ) {
+        if ( class_exists( 'YIMAI_GSO_Post_Type_Helper' ) && ! YIMAI_GSO_Post_Type_Helper::is_supported( $post->post_type ) ) {
             return;
         }
 
@@ -544,8 +544,8 @@ class WPAIP_P40M {
         }
 
         // 尝试从 Citation_Helper 获取引用数据
-        if ( class_exists( 'WPAIP_NADX' ) ) {
-            $citation_data = get_post_meta( $post_id, 'wpaip_citation_data', true );
+        if ( class_exists( 'YIMAI_GSO_Citation_Helper' ) ) {
+            $citation_data = get_post_meta( $post_id, 'yimai_gso_citation_data', true );
             if ( ! empty( $citation_data ) && is_array( $citation_data ) ) {
                 $data['citation_count'] = count( $citation_data );
                 foreach ( $citation_data as $cite ) {
@@ -597,7 +597,7 @@ class WPAIP_P40M {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
 
-        if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( $_POST['_wpnonce'], 'wpaip_nonce' ) ) {
+        if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( $_POST['_wpnonce'], 'yimai_gso_nonce' ) ) {
             wp_send_json_error( array( 'message' => '安全验证失败' ) );
         }
 $config_json = isset( $_POST['config'] ) ? wp_unslash( $_POST['config'] ) : '';
@@ -608,7 +608,7 @@ $config_json = isset( $_POST['config'] ) ? wp_unslash( $_POST['config'] ) : '';
         }
 
         // 验证并清理配置
-        $all_keys = array_keys( WPAIP_H402::get_all() );
+        $all_keys = array_keys( YIMAI_GSO_AI_Platform_Registry::get_all() );
         $clean = array();
         foreach ( $config as $key => $platform_config ) {
             if ( ! in_array( $key, $all_keys, true ) ) {
@@ -636,7 +636,7 @@ $config_json = isset( $_POST['config'] ) ? wp_unslash( $_POST['config'] ) : '';
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
 
-        check_ajax_referer( 'wpaip_nonce', '_wpnonce' );
+        check_ajax_referer( 'yimai_gso_nonce', '_wpnonce' );
 $post_id = isset( $_POST['post_id'] ) ? intval( $_POST['post_id'] ) : 0;
         if ( ! $post_id ) {
             wp_send_json_error( array( 'message' => '缺少文章 ID' ) );
@@ -674,12 +674,12 @@ $post_id = isset( $_POST['post_id'] ) ? intval( $_POST['post_id'] ) : 0;
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
 
-        check_ajax_referer( 'wpaip_nonce', '_wpnonce' );
+        check_ajax_referer( 'yimai_gso_nonce', '_wpnonce' );
 $offset = isset( $_POST['offset'] ) ? intval( $_POST['offset'] ) : 0;
         $limit  = isset( $_POST['limit'] ) ? min( intval( $_POST['limit'] ), 50 ) : 20;
 
-        $post_types = class_exists( 'WPAIP_B7PQ' )
-            ? WPAIP_B7PQ::get_supported()
+        $post_types = class_exists( 'YIMAI_GSO_Post_Type_Helper' )
+            ? YIMAI_GSO_Post_Type_Helper::get_supported()
             : array( 'post', 'page' );
 
         $posts = get_posts( array(
@@ -722,7 +722,7 @@ $offset = isset( $_POST['offset'] ) ? intval( $_POST['offset'] ) : 0;
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
 
-        check_ajax_referer( 'wpaip_nonce', '_wpnonce' );
+        check_ajax_referer( 'yimai_gso_nonce', '_wpnonce' );
 $platforms_data = array();
         foreach ( $this->platforms as $key => $config ) {
             $platforms_data[ $key ] = array(

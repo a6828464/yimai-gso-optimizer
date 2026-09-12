@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_96EY {
+class YIMAI_GSO_Autopilot_Log {
 
     const SCHEMA_VERSION = '1.0.0';
 
@@ -22,24 +22,24 @@ class WPAIP_96EY {
     }
 
     private function maybe_upgrade() {
-        $stored_version = (string) get_option( 'wpaip_autopilot_schema_version', '' );
+        $stored_version = (string) get_option( 'yimai_gso_autopilot_schema_version', '' );
         if ( self::SCHEMA_VERSION === $stored_version ) {
             return;
         }
 
         self::create_tables();
-        update_option( 'wpaip_autopilot_schema_version', self::SCHEMA_VERSION, false );
+        update_option( 'yimai_gso_autopilot_schema_version', self::SCHEMA_VERSION, false );
     }
 
 
     public static function get_runs_table() {
         global $wpdb;
-        return $wpdb->prefix . 'wpaip_autopilot_runs';
+        return $wpdb->prefix . 'yimai_gso_autopilot_runs';
     }
 
     public static function get_items_table() {
         global $wpdb;
-        return $wpdb->prefix . 'wpaip_autopilot_items';
+        return $wpdb->prefix . 'yimai_gso_autopilot_items';
     }
 
     public static function create_tables() {
@@ -502,7 +502,7 @@ class WPAIP_96EY {
         $row['updated_at_label'] = self::format_datetime_label( $row['updated_at'] ?? '' );
         $row['scheduled_label']  = self::format_datetime_label( $row['scheduled_at'] ?? '' );
         $row['status_label']     = self::get_item_status_label( $row['status'] ?? 'pending' );
-        // v2.9.68: 把 stage_message 也暴露给前端，用于定位卡死阶段（"正在生成文章"/"正在处理配图"/"执行超时"等）
+        // 把 stage_message 也暴露给前端，用于定位卡死阶段（"正在生成文章"/"正在处理配图"/"执行超时"等）
         $row['stage_message']    = (string) ( $row['stage_message'] ?? '' );
         $row['error_message']    = (string) ( $row['error_message'] ?? '' );
         $row['edit_url']         = ! empty( $row['post_id'] ) ? admin_url( 'post.php?post=' . absint( $row['post_id'] ) . '&action=edit' ) : '';

@@ -1,7 +1,7 @@
 /**
  * 一麦GSO L5 监控与仪表盘 - 前端图表与交互
  *
- * 依赖: Chart.js 4.x (CDN), wpaipL5Data (wp_localize_script)
+ * 依赖: Chart.js 4.x (CDN), yimaiGsoL5Data (wp_localize_script)
  *
  * @package 一麦GSO SEO-GEO
  * @since 2.10.0
@@ -9,15 +9,15 @@
 (function ($) {
     'use strict';
 
-    // 防御：wpaipL5Data 由 PHP 通过 wp_add_inline_script 注入，防止动态加载时缺失
-    if (typeof wpaipL5Data === 'undefined') {
-        console.error('[一麦GSO L5] wpaipL5Data 未定义，仪表盘无法初始化');
+    // 防御：yimaiGsoL5Data 由 PHP 通过 wp_add_inline_script 注入，防止动态加载时缺失
+    if (typeof yimaiGsoL5Data === 'undefined') {
+        console.error('[一麦GSO L5] yimaiGsoL5Data 未定义，仪表盘无法初始化');
         return;
     }
 
-    var AJAX_URL = wpaipL5Data.ajax_url;
-    var NONCE    = wpaipL5Data.nonce;
-    var ACTIVE_TAB = wpaipL5Data.tab || '';
+    var AJAX_URL = yimaiGsoL5Data.ajax_url;
+    var NONCE    = yimaiGsoL5Data.nonce;
+    var ACTIVE_TAB = yimaiGsoL5Data.tab || '';
 
     // ==================== 工具函数 ====================
 
@@ -90,7 +90,7 @@
 
     // 暴露全局入口供 admin.js 动态加载后调用
     var _l5InitedTabs = {};
-    window.wpaipL5Init = function (tab) {
+    window.yimaiGsoL5Init = function (tab) {
         // 每次切换都强制重跑，刷新数据（避免缓存导致用户看不到最新数据）
         // 但需要先销毁旧图表避免 Canvas 残留
         Object.keys(chartInstances).forEach(function (k) { destroyChart(k); });
@@ -123,10 +123,10 @@
     }
 
     function loadOverviewStats() {
-        ajaxGet('wpaip_l5_overview_stats', {}, function (resp) {
+        ajaxGet('yimai_gso_l5_overview_stats', {}, function (resp) {
             if (!resp || !resp.success) return;
             var d = resp.data;
-            var $row = $('#wpaip-l5-overview-stats');
+            var $row = $('#yimai-gso-l5-overview-stats');
 
             var cards = [
                 { val: d.seo_avg,        label: 'SEO 均分', color: '#ea580c' },
@@ -139,20 +139,20 @@
 
             var html = '';
             cards.forEach(function (c) {
-                html += '<div class="wpaip-l5-stat-card"><div class="wpaip-l5-stat-value" style="color:' + c.color + '">' + c.val + '</div><div class="wpaip-l5-stat-label">' + c.label + '</div></div>';
+                html += '<div class="yimai-gso-l5-stat-card"><div class="yimai-gso-l5-stat-value" style="color:' + c.color + '">' + c.val + '</div><div class="yimai-gso-l5-stat-label">' + c.label + '</div></div>';
             });
             $row.html(html);
         });
     }
 
     function loadSEODistribution() {
-        ajaxGet('wpaip_l5_seo_distribution', {}, function (resp) {
+        ajaxGet('yimai_gso_l5_seo_distribution', {}, function (resp) {
             if (!resp || !resp.success) {
                 console.warn('[一麦GSO L5] SEO分布加载失败', resp);
                 return;
             }
             var d = resp.data;
-            createChart('wpaip-l5-seo-chart', {
+            createChart('yimai-gso-l5-seo-chart', {
                 type: 'doughnut',
                 data: {
                     labels: ['A (优秀)', 'B (良好)', 'C (中等)', 'D (较差)', 'F (很差)'],
@@ -174,10 +174,10 @@
     }
 
     function loadGEODistribution() {
-        ajaxGet('wpaip_l5_geo_distribution', {}, function (resp) {
+        ajaxGet('yimai_gso_l5_geo_distribution', {}, function (resp) {
             if (!resp || !resp.success) return;
             var d = resp.data;
-            createChart('wpaip-l5-geo-chart', {
+            createChart('yimai-gso-l5-geo-chart', {
                 type: 'doughnut',
                 data: {
                     labels: ['A (优秀)', 'B (良好)', 'C (中等)', 'D (较差)', 'F (很差)'],
@@ -199,14 +199,14 @@
     }
 
     function loadSchemaCoverage() {
-        ajaxGet('wpaip_l5_schema_coverage', {}, function (resp) {
+        ajaxGet('yimai_gso_l5_schema_coverage', {}, function (resp) {
             if (!resp || !resp.success) return;
             var d = resp.data;
             var covered = d.covered || 0;
             var uncovered = d.uncovered || 0;
             var types = d.types || {};
 
-            createChart('wpaip-l5-schema-chart', {
+            createChart('yimai-gso-l5-schema-chart', {
                 type: 'bar',
                 data: {
                     labels: ['Article', 'FAQPage', 'HowTo', 'Product', '未覆盖'],
@@ -231,7 +231,7 @@
 
     function loadTrafficTrend(days) {
         days = days || 30;
-        ajaxGet('wpaip_l5_traffic_trend', { days: days }, function (resp) {
+        ajaxGet('yimai_gso_l5_traffic_trend', { days: days }, function (resp) {
             if (!resp || !resp.success) return;
             var d = resp.data;
             var crawler = d.crawler || [];
@@ -246,7 +246,7 @@
                 rData.push(found.length > 0 ? parseInt(found[0].visits) || 0 : 0);
             });
 
-            createChart('wpaip-l5-traffic-chart', {
+            createChart('yimai-gso-l5-traffic-chart', {
                 type: 'line',
                 data: {
                     labels: labels,
@@ -269,11 +269,11 @@
     }
 
     function loadSEOGeoScatter() {
-        ajaxGet('wpaip_l5_seo_geo_scatter', {}, function (resp) {
+        ajaxGet('yimai_gso_l5_seo_geo_scatter', {}, function (resp) {
             if (!resp || !resp.success) return;
             var points = resp.data || [];
 
-            createChart('wpaip-l5-scatter-chart', {
+            createChart('yimai-gso-l5-scatter-chart', {
                 type: 'scatter',
                 data: {
                     datasets: [{
@@ -321,8 +321,8 @@
         if (crawlerRefreshTimer) { clearInterval(crawlerRefreshTimer); crawlerRefreshTimer = null; }
 
         // 时间范围切换
-        $('.wpaip-l5-time-btn').off('click').on('click', function () {
-            $('.wpaip-l5-time-btn').removeClass('active');
+        $('.yimai-gso-l5-time-btn').off('click').on('click', function () {
+            $('.yimai-gso-l5-time-btn').removeClass('active');
             $(this).addClass('active');
             currentDays = parseInt($(this).data('days'));
             refreshCrawlerData(currentDays);
@@ -351,23 +351,23 @@
     }
 
     function loadCrawlerStats(days) {
-        ajaxGet('wpaip_l5_crawler_stats', { days: days }, function (resp) {
+        ajaxGet('yimai_gso_l5_crawler_stats', { days: days }, function (resp) {
             if (!resp || !resp.success) return;
             var d = resp.data;
-            $('#wpaip-l5-crawler-stats').html(
-                '<div class="wpaip-l5-stat-card"><div class="wpaip-l5-stat-value" style="color:#7c3aed">' + formatNum(d.total_visits) + '</div><div class="wpaip-l5-stat-label">总访问量</div></div>' +
-                '<div class="wpaip-l5-stat-card"><div class="wpaip-l5-stat-value" style="color:#2563eb">' + d.unique_crawlers + '</div><div class="wpaip-l5-stat-label">活跃爬虫</div></div>' +
-                '<div class="wpaip-l5-stat-card"><div class="wpaip-l5-stat-value" style="color:#059669">' + d.unique_pages + '</div><div class="wpaip-l5-stat-label">被爬页面</div></div>' +
-                '<div class="wpaip-l5-stat-card"><div class="wpaip-l5-stat-value" style="color:#d97706">' + d.today_count + '</div><div class="wpaip-l5-stat-label">今日访问</div></div>'
+            $('#yimai-gso-l5-crawler-stats').html(
+                '<div class="yimai-gso-l5-stat-card"><div class="yimai-gso-l5-stat-value" style="color:#7c3aed">' + formatNum(d.total_visits) + '</div><div class="yimai-gso-l5-stat-label">总访问量</div></div>' +
+                '<div class="yimai-gso-l5-stat-card"><div class="yimai-gso-l5-stat-value" style="color:#2563eb">' + d.unique_crawlers + '</div><div class="yimai-gso-l5-stat-label">活跃爬虫</div></div>' +
+                '<div class="yimai-gso-l5-stat-card"><div class="yimai-gso-l5-stat-value" style="color:#059669">' + d.unique_pages + '</div><div class="yimai-gso-l5-stat-label">被爬页面</div></div>' +
+                '<div class="yimai-gso-l5-stat-card"><div class="yimai-gso-l5-stat-value" style="color:#d97706">' + d.today_count + '</div><div class="yimai-gso-l5-stat-label">今日访问</div></div>'
             );
         });
     }
 
     function loadCrawlerTrend(days) {
-        ajaxGet('wpaip_l5_crawler_trend', { days: days }, function (resp) {
+        ajaxGet('yimai_gso_l5_crawler_trend', { days: days }, function (resp) {
             if (!resp || !resp.success) return;
             var data = resp.data || [];
-            createChart('wpaip-l5-crawler-trend-chart', {
+            createChart('yimai-gso-l5-crawler-trend-chart', {
                 type: 'line',
                 data: {
                     labels: data.map(function (r) { return r.date; }),
@@ -390,10 +390,10 @@
     }
 
     function loadCrawlerFamily(days) {
-        ajaxGet('wpaip_l5_crawler_family', { days: days }, function (resp) {
+        ajaxGet('yimai_gso_l5_crawler_family', { days: days }, function (resp) {
             if (!resp || !resp.success) return;
             var data = resp.data || [];
-            createChart('wpaip-l5-crawler-family-chart', {
+            createChart('yimai-gso-l5-crawler-family-chart', {
                 type: 'doughnut',
                 data: {
                     labels: data.map(function (r) { return r.label; }),
@@ -412,12 +412,12 @@
     }
 
     function loadCrawlerRanking(days) {
-        ajaxGet('wpaip_l5_crawler_ranking', { days: days }, function (resp) {
+        ajaxGet('yimai_gso_l5_crawler_ranking', { days: days }, function (resp) {
             if (!resp || !resp.success) return;
             var data = resp.data || [];
             // 横向柱状图：只取 Top 10
             var top10 = data.slice(0, 10);
-            createChart('wpaip-l5-crawler-ranking-chart', {
+            createChart('yimai-gso-l5-crawler-ranking-chart', {
                 type: 'bar',
                 data: {
                     labels: top10.map(function (r) { return r.crawler_name; }),
@@ -439,10 +439,10 @@
     }
 
     function loadCrawlerTopPages(days) {
-        ajaxGet('wpaip_l5_crawler_top_pages', { days: days, limit: 15 }, function (resp) {
+        ajaxGet('yimai_gso_l5_crawler_top_pages', { days: days, limit: 15 }, function (resp) {
             if (!resp || !resp.success) return;
             var data = resp.data || [];
-            var html = '<table class="wpaip-l5-table"><thead><tr><th style="width:50%">页面</th><th style="width:18%">访问次数</th><th style="width:32%">爬虫</th></tr></thead><tbody>';
+            var html = '<table class="yimai-gso-l5-table"><thead><tr><th style="width:50%">页面</th><th style="width:18%">访问次数</th><th style="width:32%">爬虫</th></tr></thead><tbody>';
             data.forEach(function (p) {
                 var title = p.post_title || p.request_url || '-';
                 var url   = p.edit_url ? p.edit_url : '#';
@@ -453,23 +453,23 @@
                 var crawlerDisplay = crawlerList.length > 3
                     ? crawlerList.slice(0, 3).join(', ') + ' +' + (crawlerList.length - 3)
                     : crawlers;
-                html += '<tr><td>' + link + '</td><td><strong>' + p.hits + '</strong></td><td class="wpaip-l5-crawler-cell" title="' + crawlers.replace(/"/g, '&quot;') + '">' + crawlerDisplay + '</td></tr>';
+                html += '<tr><td>' + link + '</td><td><strong>' + p.hits + '</strong></td><td class="yimai-gso-l5-crawler-cell" title="' + crawlers.replace(/"/g, '&quot;') + '">' + crawlerDisplay + '</td></tr>';
             });
             html += '</tbody></table>';
-            $('#wpaip-l5-top-pages-list').html(html);
+            $('#yimai-gso-l5-top-pages-list').html(html);
         });
     }
 
     function loadCrawlerRecent() {
-        ajaxGet('wpaip_l5_crawler_recent', { limit: 10 }, function (resp) {
+        ajaxGet('yimai_gso_l5_crawler_recent', { limit: 10 }, function (resp) {
             if (!resp || !resp.success) return;
             var data = resp.data || [];
-            var html = '<table class="wpaip-l5-table"><thead><tr><th>时间</th><th>爬虫</th><th>URL</th><th>状态码</th></tr></thead><tbody>';
+            var html = '<table class="yimai-gso-l5-table"><thead><tr><th>时间</th><th>爬虫</th><th>URL</th><th>状态码</th></tr></thead><tbody>';
             data.forEach(function (r) {
                 html += '<tr><td>' + (r.time_ago || '') + '</td><td>' + r.crawler_name + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r.request_url || '') + '</td><td>' + (r.response_code || 200) + '</td></tr>';
             });
             html += '</tbody></table>';
-            $('#wpaip-l5-recent-log').html(html);
+            $('#yimai-gso-l5-recent-log').html(html);
         });
     }
 
@@ -479,8 +479,8 @@
         var diagnosing = false;
 
         function renderResult(result) {
-            $('#wpaip-l5-diagnosis-empty').hide();
-            $('#wpaip-l5-diagnosis-result').show();
+            $('#yimai-gso-l5-diagnosis-empty').hide();
+            $('#yimai-gso-l5-diagnosis-result').show();
 
             var g = result.grade || {};
             var scoreColor = g.color || '#9ca3af';
@@ -489,23 +489,23 @@
 
             // 总评分卡片 — 大圆环 + 右侧信息
             var overviewHtml =
-                '<div class="wpaip-l5-diag-score-card">' +
-                    '<div class="wpaip-l5-diag-score-ring-wrap">' +
-                        '<svg class="wpaip-l5-diag-score-ring" viewBox="0 0 120 120">' +
-                            '<circle class="wpaip-l5-diag-ring-bg" cx="60" cy="60" r="54"/>' +
-                            '<circle class="wpaip-l5-diag-ring-fg" cx="60" cy="60" r="54" ' +
+                '<div class="yimai-gso-l5-diag-score-card">' +
+                    '<div class="yimai-gso-l5-diag-score-ring-wrap">' +
+                        '<svg class="yimai-gso-l5-diag-score-ring" viewBox="0 0 120 120">' +
+                            '<circle class="yimai-gso-l5-diag-ring-bg" cx="60" cy="60" r="54"/>' +
+                            '<circle class="yimai-gso-l5-diag-ring-fg" cx="60" cy="60" r="54" ' +
                                 'stroke-dasharray="339.292" stroke-dashoffset="' + (339.292 - (339.292 * Math.min(100, Math.max(0, result.overall_score)) / 100)) + '" ' +
                                 'stroke="' + scoreColor + '"/>' +
                         '</svg>' +
-                        '<div class="wpaip-l5-diag-score-inner">' +
-                            '<div class="wpaip-l5-diag-score-num" style="color:' + scoreColor + '">' + result.overall_score + '</div>' +
-                            '<div class="wpaip-l5-diag-score-den">/ 100</div>' +
+                        '<div class="yimai-gso-l5-diag-score-inner">' +
+                            '<div class="yimai-gso-l5-diag-score-num" style="color:' + scoreColor + '">' + result.overall_score + '</div>' +
+                            '<div class="yimai-gso-l5-diag-score-den">/ 100</div>' +
                         '</div>' +
                     '</div>' +
-                    '<div class="wpaip-l5-diag-score-info">' +
-                        '<div class="wpaip-l5-diag-score-grade" style="background:' + scoreBg + ';color:' + scoreColor + '">' + scoreLabel + '</div>' +
-                        '<div class="wpaip-l5-diag-score-label">综合友好度评分</div>' +
-                        '<div class="wpaip-l5-diag-score-time">诊断时间：' + (result.checked_at || '') + '</div>' +
+                    '<div class="yimai-gso-l5-diag-score-info">' +
+                        '<div class="yimai-gso-l5-diag-score-grade" style="background:' + scoreBg + ';color:' + scoreColor + '">' + scoreLabel + '</div>' +
+                        '<div class="yimai-gso-l5-diag-score-label">综合友好度评分</div>' +
+                        '<div class="yimai-gso-l5-diag-score-time">诊断时间：' + (result.checked_at || '') + '</div>' +
                     '</div>' +
                 '</div>';
 
@@ -517,16 +517,16 @@
                 var barColor = c.status === 'pass' ? '#10b981' : (c.status === 'warn' ? '#f59e0b' : '#ef4444');
                 var pct = Math.min(100, Math.max(0, c.score));
                 checksHtml +=
-                    '<div class="wpaip-l5-diag-check-card ' + statusClass + '">' +
-                        '<div class="wpaip-l5-diag-check-top">' +
-                            '<span class="wpaip-l5-diag-check-icon dashicons dashicons-' + statusIcon + '"></span>' +
-                            '<span class="wpaip-l5-diag-check-name">' + c.name + '</span>' +
-                            '<span class="wpaip-l5-diag-check-score-num" style="color:' + barColor + '">' + c.score + '<small>/' + c.max_score + '</small></span>' +
+                    '<div class="yimai-gso-l5-diag-check-card ' + statusClass + '">' +
+                        '<div class="yimai-gso-l5-diag-check-top">' +
+                            '<span class="yimai-gso-l5-diag-check-icon dashicons dashicons-' + statusIcon + '"></span>' +
+                            '<span class="yimai-gso-l5-diag-check-name">' + c.name + '</span>' +
+                            '<span class="yimai-gso-l5-diag-check-score-num" style="color:' + barColor + '">' + c.score + '<small>/' + c.max_score + '</small></span>' +
                         '</div>' +
-                        '<div class="wpaip-l5-diag-check-bar">' +
-                            '<div class="wpaip-l5-diag-check-fill" style="width:' + pct + '%;background:' + barColor + '"></div>' +
+                        '<div class="yimai-gso-l5-diag-check-bar">' +
+                            '<div class="yimai-gso-l5-diag-check-fill" style="width:' + pct + '%;background:' + barColor + '"></div>' +
                         '</div>' +
-                        '<div class="wpaip-l5-diag-check-detail">' + c.detail + '</div>' +
+                        '<div class="yimai-gso-l5-diag-check-detail">' + c.detail + '</div>' +
                     '</div>';
             });
 
@@ -535,18 +535,18 @@
             var blocked = result.blocked_crawlers || [];
             if (blocked.length > 0) {
                 blockedHtml =
-                    '<div class="wpaip-l5-diag-detail-card blocked">' +
-                        '<div class="wpaip-l5-diag-detail-header">' +
+                    '<div class="yimai-gso-l5-diag-detail-card blocked">' +
+                        '<div class="yimai-gso-l5-diag-detail-header">' +
                             '<span class="dashicons dashicons-dismiss"></span>' +
                             '<span>被封锁的 AI 爬虫</span>' +
-                            '<span class="wpaip-l5-diag-detail-count">' + blocked.length + '</span>' +
+                            '<span class="yimai-gso-l5-diag-detail-count">' + blocked.length + '</span>' +
                         '</div>' +
-                        '<div class="wpaip-l5-diag-detail-body">';
+                        '<div class="yimai-gso-l5-diag-detail-body">';
                 blocked.forEach(function (b) {
                     blockedHtml +=
-                        '<div class="wpaip-l5-diag-detail-item">' +
-                            '<span class="wpaip-l5-diag-detail-bot">' + b.bot + '</span>' +
-                            '<span class="wpaip-l5-diag-detail-suggestion">' + (b.suggestion || '') + '</span>' +
+                        '<div class="yimai-gso-l5-diag-detail-item">' +
+                            '<span class="yimai-gso-l5-diag-detail-bot">' + b.bot + '</span>' +
+                            '<span class="yimai-gso-l5-diag-detail-suggestion">' + (b.suggestion || '') + '</span>' +
                         '</div>';
                 });
                 blockedHtml += '</div></div>';
@@ -557,64 +557,64 @@
             var issues = result.issues || [];
             if (issues.length > 0) {
                 issuesHtml =
-                    '<div class="wpaip-l5-diag-detail-card issues">' +
-                        '<div class="wpaip-l5-diag-detail-header">' +
+                    '<div class="yimai-gso-l5-diag-detail-card issues">' +
+                        '<div class="yimai-gso-l5-diag-detail-header">' +
                             '<span class="dashicons dashicons-lightbulb"></span>' +
                             '<span>优化建议</span>' +
-                            '<span class="wpaip-l5-diag-detail-count">' + issues.length + '</span>' +
+                            '<span class="yimai-gso-l5-diag-detail-count">' + issues.length + '</span>' +
                         '</div>' +
-                        '<div class="wpaip-l5-diag-detail-body">';
+                        '<div class="yimai-gso-l5-diag-detail-body">';
                 issues.forEach(function (iss, idx) {
                     issuesHtml +=
-                        '<div class="wpaip-l5-diag-detail-item">' +
-                            '<span class="wpaip-l5-diag-detail-idx">' + (idx + 1) + '</span>' +
-                            '<span class="wpaip-l5-diag-detail-text">' + iss + '</span>' +
+                        '<div class="yimai-gso-l5-diag-detail-item">' +
+                            '<span class="yimai-gso-l5-diag-detail-idx">' + (idx + 1) + '</span>' +
+                            '<span class="yimai-gso-l5-diag-detail-text">' + iss + '</span>' +
                         '</div>';
                 });
                 issuesHtml += '</div></div>';
             }
 
-            $('#wpaip-l5-diag-overview').html(overviewHtml);
-            $('#wpaip-l5-diag-checks').html(checksHtml);
-            $('#wpaip-l5-diag-blocked').html(blockedHtml);
-            $('#wpaip-l5-diag-issues').html(issuesHtml);
+            $('#yimai-gso-l5-diag-overview').html(overviewHtml);
+            $('#yimai-gso-l5-diag-checks').html(checksHtml);
+            $('#yimai-gso-l5-diag-blocked').html(blockedHtml);
+            $('#yimai-gso-l5-diag-issues').html(issuesHtml);
 
             // robots.txt 预览
             loadRobotsPreview();
         }
 
-        $('#wpaip-l5-diagnosis-run').on('click', function () {
+        $('#yimai-gso-l5-diagnosis-run').on('click', function () {
             if (diagnosing) return;
             diagnosing = true;
-            $('#wpaip-l5-diagnosis-status').html('⏳ 诊断中...');
-            ajaxPost('wpaip_l5_diagnosis_run', {}, function (resp) {
+            $('#yimai-gso-l5-diagnosis-status').html('⏳ 诊断中...');
+            ajaxPost('yimai_gso_l5_diagnosis_run', {}, function (resp) {
                 diagnosing = false;
                 if (resp.success) {
-                    $('#wpaip-l5-diagnosis-status').html('✅ 诊断完成');
+                    $('#yimai-gso-l5-diagnosis-status').html('✅ 诊断完成');
                     renderResult(resp.data);
                 } else {
-                    $('#wpaip-l5-diagnosis-status').html('❌ 诊断失败');
+                    $('#yimai-gso-l5-diagnosis-status').html('❌ 诊断失败');
                 }
             });
         });
 
-        $('#wpaip-l5-diagnosis-force').on('click', function () {
+        $('#yimai-gso-l5-diagnosis-force').on('click', function () {
             if (diagnosing) return;
             diagnosing = true;
-            $('#wpaip-l5-diagnosis-status').html('⏳ 强制重诊中...');
-            ajaxPost('wpaip_l5_diagnosis_run', { force: 1 }, function (resp) {
+            $('#yimai-gso-l5-diagnosis-status').html('⏳ 强制重诊中...');
+            ajaxPost('yimai_gso_l5_diagnosis_run', { force: 1 }, function (resp) {
                 diagnosing = false;
                 if (resp.success) {
-                    $('#wpaip-l5-diagnosis-status').html('✅ 诊断完成');
+                    $('#yimai-gso-l5-diagnosis-status').html('✅ 诊断完成');
                     renderResult(resp.data);
                 } else {
-                    $('#wpaip-l5-diagnosis-status').html('❌ 诊断失败');
+                    $('#yimai-gso-l5-diagnosis-status').html('❌ 诊断失败');
                 }
             });
         });
 
         // 首次加载尝试读缓存
-        ajaxPost('wpaip_l5_diagnosis_run', {}, function (resp) {
+        ajaxPost('yimai_gso_l5_diagnosis_run', {}, function (resp) {
             if (resp.success && resp.data.overall_score !== undefined) {
                 renderResult(resp.data);
             }
@@ -622,35 +622,35 @@
     }
 
     function loadRobotsPreview() {
-        ajaxGet('wpaip_l5_diagnosis_robots_preview', {}, function (resp) {
+        ajaxGet('yimai_gso_l5_diagnosis_robots_preview', {}, function (resp) {
             if (!resp || !resp.success) return;
             var d = resp.data;
-            var html = '<div class="wpaip-l5-diag-robots-meta">' +
-                '<span class="wpaip-l5-diag-robots-tag">HTTP 状态码 <strong>' + d.http_code + '</strong></span>' +
-                '<span class="wpaip-l5-diag-robots-tag">AI 规则 <strong>' + (d.has_ai_rules ? '已配置' : '未配置') + '</strong></span>' +
+            var html = '<div class="yimai-gso-l5-diag-robots-meta">' +
+                '<span class="yimai-gso-l5-diag-robots-tag">HTTP 状态码 <strong>' + d.http_code + '</strong></span>' +
+                '<span class="yimai-gso-l5-diag-robots-tag">AI 规则 <strong>' + (d.has_ai_rules ? '已配置' : '未配置') + '</strong></span>' +
                 '</div>';
 
             if (d.ai_uas && d.ai_uas.length > 0) {
-                html += '<div class="wpaip-l5-diag-robots-uas">' +
-                    '<div class="wpaip-l5-diag-robots-subtitle">检测到的 AI 爬虫 User-Agent</div>';
+                html += '<div class="yimai-gso-l5-diag-robots-uas">' +
+                    '<div class="yimai-gso-l5-diag-robots-subtitle">检测到的 AI 爬虫 User-Agent</div>';
                 d.ai_uas.forEach(function (ua) {
-                    html += '<span class="wpaip-l5-diag-robots-ua">' + ua + '</span>';
+                    html += '<span class="yimai-gso-l5-diag-robots-ua">' + ua + '</span>';
                 });
                 html += '</div>';
             }
 
             if (d.ai_rules && d.ai_rules.length > 0) {
-                html += '<table class="wpaip-l5-diag-robots-table"><thead><tr><th>User-Agent</th><th>指令</th><th>路径</th></tr></thead><tbody>';
+                html += '<table class="yimai-gso-l5-diag-robots-table"><thead><tr><th>User-Agent</th><th>指令</th><th>路径</th></tr></thead><tbody>';
                 d.ai_rules.forEach(function (r) {
                     var dirClass = r.directive === 'allow' ? 'allow' : 'disallow';
                     html += '<tr><td>' + r.ua + '</td>' +
-                        '<td><span class="wpaip-l5-diag-robots-directive ' + dirClass + '">' + r.directive + '</span></td>' +
+                        '<td><span class="yimai-gso-l5-diag-robots-directive ' + dirClass + '">' + r.directive + '</span></td>' +
                         '<td><code>' + r.path + '</code></td></tr>';
                 });
                 html += '</tbody></table>';
             }
 
-            $('#wpaip-l5-robots-content').html(html);
+            $('#yimai-gso-l5-robots-content').html(html);
         });
     }
 
@@ -668,14 +668,14 @@
             if (currentStatus) params.status = currentStatus;
             if (currentSeverity) params.severity = currentSeverity;
 
-            ajaxGet('wpaip_l5_alerts_list', params, function (resp) {
+            ajaxGet('yimai_gso_l5_alerts_list', params, function (resp) {
                 if (!resp || !resp.success) return;
                 var d = resp.data;
                 var items = d.items || [];
 
                 if (items.length === 0) {
-                    $('#wpaip-l5-alert-list').html('<div class="wpaip-l5-empty-state"><div class="wpaip-l5-empty-icon">✅</div><p>暂无预警记录</p></div>');
-                    $('#wpaip-l5-alert-pagination').html('');
+                    $('#yimai-gso-l5-alert-list').html('<div class="yimai-gso-l5-empty-state"><div class="yimai-gso-l5-empty-icon">✅</div><p>暂无预警记录</p></div>');
+                    $('#yimai-gso-l5-alert-pagination').html('');
                     return;
                 }
 
@@ -685,23 +685,23 @@
                     var sevLabel = alert.severity === 'critical' ? '严重' : (alert.severity === 'warning' ? '警告' : '信息');
                     var statusLabel = { active:'未处理', acknowledged:'已确认', resolved:'已解决', dismissed:'已忽略' }[alert.status] || alert.status;
 
-                    html += '<div class="wpaip-l5-alert-item wpaip-l5-alert-' + sevClass + '" data-id="' + alert.id + '">' +
-                        '<div class="wpaip-l5-alert-item-left"><span class="wpaip-l5-alert-severity wpaip-l5-alert-sev-' + sevClass + '">' + sevLabel + '</span></div>' +
-                        '<div class="wpaip-l5-alert-item-body">' +
-                            '<div class="wpaip-l5-alert-item-title">' + (alert.title || '') + ' <span class="wpaip-l5-alert-rule">' + (alert.rule_label || '') + '</span></div>' +
-                            '<div class="wpaip-l5-alert-item-message">' + (alert.message || '') + '</div>' +
-                            '<div class="wpaip-l5-alert-item-meta">' + alert.created_at + ' · ' + statusLabel + '</div>' +
+                    html += '<div class="yimai-gso-l5-alert-item yimai-gso-l5-alert-' + sevClass + '" data-id="' + alert.id + '">' +
+                        '<div class="yimai-gso-l5-alert-item-left"><span class="yimai-gso-l5-alert-severity yimai-gso-l5-alert-sev-' + sevClass + '">' + sevLabel + '</span></div>' +
+                        '<div class="yimai-gso-l5-alert-item-body">' +
+                            '<div class="yimai-gso-l5-alert-item-title">' + (alert.title || '') + ' <span class="yimai-gso-l5-alert-rule">' + (alert.rule_label || '') + '</span></div>' +
+                            '<div class="yimai-gso-l5-alert-item-message">' + (alert.message || '') + '</div>' +
+                            '<div class="yimai-gso-l5-alert-item-meta">' + alert.created_at + ' · ' + statusLabel + '</div>' +
                         '</div>' +
-                        '<div class="wpaip-l5-alert-item-actions">';
+                        '<div class="yimai-gso-l5-alert-item-actions">';
                     if (alert.status === 'active') {
-                        html += '<button class="button button-small wpaip-l5-alert-ack" data-id="' + alert.id + '">确认</button> ' +
-                                '<button class="button button-small wpaip-l5-alert-resolve" data-id="' + alert.id + '">解决</button> ' +
-                                '<button class="button button-small wpaip-l5-alert-dismiss" data-id="' + alert.id + '">忽略</button>';
+                        html += '<button class="button button-small yimai-gso-l5-alert-ack" data-id="' + alert.id + '">确认</button> ' +
+                                '<button class="button button-small yimai-gso-l5-alert-resolve" data-id="' + alert.id + '">解决</button> ' +
+                                '<button class="button button-small yimai-gso-l5-alert-dismiss" data-id="' + alert.id + '">忽略</button>';
                     }
                     html += '</div></div>';
                 });
 
-                $('#wpaip-l5-alert-list').html(html);
+                $('#yimai-gso-l5-alert-list').html(html);
 
                 // 分页
                 var totalPages = Math.ceil(d.total / d.per_page);
@@ -712,44 +712,44 @@
                         pagHtml += '<button class="button button-small ' + (i === currentPage ? 'button-primary' : '') + '" data-page="' + i + '">' + i + '</button> ';
                     }
                 }
-                $('#wpaip-l5-alert-pagination').html(pagHtml);
+                $('#yimai-gso-l5-alert-pagination').html(pagHtml);
 
                 // 绑定分页
-                $('#wpaip-l5-alert-pagination button').on('click', function () {
+                $('#yimai-gso-l5-alert-pagination button').on('click', function () {
                     loadAlerts(parseInt($(this).data('page')));
                 });
             });
         }
 
         // 筛选
-        $('#wpaip-l5-alert-status-filter, #wpaip-l5-alert-severity-filter').on('change', function () {
-            currentStatus = $('#wpaip-l5-alert-status-filter').val();
-            currentSeverity = $('#wpaip-l5-alert-severity-filter').val();
+        $('#yimai-gso-l5-alert-status-filter, #yimai-gso-l5-alert-severity-filter').on('change', function () {
+            currentStatus = $('#yimai-gso-l5-alert-status-filter').val();
+            currentSeverity = $('#yimai-gso-l5-alert-severity-filter').val();
             loadAlerts(1);
         });
 
         // 操作绑定
-        $(document).on('click', '.wpaip-l5-alert-ack', function () {
+        $(document).on('click', '.yimai-gso-l5-alert-ack', function () {
             var id = $(this).data('id');
-            ajaxPost('wpaip_l5_alerts_acknowledge', { id: id }, function () { loadAlerts(currentPage); });
+            ajaxPost('yimai_gso_l5_alerts_acknowledge', { id: id }, function () { loadAlerts(currentPage); });
         });
-        $(document).on('click', '.wpaip-l5-alert-resolve', function () {
+        $(document).on('click', '.yimai-gso-l5-alert-resolve', function () {
             var id = $(this).data('id');
-            ajaxPost('wpaip_l5_alerts_resolve', { id: id }, function () { loadAlerts(currentPage); });
+            ajaxPost('yimai_gso_l5_alerts_resolve', { id: id }, function () { loadAlerts(currentPage); });
         });
-        $(document).on('click', '.wpaip-l5-alert-dismiss', function () {
+        $(document).on('click', '.yimai-gso-l5-alert-dismiss', function () {
             var id = $(this).data('id');
-            ajaxPost('wpaip_l5_alerts_dismiss', { id: id }, function () { loadAlerts(currentPage); });
+            ajaxPost('yimai_gso_l5_alerts_dismiss', { id: id }, function () { loadAlerts(currentPage); });
         });
 
         // 配置弹窗
-        $('#wpaip-l5-alert-config-btn').on('click', function () {
-            $('#wpaip-l5-alert-config-modal').show();
+        $('#yimai-gso-l5-alert-config-btn').on('click', function () {
+            $('#yimai-gso-l5-alert-config-modal').show();
         });
-        $('.wpaip-l5-modal-close, .wpaip-l5-modal-cancel').on('click', function () {
-            $('#wpaip-l5-alert-config-modal').hide();
+        $('.yimai-gso-l5-modal-close, .yimai-gso-l5-modal-cancel').on('click', function () {
+            $('#yimai-gso-l5-alert-config-modal').hide();
         });
-        $('#wpaip-l5-alert-config-save').on('click', function () {
+        $('#yimai-gso-l5-alert-config-save').on('click', function () {
             var config = {
                 r1_schema_error: $('#l5-config-r1').is(':checked') ? 1 : 0,
                 r2_crawler_blocked: $('#l5-config-r2').is(':checked') ? 1 : 0,
@@ -758,21 +758,21 @@
                 score_drop_threshold: parseInt($('#l5-config-score-threshold').val()) || 15,
                 traffic_drop_pct: parseInt($('#l5-config-traffic-pct').val()) || 50
             };
-            ajaxPost('wpaip_l5_alerts_config', config, function (resp) {
+            ajaxPost('yimai_gso_l5_alerts_config', config, function (resp) {
                 if (resp.success) {
-                    $('#wpaip-l5-alert-config-modal').hide();
+                    $('#yimai-gso-l5-alert-config-modal').hide();
                     loadAlerts(currentPage);
                 }
             });
         });
 
         // 手动运行全部检测
-        $('#wpaip-l5-alert-run-all-btn').on('click', function () {
+        $('#yimai-gso-l5-alert-run-all-btn').on('click', function () {
             var $btn = $(this);
-            var $status = $('#wpaip-l5-alert-run-status');
+            var $status = $('#yimai-gso-l5-alert-run-status');
             $btn.prop('disabled', true).text('⏳ 检测中...');
             $status.text('');
-            ajaxPost('wpaip_l5_alerts_run_all', {}, function (resp) {
+            ajaxPost('yimai_gso_l5_alerts_run_all', {}, function (resp) {
                 $btn.prop('disabled', false).text('▶ 立即运行全部检测');
                 if (!resp || !resp.success) {
                     $status.css('color', '#ef4444').text('检测失败，请查看浏览器控制台');
@@ -795,7 +795,7 @@
         loadAlerts(1);
     }
 
-    // 启动逻辑改为：document.ready 时若当前 main-panel 可见的 l5 tab，调用 wpaipL5Init
+    // 启动逻辑改为：document.ready 时若当前 main-panel 可见的 l5 tab，调用 yimaiGsoL5Init
     // 由于 script 是动态加载的，IIFE 内代码执行时 DOM 已 ready
     $(function () {
         if (typeof Chart === 'undefined') {
@@ -808,9 +808,9 @@
             initialTab = url.searchParams.get('tab') || '';
         } catch (e) {}
         if (initialTab.indexOf('l5-') === 0) {
-            var $panel = $('.wpaip-main-panel[data-tab="' + initialTab + '"].active');
-            if ($panel.length && typeof window.wpaipL5Init === 'function') {
-                window.wpaipL5Init(initialTab);
+            var $panel = $('.yimai-gso-main-panel[data-tab="' + initialTab + '"].active');
+            if ($panel.length && typeof window.yimaiGsoL5Init === 'function') {
+                window.yimaiGsoL5Init(initialTab);
             }
         }
     });

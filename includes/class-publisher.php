@@ -1,21 +1,21 @@
 <?php
 /**
- * 文章发布类 - v1.4.1
+ * 文章发布类
  * 修复：get_date_from_gmt() 使用方向修正（本地时间→UTC 应该用 get_gmt_from_date）
  * 性能优化：download_and_replace_images 支持跳过已上传图片，缩短下载超时
- * v1.4.0：跳过已有ALT的图片处理、图片下载超时10秒
- * v1.4.1：智能内链恢复同步执行（WP-Cron异步不可靠导致候选数为0）
+ * 跳过已有ALT的图片处理、图片下载超时10秒
+ * 智能内链恢复同步执行（WP-Cron异步不可靠导致候选数为0）
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_2I0E {
+class YIMAI_GSO_Publisher {
 
     /**
-     * v2.9.72: 发布后自动摘要异步队列 cron 钩子
+     * 发布后自动摘要异步队列 cron 钩子
      * 自动摘要从 publish() 内的同步调用改为 WP-Cron 异步执行，
      * 避免永动发布 publish() 卡在 AI 摘要调用上导致 item 永久卡 running。
      */
-    const ASYNC_EXCERPT_HOOK = 'wpaip_async_excerpt_generate';
+    const ASYNC_EXCERPT_HOOK = 'yimai_gso_async_excerpt_generate';
 
     /**
      * 注册异步摘要 cron 处理钩子（在插件初始化时调用）
@@ -25,7 +25,7 @@ class WPAIP_2I0E {
     }
 
     /**
-     * v2.9.72: 异步生成文章摘要（WP-Cron 回调）
+     * 异步生成文章摘要（WP-Cron 回调）
      * 从 publish() 主流程剥离，避免同步 AI 调用阻塞发布，导致永动发布 item 卡 running。
      *
      * @param int $post_id
@@ -41,11 +41,11 @@ class WPAIP_2I0E {
         if ( ! $post || ! empty( $post->post_excerpt ) ) {
             return;
         }
-        $auto_excerpt = WPAIP_9XCU::get( 'auto_excerpt_on_publish', 0 );
+        $auto_excerpt = YIMAI_GSO_Settings::get( 'auto_excerpt_on_publish', 0 );
         if ( ! $auto_excerpt ) {
             return;
         }
-        $api_key = WPAIP_9XCU::get( 'ai_api_key', '' );
+        $api_key = YIMAI_GSO_Settings::get( 'ai_api_key', '' );
         if ( empty( $api_key ) ) {
             return;
         }
@@ -57,8 +57,8 @@ class WPAIP_2I0E {
         }
 
         try {
-            require_once WPAIP_PLUGIN_DIR . 'includes/class-ai-generator.php';
-            $generator = new WPAIP_CGGE();
+            require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-ai-generator.php';
+            $generator = new YIMAI_GSO_AI_Generator();
             $excerpt   = $generator->generate_excerpt( $post );
 
             if ( ! is_wp_error( $excerpt ) && ! empty( $excerpt ) ) {
@@ -90,7 +90,7 @@ class WPAIP_2I0E {
         $dto = new DateTimeImmutable( $normalized, $tz );
 
         // 0. 顺序偏移：同一次批量中，每篇文章间隔2分钟，避免全部堆在同一时刻
-        // v2.9.73: $article_index 在永动发布分批执行时会累积之前的 success/failed count，
+        // $article_index 在永动发布分批执行时会累积之前的 success/failed count，
         // 上限 10 篇（20 分钟），防止多批次后偏移膨胀到数小时。
         if ( $article_index > 0 ) {
             $capped_index = min( absint( $article_index ), 10 );
@@ -99,7 +99,7 @@ class WPAIP_2I0E {
         }
 
         // 1. 时间随机偏移
-        $jitter = absint( WPAIP_9XCU::get( 'publish_time_jitter', 0 ) );
+        $jitter = absint( YIMAI_GSO_Settings::get( 'publish_time_jitter', 0 ) );
         if ( $jitter > 0 ) {
             // 用文章序号做种子，让同一次批量中每篇的偏移不同但可复现
             $random_offset = wp_rand( -$jitter, $jitter );
@@ -107,7 +107,7 @@ class WPAIP_2I0E {
         }
 
         // 2. 仅在工作时间（8:00-23:00）
-        $work_hours = (bool) WPAIP_9XCU::get( 'publish_work_hours_only', 0 );
+        $work_hours = (bool) YIMAI_GSO_Settings::get( 'publish_work_hours_only', 0 );
         if ( $work_hours ) {
             $hour = intval( $dto->format( 'H' ) );
             $minute = intval( $dto->format( 'i' ) );
@@ -124,7 +124,7 @@ class WPAIP_2I0E {
         }
 
         // 3. 跳过指定日期
-        $skip_days = WPAIP_9XCU::get( 'publish_skip_days', array() );
+        $skip_days = YIMAI_GSO_Settings::get( 'publish_skip_days', array() );
         if ( is_array( $skip_days ) && ! empty( $skip_days ) ) {
             $day_of_week = intval( $dto->format( 'w' ) ); // 0=Sunday, 1=Monday ...
             $max_retries = 14; // 最多顺延14天
@@ -141,7 +141,7 @@ class WPAIP_2I0E {
     /**
      * 把各种格式（2026/03/27 15:06、2026-03-27T15:06 等）统一转为 Y-m-d H:i:s
      *
-     * 修复说明（v1.31.9）：
+     * 修复说明
      * 原来使用 strtotime() + date() 会受 PHP 服务器时区影响（很多主机默认 UTC），
      * 导致传入的北京时间被按 UTC 解析，再经 get_gmt_from_date() 二次偏移，
      * 最终 UTC 时间比实际早8小时，触发"必须是未来时间"错误，造成定时发布失败。
@@ -188,7 +188,7 @@ class WPAIP_2I0E {
         }
 
         $gmt_date = get_gmt_from_date( $normalized, 'Y-m-d H:i:s' );
-        // v2.9.73 修复：strtotime() 依赖 PHP 默认时区，若时区非 UTC 会误将 GMT 时间当本地时间解析，
+        //  修复：strtotime() 依赖 PHP 默认时区，若时区非 UTC 会误将 GMT 时间当本地时间解析，
         // 导致 timestamp 偏差（东八区偏移 8h → 被误判为过去时间 → 定时发布失败）。
         // 改用 DateTimeImmutable + 显式 UTC 时区，消除时区依赖。
         try {
@@ -223,7 +223,7 @@ class WPAIP_2I0E {
         // 使用 wp_kses_post 过滤HTML：允许正常标签（img/a/p/h1-h6等），禁止危险标签（script/iframe/on*事件）
         $content      = wp_kses_post( $data['content'] ?? '' );
         $excerpt      = sanitize_textarea_field( $data['excerpt'] ?? '' );
-        $category_id  = absint( $data['category_id'] ?? get_option( 'wpaip_default_category', 1 ) );
+        $category_id  = absint( $data['category_id'] ?? get_option( 'yimai_gso_default_category', 1 ) );
         $tags         = sanitize_text_field( $data['tags'] ?? '' );
         $status       = sanitize_text_field( $data['status'] ?? 'draft' );
         $scheduled_at = sanitize_text_field( $data['scheduled_at'] ?? '' );
@@ -244,8 +244,8 @@ class WPAIP_2I0E {
 
         // ===== AI 生图 Phase 2：生成阶段跳过的剩余图片，现在生成并注入 =====
         $pending_prompts = isset( $data['pending_image_prompts'] ) ? $data['pending_image_prompts'] : array();
-        if ( ! empty( $pending_prompts ) && class_exists( 'WPAIP_6DVW' ) ) {
-            $ai_gen = new WPAIP_6DVW();
+        if ( ! empty( $pending_prompts ) && class_exists( 'YIMAI_GSO_AI_Image_Generator' ) ) {
+            $ai_gen = new YIMAI_GSO_AI_Image_Generator();
             $images = array();
             $section_map = array();
             $image_keyword = $keywords ? $keywords : $prompt;
@@ -305,7 +305,7 @@ class WPAIP_2I0E {
             'title'    => $title,
             'keyword'  => $keywords ? $keywords : $prompt,
             'excerpt'  => $excerpt,
-            'language' => $data['language'] ?? WPAIP_9XCU::get( 'article_language', 'zh_CN' ),
+            'language' => $data['language'] ?? YIMAI_GSO_Settings::get( 'article_language', 'zh_CN' ),
             'source'   => $source,
         ) );
         $content        = $download_result['content'];
@@ -373,7 +373,7 @@ class WPAIP_2I0E {
         if ( empty( $schema_type ) ) {
             $schema_type = 'Article';
         }
-        update_post_meta( $post_id, 'wpaip_schema_type', $schema_type );
+        update_post_meta( $post_id, 'yimai_gso_schema_type', $schema_type );
 
         // 发布后自动生成 AI 摘要（仅当用户勾选时）
         if ( $auto_excerpt && ( 'publish' === $post_data['post_status'] || 'future' === $post_data['post_status'] ) ) {
@@ -385,7 +385,7 @@ class WPAIP_2I0E {
             $plain_text = wp_strip_all_tags( $content, true );
             $plain_text = mb_substr( $plain_text, 0, 200 );
 
-            if ( function_exists( 'get_plugin_data' ) && ! function_exists( 'wpaip_auto_seo_meta' ) ) {
+            if ( function_exists( 'get_plugin_data' ) && ! function_exists( 'yimai_gso_auto_seo_meta' ) ) {
                 // 使用关键词生成 meta description
                 $meta_desc = mb_substr( $plain_text, 0, 150 );
                 update_post_meta( $post_id, '_seo_description', $meta_desc );
@@ -424,7 +424,7 @@ class WPAIP_2I0E {
             return $result; // 正文中没有图片
         }
 
-        $handler   = new WPAIP_OQ4C();
+        $handler   = new YIMAI_GSO_Image_Handler();
         $replaced  = array(); // 避免重复下载同一张图
 
         foreach ( $matches as $match ) {
@@ -467,7 +467,7 @@ class WPAIP_2I0E {
                 $alt = $alt_match[1];
             }
 
-            // 下载并上传到媒体库（v2.9.71: 超时从 60s 缩短为 20s，单张图 20s 足够，
+            // 下载并上传到媒体库（超时从 60s 缩短为 20s，单张图 20s 足够，
             // 慢图直接跳过，避免多张图累计几百秒拖垮整个发布流程导致 PHP 超时进程被杀）
             $attach_id = $handler->upload_image_to_media( $img_url, '', $alt, 20 );
 
@@ -486,7 +486,7 @@ class WPAIP_2I0E {
             } else {
                 $err_msg = $attach_id->get_error_message();
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( '[WPAIP_PUB] 封面下载失败: ' . substr( $img_url, 0, 80 ) . ' → ' . $err_msg );
+                    error_log( '[YIMAI_GSO_PUB] 封面下载失败: ' . substr( $img_url, 0, 80 ) . ' → ' . $err_msg );
                 }
                 $result['download_errors'][] = $err_msg;
             }
@@ -551,20 +551,20 @@ class WPAIP_2I0E {
         self::write_seo_fields( $post_id, $keywords, $excerpt, $title );
 
         // AI生成标记
-        update_post_meta( $post_id, 'wpaip_generated', 1 );
-        update_post_meta( $post_id, 'wpaip_generated_at', current_time( 'mysql' ) );
+        update_post_meta( $post_id, 'yimai_gso_generated', 1 );
+        update_post_meta( $post_id, 'yimai_gso_generated_at', current_time( 'mysql' ) );
 
         // 关键词存储（供SEO评分、Schema、标题分析使用）
         if ( ! empty( $keywords ) ) {
-            update_post_meta( $post_id, 'wpaip_keywords', $keywords );
+            update_post_meta( $post_id, 'yimai_gso_keywords', $keywords );
         }
 
         // 扩展记录：生成来源、提示词、AI模型、字数、图片数
-        update_post_meta( $post_id, 'wpaip_source', $source );
-        update_post_meta( $post_id, 'wpaip_prompt', ( function_exists( 'mb_substr' ) ? mb_substr( $prompt, 0, 500 ) : substr( $prompt, 0, 500 ) ) );
-        update_post_meta( $post_id, 'wpaip_ai_model', $ai_model );
-        update_post_meta( $post_id, 'wpaip_word_count', $word_count );
-        update_post_meta( $post_id, 'wpaip_image_count', $image_count );
+        update_post_meta( $post_id, 'yimai_gso_source', $source );
+        update_post_meta( $post_id, 'yimai_gso_prompt', ( function_exists( 'mb_substr' ) ? mb_substr( $prompt, 0, 500 ) : substr( $prompt, 0, 500 ) ) );
+        update_post_meta( $post_id, 'yimai_gso_ai_model', $ai_model );
+        update_post_meta( $post_id, 'yimai_gso_word_count', $word_count );
+        update_post_meta( $post_id, 'yimai_gso_image_count', $image_count );
     }
 
 
@@ -595,8 +595,8 @@ class WPAIP_2I0E {
         }
 
         // 确保运行时用户上下文（防止 Cron/REST 环境下用户 ID 为 0）
-        if ( class_exists( 'WPAIP_KSQ9' ) ) {
-            WPAIP_KSQ9::bootstrap_runtime_user( 0 );
+        if ( class_exists( 'YIMAI_GSO_Autopilot_Runner' ) ) {
+            YIMAI_GSO_Autopilot_Runner::bootstrap_runtime_user( 0 );
         }
 
         // 验证分类
@@ -621,13 +621,13 @@ class WPAIP_2I0E {
         }
 
         // 下载并替换图片
-        require_once WPAIP_PLUGIN_DIR . 'includes/class-image-handler.php';
-        $image_handler = new WPAIP_OQ4C();
+        require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-image-handler.php';
+        $image_handler = new YIMAI_GSO_Image_Handler();
         $download_result = $image_handler->download_and_replace_images( $content, array(), array(
             'title'    => $title,
             'keyword'  => $tags,
             'excerpt'  => $excerpt,
-            'language' => WPAIP_9XCU::get( 'article_language', 'zh_CN' ),
+            'language' => YIMAI_GSO_Settings::get( 'article_language', 'zh_CN' ),
             'source'   => 'single',
             'skip_alt' => true, // ALT 由 transition_post_status 钩子统一处理
         ) );
@@ -671,15 +671,15 @@ class WPAIP_2I0E {
         self::write_seo_fields( $post_id, $keywords, $seo_desc, $title );
 
         // AI生成标记与扩展记录
-        update_post_meta( $post_id, 'wpaip_generated', 1 );
-        update_post_meta( $post_id, 'wpaip_generated_at', current_time( 'mysql' ) );
-        update_post_meta( $post_id, 'wpaip_source', sanitize_text_field( $params['source'] ?? 'single' ) );
-        update_post_meta( $post_id, 'wpaip_word_count', ( function_exists( 'mb_strlen' ) ? mb_strlen( preg_replace( '/\s+/', '', strip_tags( $content ) ) ) : strlen( preg_replace( '/\s+/', '', strip_tags( $content ) ) ) ) );
-        update_post_meta( $post_id, 'wpaip_image_count', max( absint( $params['image_count'] ?? 0 ), absint( $download_result['count'] ?? 0 ) ) );
-        update_post_meta( $post_id, 'wpaip_prompt', ( function_exists( 'mb_substr' ) ? mb_substr( $params['prompt'] ?? '', 0, 500 ) : substr( $params['prompt'] ?? '', 0, 500 ) ) );
-        update_post_meta( $post_id, 'wpaip_ai_model', sanitize_text_field( $params['ai_model'] ?? '' ) );
+        update_post_meta( $post_id, 'yimai_gso_generated', 1 );
+        update_post_meta( $post_id, 'yimai_gso_generated_at', current_time( 'mysql' ) );
+        update_post_meta( $post_id, 'yimai_gso_source', sanitize_text_field( $params['source'] ?? 'single' ) );
+        update_post_meta( $post_id, 'yimai_gso_word_count', ( function_exists( 'mb_strlen' ) ? mb_strlen( preg_replace( '/\s+/', '', strip_tags( $content ) ) ) : strlen( preg_replace( '/\s+/', '', strip_tags( $content ) ) ) ) );
+        update_post_meta( $post_id, 'yimai_gso_image_count', max( absint( $params['image_count'] ?? 0 ), absint( $download_result['count'] ?? 0 ) ) );
+        update_post_meta( $post_id, 'yimai_gso_prompt', ( function_exists( 'mb_substr' ) ? mb_substr( $params['prompt'] ?? '', 0, 500 ) : substr( $params['prompt'] ?? '', 0, 500 ) ) );
+        update_post_meta( $post_id, 'yimai_gso_ai_model', sanitize_text_field( $params['ai_model'] ?? '' ) );
         if ( ! empty( $keywords ) ) {
-            update_post_meta( $post_id, 'wpaip_keywords', $keywords );
+            update_post_meta( $post_id, 'yimai_gso_keywords', $keywords );
         }
         // 子比主题扩展字段
         if ( $thumbnail_id > 0 ) {
@@ -691,7 +691,7 @@ class WPAIP_2I0E {
         update_post_meta( $post_id, 'zib_post_password', '' );
         // 存储结构化数据类型
         $schema_type = sanitize_text_field( $params['schema_type'] ?? 'Article' );
-        update_post_meta( $post_id, 'wpaip_schema_type', $schema_type );
+        update_post_meta( $post_id, 'yimai_gso_schema_type', $schema_type );
 
         // 发布后自动生成 AI 摘要
         if ( 'publish' === $post_data['post_status'] ) {
@@ -711,7 +711,7 @@ class WPAIP_2I0E {
      * 发布后自动生成 AI 摘要
      * 仅在 post_excerpt 为空且开启了自动生成时执行
      *
-     * v2.9.72: 改为异步调度。原实现是 publish() 内同步 AI 调用，
+     * 改为异步调度。原实现是 publish() 内同步 AI 调用，
      * 永动发布 publish() 会被 AI 摘要卡住，导致 run_single_item 里
      * update_item(success) 永远执行不到 → item 永久卡 running。
      * 现在只做开关检查 + 入队，AI 调用由 WP-Cron 异步执行。
@@ -726,18 +726,18 @@ class WPAIP_2I0E {
         }
 
         // 检查是否开启了自动摘要生成（默认关闭）
-        $auto_excerpt = WPAIP_9XCU::get( 'auto_excerpt_on_publish', 0 );
+        $auto_excerpt = YIMAI_GSO_Settings::get( 'auto_excerpt_on_publish', 0 );
         if ( ! $auto_excerpt ) {
             return;
         }
 
         // 检查 API Key 是否配置
-        $api_key = WPAIP_9XCU::get( 'ai_api_key', '' );
+        $api_key = YIMAI_GSO_Settings::get( 'ai_api_key', '' );
         if ( empty( $api_key ) ) {
             return;
         }
 
-        // v2.9.72: 异步化 — 不再同步调用 AI，入队后由 WP-Cron 异步处理，
+        // 异步化 — 不再同步调用 AI，入队后由 WP-Cron 异步处理，
         // 发布主流程（publish()）立即返回，永动发布 item 不再被 AI 摘要卡死。
         if ( ! wp_next_scheduled( self::ASYNC_EXCERPT_HOOK, array( $post_id ) ) ) {
             wp_schedule_single_event( time() + 5, self::ASYNC_EXCERPT_HOOK, array( $post_id ) );
@@ -747,27 +747,27 @@ class WPAIP_2I0E {
     /**
      * 定时发布守护进程（WP-Cron 每30分钟触发）
      * 扫描已过期的 future 文章，异步派发到独立请求中执行发布
-     * 仅处理带有 wpaip_generated 标记的文章（插件生成的文章）
+     * 仅处理带有 yimai_gso_generated 标记的文章（插件生成的文章）
      */
     public static function guardian_publish() {
         global $wpdb;
 
         // MySQL GET_LOCK 防并发派发（同一时刻只允许1个WP-Cron进程通过）
-        $lock_name = 'wpaip_guardian_dispatch';
+        $lock_name = 'yimai_gso_guardian_dispatch';
         $got_lock  = $wpdb->get_var( $wpdb->prepare( "SELECT GET_LOCK(%s, 5)", $lock_name ) );
         if ( ! $got_lock ) {
             return;
         }
 
         // 距上次派发不足20分钟则跳过（与30分钟interval配合，留出窗口）
-        if ( get_transient( 'wpaip_guardian_dispatched' ) ) {
+        if ( get_transient( 'yimai_gso_guardian_dispatched' ) ) {
             $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
             return;
         }
 
         // 查询已过期的 future 文章（仅处理插件生成的）
         // 精准模式下单次处理上限更高
-        $mode       = WPAIP_9XCU::get( 'operation_mode', 'default' );
+        $mode       = YIMAI_GSO_Settings::get( 'operation_mode', 'default' );
         $batch_size = ( $mode === 'precise' ) ? 200 : 50;
 
         $overdue_posts = $wpdb->get_results(
@@ -780,7 +780,7 @@ class WPAIP_2I0E {
                AND EXISTS (
                    SELECT 1 FROM {$wpdb->postmeta} pm
                    WHERE pm.post_id = p.ID
-                     AND pm.meta_key = 'wpaip_generated'
+                     AND pm.meta_key = 'yimai_gso_generated'
                      AND pm.meta_value = '1'
                )
              ORDER BY p.post_date_gmt ASC
@@ -801,7 +801,7 @@ class WPAIP_2I0E {
          * 统一使用 WP-Cron 调度（立即到期）
          * 精准模式下额外触发 wp-cron.php 以尽快执行待处理事件（带防抖）
          */
-        $hook = 'wpaip_guardian_process';
+        $hook = 'yimai_gso_guardian_process';
         if ( ! wp_next_scheduled( $hook, array( $post_ids ) ) ) {
             wp_schedule_single_event( time(), $hook, array( $post_ids ) );
         }
@@ -809,7 +809,7 @@ class WPAIP_2I0E {
         // 精准模式（DISABLE_WP_CRON=true）：触发 wp-cron.php 立即处理到期的定时任务（带防抖）
         $precise_mode = ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON );
         if ( $precise_mode ) {
-            $last_trigger = get_transient( 'wpaip_guardian_cron_trigger' );
+            $last_trigger = get_transient( 'yimai_gso_guardian_cron_trigger' );
             if ( false === $last_trigger ) {
                 $wp_cron_url = site_url( 'wp-cron.php' );
                 wp_remote_get( $wp_cron_url, array(
@@ -818,12 +818,12 @@ class WPAIP_2I0E {
                     'sslverify' => false,
                 ) );
                 // 防抖：1秒内不重复触发
-                set_transient( 'wpaip_guardian_cron_trigger', time(), 1 );
+                set_transient( 'yimai_gso_guardian_cron_trigger', time(), 1 );
             }
         }
 
         // 标记已派发（3分钟有效，失败后能快速重试，与30分钟interval配合）
-        set_transient( 'wpaip_guardian_dispatched', 1, 3 * MINUTE_IN_SECONDS );
+        set_transient( 'yimai_gso_guardian_dispatched', 1, 3 * MINUTE_IN_SECONDS );
 
         $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
     }
@@ -839,7 +839,7 @@ class WPAIP_2I0E {
         }
 
         // 获取生成锁，防止与永动发布等任务同时执行
-        $lock = WPAIP_KSQ9::acquire_generation_lock( 'guardian', 30 * MINUTE_IN_SECONDS );
+        $lock = YIMAI_GSO_Autopilot_Runner::acquire_generation_lock( 'guardian', 30 * MINUTE_IN_SECONDS );
         if ( is_wp_error( $lock ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
                 error_log( sprintf(
@@ -858,8 +858,8 @@ class WPAIP_2I0E {
 
         // 设置运行时用户上下文（wp_publish_post 需要 edit_post 权限）
         // 与永动发布的 bootstrap_runtime_user() 逻辑一致
-        if ( class_exists( 'WPAIP_KSQ9' ) ) {
-            WPAIP_KSQ9::bootstrap_runtime_user( 0 );
+        if ( class_exists( 'YIMAI_GSO_Autopilot_Runner' ) ) {
+            YIMAI_GSO_Autopilot_Runner::bootstrap_runtime_user( 0 );
         }
 
         $published = 0;
@@ -867,8 +867,8 @@ class WPAIP_2I0E {
         $skipped   = 0;
 
         // 批次限流：每轮最多发布 20 篇，避免 transition_post_status 触发海量异步队列
-        // 可通过 wpaip_guardian_batch_limit filter 自定义（设为 0 取消限制）
-        $batch_limit = apply_filters( 'wpaip_guardian_batch_limit', 20 );
+        // 可通过 yimai_gso_guardian_batch_limit filter 自定义（设为 0 取消限制）
+        $batch_limit = apply_filters( 'yimai_gso_guardian_batch_limit', 20 );
 
         foreach ( $post_ids as $post_id ) {
             $post_id = absint( $post_id );
@@ -877,14 +877,14 @@ class WPAIP_2I0E {
             }
 
             // 检查重试次数，超过3次则放弃并改为草稿状态
-            $retries = (int) get_post_meta( $post_id, '_wpaip_publish_retries', true );
+            $retries = (int) get_post_meta( $post_id, '_yimai_gso_publish_retries', true );
             if ( $retries >= 3 ) {
                 // 超过3次，改为草稿状态，避免无限重试
                 wp_update_post( array(
                     'ID'          => $post_id,
                     'post_status' => 'draft',
                 ) );
-                update_post_meta( $post_id, '_wpaip_publish_failed', '1' );
+                update_post_meta( $post_id, '_yimai_gso_publish_failed', '1' );
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
                     error_log( sprintf(
                         '[BaiqueAI Guardian] 文章 #%d 发布失败超过3次，已改为草稿状态',
@@ -906,8 +906,8 @@ class WPAIP_2I0E {
 
             // 双重权限检查：确保当前用户有编辑权限（Redis缓存可能导致bootstrap失败）
             if ( ! current_user_can( 'edit_post', $post_id ) ) {
-                if ( class_exists( 'WPAIP_KSQ9' ) ) {
-                    WPAIP_KSQ9::bootstrap_runtime_user( 0 );
+                if ( class_exists( 'YIMAI_GSO_Autopilot_Runner' ) ) {
+                    YIMAI_GSO_Autopilot_Runner::bootstrap_runtime_user( 0 );
                 }
                 if ( ! current_user_can( 'edit_post', $post_id ) ) {
                     if ( defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
@@ -917,7 +917,7 @@ class WPAIP_2I0E {
                             get_current_user_id()
                         ) );
                     }
-                    update_post_meta( $post_id, '_wpaip_publish_retries', $retries + 1 );
+                    update_post_meta( $post_id, '_yimai_gso_publish_retries', $retries + 1 );
                     $failed++;
                     continue;
                 }
@@ -928,7 +928,7 @@ class WPAIP_2I0E {
 
             if ( is_wp_error( $result ) ) {
                 // 发布失败，增加重试计数
-                update_post_meta( $post_id, '_wpaip_publish_retries', $retries + 1 );
+                update_post_meta( $post_id, '_yimai_gso_publish_retries', $retries + 1 );
                 error_log( sprintf(
                     '[BaiqueAI Guardian] 发布失败 #%d (第%d次): %s',
                     $post_id,
@@ -945,7 +945,7 @@ class WPAIP_2I0E {
             if ( $new_status === 'publish' ) {
                 $published++;
                 // 发布成功，清除重试计数
-                delete_post_meta( $post_id, '_wpaip_publish_retries' );
+                delete_post_meta( $post_id, '_yimai_gso_publish_retries' );
 
                 // 批次限流：达到上限停止本轮，剩余留到 30 分钟后自动处理
                 if ( $batch_limit > 0 && $published >= $batch_limit ) {
@@ -965,7 +965,7 @@ class WPAIP_2I0E {
                 }
             } else {
                 // 状态异常，增加重试计数
-                update_post_meta( $post_id, '_wpaip_publish_retries', $retries + 1 );
+                update_post_meta( $post_id, '_yimai_gso_publish_retries', $retries + 1 );
                 $failed++;
                 error_log( sprintf(
                     '[BaiqueAI Guardian] 发布状态异常 #%d (第%d次): 期望 publish，实际 %s',
@@ -979,7 +979,7 @@ class WPAIP_2I0E {
         }
 
         // 释放生成锁
-        WPAIP_KSQ9::release_generation_lock( 'guardian' );
+        YIMAI_GSO_Autopilot_Runner::release_generation_lock( 'guardian' );
 
         // 记录执行结果
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {

@@ -7,9 +7,9 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_MERGED_GEO_AUTOMATION {
-    const CRON_HOOK = 'wpaip_merged_geo_process_jobs';
-    const NONCE     = 'wpaip_merged_geo_nonce';
+class YIMAI_GSO_MERGED_GEO_AUTOMATION {
+    const CRON_HOOK = 'yimai_gso_merged_geo_process_jobs';
+    const NONCE     = 'yimai_gso_merged_geo_nonce';
 
     private static $instance = null;
 
@@ -27,8 +27,8 @@ class WPAIP_MERGED_GEO_AUTOMATION {
     }
 
     public function register_cron_schedules( $schedules ) {
-        if ( ! isset( $schedules['wpaip_merged_geo_every_five'] ) ) {
-            $schedules['wpaip_merged_geo_every_five'] = array(
+        if ( ! isset( $schedules['yimai_gso_merged_geo_every_five'] ) ) {
+            $schedules['yimai_gso_merged_geo_every_five'] = array(
                 'interval' => 5 * MINUTE_IN_SECONDS,
                 'display'  => 'GEO 自动化每 5 分钟',
             );
@@ -40,7 +40,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
         self::get_instance();
         self::create_tables();
         if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
-            wp_schedule_event( time() + MINUTE_IN_SECONDS, 'wpaip_merged_geo_every_five', self::CRON_HOOK );
+            wp_schedule_event( time() + MINUTE_IN_SECONDS, 'yimai_gso_merged_geo_every_five', self::CRON_HOOK );
         }
     }
 
@@ -53,7 +53,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         $charset = $wpdb->get_charset_collate();
 
-        dbDelta( "CREATE TABLE {$wpdb->prefix}wpaip_geo_keywords (
+        dbDelta( "CREATE TABLE {$wpdb->prefix}yimai_gso_geo_keywords (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             keyword VARCHAR(220) NOT NULL,
             category VARCHAR(100) NOT NULL DEFAULT '',
@@ -66,7 +66,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
             KEY keyword (keyword(120))
         ) $charset;" );
 
-        dbDelta( "CREATE TABLE {$wpdb->prefix}wpaip_geo_brand_scans (
+        dbDelta( "CREATE TABLE {$wpdb->prefix}yimai_gso_geo_brand_scans (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             brand_name VARCHAR(220) NOT NULL DEFAULT '',
             total_keywords INT UNSIGNED NOT NULL DEFAULT 0,
@@ -80,7 +80,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
             KEY created_at (created_at)
         ) $charset;" );
 
-        dbDelta( "CREATE TABLE {$wpdb->prefix}wpaip_geo_brand_scan_details (
+        dbDelta( "CREATE TABLE {$wpdb->prefix}yimai_gso_geo_brand_scan_details (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             scan_id BIGINT UNSIGNED NOT NULL,
             keyword VARCHAR(220) NOT NULL,
@@ -94,7 +94,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
             KEY mentioned (mentioned)
         ) $charset;" );
 
-        dbDelta( "CREATE TABLE {$wpdb->prefix}wpaip_geo_jobs (
+        dbDelta( "CREATE TABLE {$wpdb->prefix}yimai_gso_geo_jobs (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             type VARCHAR(40) NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'pending',
@@ -110,7 +110,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
             KEY created_at (created_at)
         ) $charset;" );
 
-        dbDelta( "CREATE TABLE {$wpdb->prefix}wpaip_geo_job_logs (
+        dbDelta( "CREATE TABLE {$wpdb->prefix}yimai_gso_geo_job_logs (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             job_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
             level VARCHAR(20) NOT NULL DEFAULT 'info',
@@ -124,11 +124,11 @@ class WPAIP_MERGED_GEO_AUTOMATION {
 
     public function register_menu() {
         add_submenu_page(
-            'wpaip-center',
+            'yimai-gso-center',
             'GEO 自动化',
             'GEO 自动化',
             'manage_options',
-            'wpaip-merged-geo',
+            'yimai-gso-merged-geo',
             array( $this, 'render_page' )
         );
     }
@@ -148,13 +148,13 @@ class WPAIP_MERGED_GEO_AUTOMATION {
             'beautify'  => '文章美化',
             'jobs'      => '任务日志',
         );
-        echo '<div class="wrap wpaip-merged-geo"><h1>GEO 自动化</h1>';
+        echo '<div class="wrap yimai-gso-merged-geo"><h1>GEO 自动化</h1>';
         if ( $message ) {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $message ) . '</p></div>';
         }
         echo '<nav class="nav-tab-wrapper">';
         foreach ( $tabs as $key => $label ) {
-            $url = admin_url( 'admin.php?page=wpaip-merged-geo&tab=' . $key );
+            $url = admin_url( 'admin.php?page=yimai-gso-merged-geo&tab=' . $key );
             echo '<a class="nav-tab ' . ( $tab === $key ? 'nav-tab-active' : '' ) . '" href="' . esc_url( $url ) . '">' . esc_html( $label ) . '</a>';
         }
         echo '</nav><div style="margin-top:18px;">';
@@ -168,11 +168,11 @@ class WPAIP_MERGED_GEO_AUTOMATION {
     }
 
     private function handle_post() {
-        if ( empty( $_POST['wpaip_merged_geo_action'] ) ) return '';
+        if ( empty( $_POST['yimai_gso_merged_geo_action'] ) ) return '';
         check_admin_referer( self::NONCE );
-        $action = sanitize_key( $_POST['wpaip_merged_geo_action'] );
+        $action = sanitize_key( $_POST['yimai_gso_merged_geo_action'] );
         if ( 'save_settings' === $action ) {
-            update_option( 'wpaip_geo_brand_profile', array(
+            update_option( 'yimai_gso_geo_brand_profile', array(
                 'brand_name' => sanitize_text_field( $_POST['brand_name'] ?? '' ),
                 'brand_abbr' => sanitize_text_field( $_POST['brand_abbr'] ?? '' ),
                 'industry'   => sanitize_text_field( $_POST['industry'] ?? '' ),
@@ -182,7 +182,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
                 'pain_points'=> sanitize_textarea_field( $_POST['pain_points'] ?? '' ),
                 'cases'      => sanitize_textarea_field( $_POST['cases'] ?? '' ),
             ), false );
-            update_option( 'wpaip_geo_api_providers', array(
+            update_option( 'yimai_gso_geo_api_providers', array(
                 'doubao' => array(
                     'api_key'  => sanitize_text_field( $_POST['doubao_api_key'] ?? '' ),
                     'endpoint' => esc_url_raw( $_POST['doubao_endpoint'] ?? '' ),
@@ -202,7 +202,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
         }
         if ( 'clear_keywords' === $action ) {
             global $wpdb;
-            $wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}wpaip_geo_keywords" );
+            $wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}yimai_gso_geo_keywords" );
             return '关键词库已清空。';
         }
         if ( 'dedupe_keywords' === $action ) {
@@ -237,9 +237,9 @@ class WPAIP_MERGED_GEO_AUTOMATION {
 
     private function render_dashboard() {
         global $wpdb;
-        $kw_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}wpaip_geo_keywords" );
-        $scan = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}wpaip_geo_brand_scans ORDER BY id DESC LIMIT 1", ARRAY_A );
-        $pending = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}wpaip_geo_jobs WHERE status IN ('pending','running')" );
+        $kw_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}yimai_gso_geo_keywords" );
+        $scan = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}yimai_gso_geo_brand_scans ORDER BY id DESC LIMIT 1", ARRAY_A );
+        $pending = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}yimai_gso_geo_jobs WHERE status IN ('pending','running')" );
         echo '<div style="display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:14px;">';
         $this->card( '关键词总数', $kw_count );
         $this->card( '待处理任务', $pending );
@@ -254,10 +254,10 @@ class WPAIP_MERGED_GEO_AUTOMATION {
 
     private function render_settings() {
         $profile = $this->get_brand_profile();
-        $providers = wp_parse_args( get_option( 'wpaip_geo_api_providers', array() ), self::default_providers() );
+        $providers = wp_parse_args( get_option( 'yimai_gso_geo_api_providers', array() ), self::default_providers() );
         echo '<form method="post">';
         wp_nonce_field( self::NONCE );
-        echo '<input type="hidden" name="wpaip_merged_geo_action" value="save_settings">';
+        echo '<input type="hidden" name="yimai_gso_merged_geo_action" value="save_settings">';
         echo '<h2>品牌信息（兼容视图）</h2><p class="description">品牌主体请优先在“双擎工作台 &gt; 基础设置 &gt; GEO实体”维护；这里仅保留旧 GEO 自动化字段兼容。</p><table class="form-table"><tbody>';
         $this->input_row( '品牌名称', 'brand_name', $profile['brand_name'] );
         $this->input_row( '品牌简称', 'brand_abbr', $profile['brand_abbr'] );
@@ -281,10 +281,10 @@ class WPAIP_MERGED_GEO_AUTOMATION {
 
     private function render_keywords() {
         global $wpdb;
-        $rows = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}wpaip_geo_keywords ORDER BY id DESC LIMIT 200", ARRAY_A );
+        $rows = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}yimai_gso_geo_keywords ORDER BY id DESC LIMIT 200", ARRAY_A );
         echo '<form method="post" style="background:#fff;border:1px solid #e5e7eb;padding:16px;border-radius:8px;">';
         wp_nonce_field( self::NONCE );
-        echo '<input type="hidden" name="wpaip_merged_geo_action" value="add_keywords"><h2>导入关键词</h2><textarea name="keywords" rows="6" style="width:100%;" placeholder="每行一个关键词，支持 关键词|分类"></textarea>';
+        echo '<input type="hidden" name="yimai_gso_merged_geo_action" value="add_keywords"><h2>导入关键词</h2><textarea name="keywords" rows="6" style="width:100%;" placeholder="每行一个关键词，支持 关键词|分类"></textarea>';
         submit_button( '导入关键词', 'primary', '', false );
         echo '</form><div style="margin-top:12px;display:flex;gap:8px;">';
         $this->small_form( 'queue_distill', 'AI 蒸馏 200 个关键词', array( 'mode' => 'append' ) );
@@ -299,7 +299,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
 
     private function render_scan() {
         global $wpdb;
-        $scans = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}wpaip_geo_brand_scans ORDER BY id DESC LIMIT 20", ARRAY_A );
+        $scans = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}yimai_gso_geo_brand_scans ORDER BY id DESC LIMIT 20", ARRAY_A );
         $this->small_form( 'queue_scan', '开始品牌可见度扫描' );
         echo '<h2>扫描记录</h2><table class="widefat striped"><thead><tr><th>时间</th><th>品牌</th><th>总词数</th><th>命中</th><th>豆包</th><th>DeepSeek</th><th>命中率</th></tr></thead><tbody>';
         foreach ( $scans as $scan ) {
@@ -311,7 +311,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
     private function render_beautify() {
         echo '<form method="post" style="background:#fff;border:1px solid #e5e7eb;padding:16px;border-radius:8px;max-width:960px;">';
         wp_nonce_field( self::NONCE );
-        echo '<input type="hidden" name="wpaip_merged_geo_action" value="queue_beautify"><h2>文章美化</h2>';
+        echo '<input type="hidden" name="yimai_gso_merged_geo_action" value="queue_beautify"><h2>文章美化</h2>';
         echo '<p><input class="regular-text" name="title" placeholder="文章标题" style="width:100%;max-width:720px;"></p>';
         echo '<p><input class="regular-text" name="brand" placeholder="品牌名称，可留空使用品牌设置" style="width:100%;max-width:720px;"></p>';
         echo '<textarea name="content" rows="14" style="width:100%;" placeholder="粘贴需要美化的文章草稿"></textarea>';
@@ -324,7 +324,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
         echo '<div style="margin-bottom:12px;">';
         $this->small_form( 'run_jobs', '立即执行队列' );
         echo '</div>';
-        $jobs = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}wpaip_geo_jobs ORDER BY id DESC LIMIT 50", ARRAY_A );
+        $jobs = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}yimai_gso_geo_jobs ORDER BY id DESC LIMIT 50", ARRAY_A );
         echo '<table class="widefat striped"><thead><tr><th>ID</th><th>类型</th><th>状态</th><th>错误/结果</th><th>创建时间</th><th>完成时间</th></tr></thead><tbody>';
         foreach ( $jobs as $job ) {
             $text = $job['error'] ?: wp_trim_words( wp_strip_all_tags( (string) $job['result'] ), 32 );
@@ -344,7 +344,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
     private function small_form( $action, $label, $hidden = array(), $class = 'secondary' ) {
         echo '<form method="post" style="display:inline-block;margin-right:8px;">';
         wp_nonce_field( self::NONCE );
-        echo '<input type="hidden" name="wpaip_merged_geo_action" value="' . esc_attr( $action ) . '">';
+        echo '<input type="hidden" name="yimai_gso_merged_geo_action" value="' . esc_attr( $action ) . '">';
         foreach ( $hidden as $k => $v ) echo '<input type="hidden" name="' . esc_attr( $k ) . '" value="' . esc_attr( $v ) . '">';
         submit_button( $label, $class, '', false );
         echo '</form>';
@@ -362,10 +362,10 @@ class WPAIP_MERGED_GEO_AUTOMATION {
      */
     private function get_brand_profile() {
         $keys    = array( 'brand_name', 'brand_abbr', 'industry', 'region', 'products', 'highlights', 'pain_points', 'cases' );
-        $profile = wp_parse_args( get_option( 'wpaip_geo_brand_profile', array() ), array_fill_keys( $keys, '' ) );
+        $profile = wp_parse_args( get_option( 'yimai_gso_geo_brand_profile', array() ), array_fill_keys( $keys, '' ) );
 
-        if ( class_exists( 'WPAIP_PY7N' ) ) {
-            $entity = WPAIP_PY7N::get_entity_data();
+        if ( class_exists( 'YIMAI_GSO_GEO_Entity' ) ) {
+            $entity = YIMAI_GSO_GEO_Entity::get_entity_data();
             $profile['brand_name'] = $profile['brand_name'] ?: (string) ( $entity['entity_name'] ?? '' );
             $profile['brand_abbr']  = $profile['brand_abbr'] ?: '一麦';
             $profile['industry']    = $profile['industry'] ?: '瑜伽与普拉提';
@@ -378,7 +378,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
 
     private function create_job( $type, $payload ) {
         global $wpdb;
-        $wpdb->insert( $wpdb->prefix . 'wpaip_geo_jobs', array(
+        $wpdb->insert( $wpdb->prefix . 'yimai_gso_geo_jobs', array(
             'type'       => sanitize_key( $type ),
             'status'     => 'pending',
             'payload'    => wp_json_encode( $payload, JSON_UNESCAPED_UNICODE ),
@@ -390,9 +390,9 @@ class WPAIP_MERGED_GEO_AUTOMATION {
     public function process_jobs( $limit = 1 ) {
         global $wpdb;
         $limit = max( 1, min( 5, absint( $limit ) ) );
-        $jobs = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}wpaip_geo_jobs WHERE status='pending' ORDER BY id ASC LIMIT %d", $limit ), ARRAY_A );
+        $jobs = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}yimai_gso_geo_jobs WHERE status='pending' ORDER BY id ASC LIMIT %d", $limit ), ARRAY_A );
         foreach ( $jobs as $job ) {
-            $wpdb->update( $wpdb->prefix . 'wpaip_geo_jobs', array( 'status' => 'running', 'started_at' => current_time( 'mysql' ) ), array( 'id' => $job['id'] ) );
+            $wpdb->update( $wpdb->prefix . 'yimai_gso_geo_jobs', array( 'status' => 'running', 'started_at' => current_time( 'mysql' ) ), array( 'id' => $job['id'] ) );
             $payload = json_decode( (string) $job['payload'], true );
             try {
                 if ( $job['type'] === 'keyword_distill' ) $result = $this->run_keyword_distill( (array) $payload );
@@ -400,12 +400,12 @@ class WPAIP_MERGED_GEO_AUTOMATION {
                 elseif ( $job['type'] === 'article_beautify' ) $result = $this->run_article_beautify( (array) $payload );
                 else $result = new WP_Error( 'unknown_job', '未知任务类型' );
                 if ( is_wp_error( $result ) ) {
-                    $wpdb->update( $wpdb->prefix . 'wpaip_geo_jobs', array( 'status' => 'failed', 'error' => $result->get_error_message(), 'completed_at' => current_time( 'mysql' ) ), array( 'id' => $job['id'] ) );
+                    $wpdb->update( $wpdb->prefix . 'yimai_gso_geo_jobs', array( 'status' => 'failed', 'error' => $result->get_error_message(), 'completed_at' => current_time( 'mysql' ) ), array( 'id' => $job['id'] ) );
                 } else {
-                    $wpdb->update( $wpdb->prefix . 'wpaip_geo_jobs', array( 'status' => 'completed', 'result' => is_string( $result ) ? $result : wp_json_encode( $result, JSON_UNESCAPED_UNICODE ), 'completed_at' => current_time( 'mysql' ) ), array( 'id' => $job['id'] ) );
+                    $wpdb->update( $wpdb->prefix . 'yimai_gso_geo_jobs', array( 'status' => 'completed', 'result' => is_string( $result ) ? $result : wp_json_encode( $result, JSON_UNESCAPED_UNICODE ), 'completed_at' => current_time( 'mysql' ) ), array( 'id' => $job['id'] ) );
                 }
             } catch ( Exception $e ) {
-                $wpdb->update( $wpdb->prefix . 'wpaip_geo_jobs', array( 'status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => current_time( 'mysql' ) ), array( 'id' => $job['id'] ) );
+                $wpdb->update( $wpdb->prefix . 'yimai_gso_geo_jobs', array( 'status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => current_time( 'mysql' ) ), array( 'id' => $job['id'] ) );
             }
         }
     }
@@ -430,9 +430,9 @@ class WPAIP_MERGED_GEO_AUTOMATION {
         $profile = $this->get_brand_profile();
         $brand = trim( $profile['brand_name'] ?? '' );
         if ( $brand === '' ) return new WP_Error( 'missing_brand', '请先填写品牌名称。' );
-        $keywords = $wpdb->get_col( "SELECT keyword FROM {$wpdb->prefix}wpaip_geo_keywords WHERE active=1 ORDER BY id ASC LIMIT 500" );
+        $keywords = $wpdb->get_col( "SELECT keyword FROM {$wpdb->prefix}yimai_gso_geo_keywords WHERE active=1 ORDER BY id ASC LIMIT 500" );
         if ( empty( $keywords ) ) return new WP_Error( 'missing_keywords', '请先导入或蒸馏关键词。' );
-        $providers = get_option( 'wpaip_geo_api_providers', array() );
+        $providers = get_option( 'yimai_gso_geo_api_providers', array() );
         $providers = wp_parse_args( $providers, self::default_providers() );
         $abbr = trim( $profile['brand_abbr'] ?? '' );
         $raw = array(); $platform_hits = array();
@@ -453,7 +453,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
         sort( $all_hit_indexes );
         $total = count( $keywords );
         $mentioned = count( $all_hit_indexes );
-        $wpdb->insert( $wpdb->prefix . 'wpaip_geo_brand_scans', array(
+        $wpdb->insert( $wpdb->prefix . 'yimai_gso_geo_brand_scans', array(
             'brand_name' => $brand,
             'total_keywords' => $total,
             'mentioned_keywords' => $mentioned,
@@ -466,7 +466,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
         $scan_id = (int) $wpdb->insert_id;
         foreach ( $platform_hits as $platform => $hits ) {
             foreach ( $hits as $idx => $kw ) {
-                $wpdb->insert( $wpdb->prefix . 'wpaip_geo_brand_scan_details', array( 'scan_id' => $scan_id, 'keyword' => $kw, 'platform' => $platform, 'mentioned' => 1, 'rank_position' => $idx + 1, 'created_at' => current_time( 'mysql' ) ) );
+                $wpdb->insert( $wpdb->prefix . 'yimai_gso_geo_brand_scan_details', array( 'scan_id' => $scan_id, 'keyword' => $kw, 'platform' => $platform, 'mentioned' => 1, 'rank_position' => $idx + 1, 'created_at' => current_time( 'mysql' ) ) );
             }
         }
         return array( 'scan_id' => $scan_id, 'mentioned' => $mentioned, 'total' => $total );
@@ -490,7 +490,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
         $new_content = trim( implode( "\n", $lines ) );
         $post_id = wp_insert_post( array( 'post_title' => $new_title ?: $title, 'post_content' => $new_content ?: $result, 'post_status' => 'draft', 'post_type' => 'post' ), true );
         if ( is_wp_error( $post_id ) ) return $post_id;
-        update_post_meta( $post_id, 'wpaip_geo_beautified', '1' );
+        update_post_meta( $post_id, 'yimai_gso_geo_beautified', '1' );
         return array( 'post_id' => $post_id, 'message' => '已保存为草稿。' );
     }
 
@@ -503,14 +503,14 @@ class WPAIP_MERGED_GEO_AUTOMATION {
     }
 
     private function call_ai_provider( $provider, $prompt, $system, $max_tokens = 2048 ) {
-        $providers = wp_parse_args( get_option( 'wpaip_geo_api_providers', array() ), self::default_providers() );
+        $providers = wp_parse_args( get_option( 'yimai_gso_geo_api_providers', array() ), self::default_providers() );
         $cfg = wp_parse_args( $providers[ $provider ] ?? array(), self::default_providers()[ $provider ] ?? array() );
 
         // GEO 自动化默认复用基础设置中的 AI 配置，避免用户重复填写 API。
-        if ( empty( $cfg['api_key'] ) && class_exists( 'WPAIP_9XCU' ) ) {
-            $cfg['api_key']  = WPAIP_9XCU::get( 'ai_api_key', '' );
-            $cfg['endpoint'] = WPAIP_9XCU::get( 'ai_api_url', '' ) ?: $cfg['endpoint'];
-            $cfg['model']    = WPAIP_9XCU::get( 'ai_model', '' ) ?: $cfg['model'];
+        if ( empty( $cfg['api_key'] ) && class_exists( 'YIMAI_GSO_Settings' ) ) {
+            $cfg['api_key']  = YIMAI_GSO_Settings::get( 'ai_api_key', '' );
+            $cfg['endpoint'] = YIMAI_GSO_Settings::get( 'ai_api_url', '' ) ?: $cfg['endpoint'];
+            $cfg['model']    = YIMAI_GSO_Settings::get( 'ai_model', '' ) ?: $cfg['model'];
         }
         if ( empty( $cfg['api_key'] ) || empty( $cfg['endpoint'] ) || empty( $cfg['model'] ) ) return new WP_Error( 'missing_api', $provider . ' API 未配置' );
         $body = array( 'model' => $cfg['model'], 'messages' => array( array( 'role' => 'system', 'content' => $system ), array( 'role' => 'user', 'content' => $prompt ) ), 'max_tokens' => $max_tokens );
@@ -526,7 +526,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
 
     private function insert_keywords_from_text( $text, $source = 'manual', $replace = false ) {
         global $wpdb;
-        if ( $replace ) $wpdb->delete( $wpdb->prefix . 'wpaip_geo_keywords', array( 'source' => 'distill' ) );
+        if ( $replace ) $wpdb->delete( $wpdb->prefix . 'yimai_gso_geo_keywords', array( 'source' => 'distill' ) );
         $count = 0;
         foreach ( preg_split( "/\r\n|\r|\n/", (string) $text ) as $line ) {
             $line = trim( wp_strip_all_tags( $line ) );
@@ -539,7 +539,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
                 $len = mb_strlen( $keyword, 'UTF-8' );
                 if ( $len < 2 || $len > 80 ) continue;
             } elseif ( strlen( $keyword ) < 2 || strlen( $keyword ) > 160 ) continue;
-            $wpdb->insert( $wpdb->prefix . 'wpaip_geo_keywords', array( 'keyword' => $keyword, 'category' => $category, 'source' => sanitize_key( $source ), 'active' => 1, 'created_at' => current_time( 'mysql' ) ) );
+            $wpdb->insert( $wpdb->prefix . 'yimai_gso_geo_keywords', array( 'keyword' => $keyword, 'category' => $category, 'source' => sanitize_key( $source ), 'active' => 1, 'created_at' => current_time( 'mysql' ) ) );
             $count++;
         }
         return $count;
@@ -547,7 +547,7 @@ class WPAIP_MERGED_GEO_AUTOMATION {
 
     private function dedupe_keywords() {
         global $wpdb;
-        $table = $wpdb->prefix . 'wpaip_geo_keywords';
+        $table = $wpdb->prefix . 'yimai_gso_geo_keywords';
         $wpdb->query( "DELETE k1 FROM {$table} k1 INNER JOIN {$table} k2 WHERE k1.id > k2.id AND k1.keyword = k2.keyword" );
     }
 

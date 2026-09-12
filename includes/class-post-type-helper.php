@@ -7,7 +7,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_B7PQ {
+class YIMAI_GSO_Post_Type_Helper {
 
     /**
      * 默认支持的内容类型
@@ -31,7 +31,7 @@ class WPAIP_B7PQ {
 
     /**
      * 获取插件全局支持的内容类型列表
-     * 从设置项 wpaip_supported_post_types 读取，默认 ['post', 'page']
+     * 从设置项 yimai_gso_supported_post_types 读取，默认 ['post', 'page']
      *
      * @return array
      */
@@ -39,7 +39,7 @@ class WPAIP_B7PQ {
         if ( null !== self::$cached_types ) {
             return self::$cached_types;
         }
-        $saved = get_option( 'wpaip_supported_post_types', self::DEFAULT_TYPES );
+        $saved = get_option( 'yimai_gso_supported_post_types', self::DEFAULT_TYPES );
         if ( ! is_array( $saved ) || empty( $saved ) ) {
             self::$cached_types = self::DEFAULT_TYPES;
             return self::$cached_types;

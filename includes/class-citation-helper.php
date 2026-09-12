@@ -13,7 +13,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_NADX {
+class YIMAI_GSO_Citation_Helper {
 
     private static $instance = null;
 
@@ -50,14 +50,14 @@ class WPAIP_NADX {
     private function __construct() {
         add_action( 'save_post', array( $this, 'schedule_analysis' ), 25 );
         add_action( 'shutdown', array( $this, 'process_scheduled' ) );
-        add_action( 'wp_ajax_wpaip_get_citations', array( $this, 'ajax_get_citations' ) );
+        add_action( 'wp_ajax_yimai_gso_get_citations', array( $this, 'ajax_get_citations' ) );
     }
 
     private static $pending = array();
 
     public function schedule_analysis( $post_id ) {
         if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) return;
-        if ( class_exists( 'WPAIP_B7PQ' ) && ! WPAIP_B7PQ::is_supported( $post_id ) ) return;
+        if ( class_exists( 'YIMAI_GSO_Post_Type_Helper' ) && ! YIMAI_GSO_Post_Type_Helper::is_supported( $post_id ) ) return;
 
         self::$pending[] = $post_id;
     }
@@ -191,7 +191,7 @@ class WPAIP_NADX {
             'analyzed_at'   => current_time( 'timestamp' ),
         );
 
-        update_post_meta( $post_id, 'wpaip_citations', $result );
+        update_post_meta( $post_id, 'yimai_gso_citations', $result );
 
         return $result;
     }
@@ -328,7 +328,7 @@ class WPAIP_NADX {
      * 获取引用数据（优先缓存）
      */
     public function get_citations( $post_id ) {
-        $cached = get_post_meta( $post_id, 'wpaip_citations', true );
+        $cached = get_post_meta( $post_id, 'yimai_gso_citations', true );
         if ( ! empty( $cached ) && isset( $cached['count'] ) ) {
             return $cached;
         }
@@ -340,7 +340,7 @@ class WPAIP_NADX {
      * ================================================ */
 
     public function ajax_get_citations() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );

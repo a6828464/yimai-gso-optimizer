@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class WPAIP_9IR4 {
+class YIMAI_GSO_Param_Permissions {
     private static $config = array(
         'batch_generate' => array(
             'post_status' => array(

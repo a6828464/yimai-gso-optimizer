@@ -1,11 +1,11 @@
 <?php
 /**
  * 内容检测器：检测禁用词、极限词、敏感词、广告法风险词
- * v1.31.19：改为“发布后自动检测 + 混合式自动修正 + 日志记录”
+ * 改为“发布后自动检测 + 混合式自动修正 + 日志记录”
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_MU1N {
+class YIMAI_GSO_Content_Detector {
 
     private static $instance = null;
     private static $processing_posts = array();
@@ -23,7 +23,7 @@ class WPAIP_MU1N {
 
     public function handle_transition_post_status( $new_status, $old_status, $post ) {
         // 预览请求跳过（防止内存溢出）
-        if ( function_exists( 'wpaip_is_preview_request' ) && wpaip_is_preview_request() ) {
+        if ( function_exists( 'yimai_gso_is_preview_request' ) && yimai_gso_is_preview_request() ) {
             return;
         }
 
@@ -35,7 +35,7 @@ class WPAIP_MU1N {
             return;
         }
 
-        if ( ! WPAIP_B7PQ::is_supported( $post->post_type ) ) {
+        if ( ! YIMAI_GSO_Post_Type_Helper::is_supported( $post->post_type ) ) {
             return;
         }
 
@@ -56,11 +56,11 @@ class WPAIP_MU1N {
             return false;
         }
         // 默认开启（安装后自动启用发布后自动检测与自动修正）
-        return (bool) get_option( 'wpaip_detection_enabled', 1 );
+        return (bool) get_option( 'yimai_gso_detection_enabled', 1 );
     }
 
     public static function get_recent_logs( $limit = 20 ) {
-        $logs = get_option( 'wpaip_detection_logs', array() );
+        $logs = get_option( 'yimai_gso_detection_logs', array() );
         if ( ! is_array( $logs ) ) {
             return array();
         }
@@ -262,7 +262,7 @@ class WPAIP_MU1N {
             ),
         );
 
-        return apply_filters( 'wpaip_content_detector_rules', $rules );
+        return apply_filters( 'yimai_gso_content_detector_rules', $rules );
     }
 
     public static function get_category_label( $category ) {
@@ -316,21 +316,21 @@ class WPAIP_MU1N {
     }
 
     private static function store_post_report( $post_id, $report ) {
-        update_post_meta( $post_id, 'wpaip_detection_last_run', $report['time'] );
-        update_post_meta( $post_id, 'wpaip_detection_status', $report['status'] );
-        update_post_meta( $post_id, 'wpaip_detection_summary', $report['final_summary'] );
-        update_post_meta( $post_id, 'wpaip_detection_report', $report );
+        update_post_meta( $post_id, 'yimai_gso_detection_last_run', $report['time'] );
+        update_post_meta( $post_id, 'yimai_gso_detection_status', $report['status'] );
+        update_post_meta( $post_id, 'yimai_gso_detection_summary', $report['final_summary'] );
+        update_post_meta( $post_id, 'yimai_gso_detection_report', $report );
     }
 
     private static function append_log( $report ) {
-        $logs = get_option( 'wpaip_detection_logs', array() );
+        $logs = get_option( 'yimai_gso_detection_logs', array() );
         if ( ! is_array( $logs ) ) {
             $logs = array();
         }
 
         array_unshift( $logs, $report );
         $logs = array_slice( $logs, 0, 50 );
-        update_option( 'wpaip_detection_logs', $logs, false );
+        update_option( 'yimai_gso_detection_logs', $logs, false );
     }
 
     private static function apply_direct_replacements( $article, $hits ) {

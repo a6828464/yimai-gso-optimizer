@@ -3,7 +3,7 @@
  * FAQ 自动识别 + 手风琴短代码
  *
  * 1. 自动从内容中检测 FAQ 问答配对（纯文本模式 + HTML 标签模式）
- * 2. 注册 [wpaip_faq] 短代码，支持自动提取和手动指定两种模式
+ * 2. 注册 [yimai_gso_faq] 短代码，支持自动提取和手动指定两种模式
  * 3. 纯 CSS 手风琴渲染，内嵌 FAQPage Schema JSON-LD
  *
  * @package 一麦GSO SEO-GEO
@@ -11,7 +11,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_LZDO {
+class YIMAI_GSO_FAQ_Detector {
 
     private static $instance = null;
 
@@ -26,9 +26,9 @@ class WPAIP_LZDO {
     }
 
     private function __construct() {
-        add_shortcode( 'wpaip_faq', array( $this, 'render_faq_shortcode' ) );
+        add_shortcode( 'yimai_gso_faq', array( $this, 'render_faq_shortcode' ) );
         add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_faq_styles' ) );
-        add_action( 'wp_ajax_wpaip_detect_faq', array( $this, 'ajax_detect_faq' ) );
+        add_action( 'wp_ajax_yimai_gso_detect_faq', array( $this, 'ajax_detect_faq' ) );
     }
 
     /* ================================================
@@ -260,22 +260,22 @@ class WPAIP_LZDO {
     }
 
     /* ================================================
-     * [wpaip_faq] 短代码
+     * [yimai_gso_faq] 短代码
      * ================================================ */
 
     /**
      * 渲染 FAQ 手风琴
      *
      * 用法1 — 自动提取：
-     *   [wpaip_faq]
+     *   [yimai_gso_faq]
      *
      * 用法2 — 手动指定：
-     *   [wpaip_faq open_first="true"]
+     *   [yimai_gso_faq open_first="true"]
      *     [faq_q]问题1？[/faq_q]
      *     [faq_a]答案1[/faq_a]
      *     [faq_q]问题2？[/faq_q]
      *     [faq_a]答案2[/faq_a]
-     *   [/wpaip_faq]
+     *   [/yimai_gso_faq]
      *
      * @param array  $atts    属性
      * @param string $content 包裹内容
@@ -284,7 +284,7 @@ class WPAIP_LZDO {
     public function render_faq_shortcode( $atts, $content = '' ) {
         $atts = shortcode_atts( array(
             'open_first' => 'false',
-        ), $atts, 'wpaip_faq' );
+        ), $atts, 'yimai_gso_faq' );
 
         $qa_pairs = array();
         $content  = trim( $content );
@@ -322,21 +322,21 @@ class WPAIP_LZDO {
         }
 
         // 渲染手风琴
-        $html .= '<div class="wpaip-faq-accordion">';
+        $html .= '<div class="yimai-gso-faq-accordion">';
 
         foreach ( $qa_pairs as $idx => $pair ) {
-            $is_open = ( 0 === $idx && $open_first ) ? ' wpaip-faq-open' : '';
-            $id      = 'wpaip-faq-' . $idx . '-' . wp_rand( 1000, 9999 );
+            $is_open = ( 0 === $idx && $open_first ) ? ' yimai-gso-faq-open' : '';
+            $id      = 'yimai-gso-faq-' . $idx . '-' . wp_rand( 1000, 9999 );
 
-            $html .= '<div class="wpaip-faq-item' . $is_open . '">';
-            $html .= '<div class="wpaip-faq-question" onclick="this.parentElement.classList.toggle(\'wpaip-faq-open\')">';
-            $html .= '<span class="wpaip-faq-icon">Q</span>';
-            $html .= '<span class="wpaip-faq-qtext">' . esc_html( $pair['question'] ) . '</span>';
-            $html .= '<span class="wpaip-faq-arrow">&#9660;</span>';
+            $html .= '<div class="yimai-gso-faq-item' . $is_open . '">';
+            $html .= '<div class="yimai-gso-faq-question" onclick="this.parentElement.classList.toggle(\'yimai-gso-faq-open\')">';
+            $html .= '<span class="yimai-gso-faq-icon">Q</span>';
+            $html .= '<span class="yimai-gso-faq-qtext">' . esc_html( $pair['question'] ) . '</span>';
+            $html .= '<span class="yimai-gso-faq-arrow">&#9660;</span>';
             $html .= '</div>';
-            $html .= '<div class="wpaip-faq-answer">';
-            $html .= '<span class="wpaip-faq-icon">A</span>';
-            $html .= '<div class="wpaip-faq-atext">' . wp_kses_post( wpautop( $pair['answer'] ) ) . '</div>';
+            $html .= '<div class="yimai-gso-faq-answer">';
+            $html .= '<span class="yimai-gso-faq-icon">A</span>';
+            $html .= '<div class="yimai-gso-faq-atext">' . wp_kses_post( wpautop( $pair['answer'] ) ) . '</div>';
             $html .= '</div>';
             $html .= '</div>';
         }
@@ -355,7 +355,7 @@ class WPAIP_LZDO {
      */
     public function enqueue_faq_styles() {
         global $post;
-        if ( ! $post || ! has_shortcode( $post->post_content, 'wpaip_faq' ) ) {
+        if ( ! $post || ! has_shortcode( $post->post_content, 'yimai_gso_faq' ) ) {
             return;
         }
 
@@ -367,20 +367,20 @@ class WPAIP_LZDO {
      */
     private function get_faq_css() {
         return '
-.wpaip-faq-accordion {
+.yimai-gso-faq-accordion {
     margin: 24px 0;
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid #e5e7eb;
     background: #fff;
 }
-.wpaip-faq-item {
+.yimai-gso-faq-item {
     border-bottom: 1px solid #e5e7eb;
 }
-.wpaip-faq-item:last-child {
+.yimai-gso-faq-item:last-child {
     border-bottom: none;
 }
-.wpaip-faq-question {
+.yimai-gso-faq-question {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -390,10 +390,10 @@ class WPAIP_LZDO {
     transition: background .2s;
     user-select: none;
 }
-.wpaip-faq-question:hover {
+.yimai-gso-faq-question:hover {
     background: #f0fdf4;
 }
-.wpaip-faq-icon {
+.yimai-gso-faq-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -406,45 +406,45 @@ class WPAIP_LZDO {
     font-weight: 700;
     flex-shrink: 0;
 }
-.wpaip-faq-qtext {
+.yimai-gso-faq-qtext {
     flex: 1;
     font-weight: 600;
     font-size: 15px;
     color: #1e293b;
 }
-.wpaip-faq-arrow {
+.yimai-gso-faq-arrow {
     font-size: 10px;
     color: #94a3b8;
     transition: transform .25s;
     flex-shrink: 0;
 }
-.wpaip-faq-open .wpaip-faq-arrow {
+.yimai-gso-faq-open .yimai-gso-faq-arrow {
     transform: rotate(180deg);
 }
-.wpaip-faq-answer {
+.yimai-gso-faq-answer {
     display: grid;
     grid-template-rows: 0fr;
     transition: grid-template-rows .3s ease;
 }
-.wpaip-faq-open .wpaip-faq-answer {
+.yimai-gso-faq-open .yimai-gso-faq-answer {
     grid-template-rows: 1fr;
 }
-.wpaip-faq-answer > * {
+.yimai-gso-faq-answer > * {
     overflow: hidden;
     padding: 0 18px;
 }
-.wpaip-faq-open .wpaip-faq-answer > * {
+.yimai-gso-faq-open .yimai-gso-faq-answer > * {
     padding: 16px 18px;
 }
-.wpaip-faq-atext {
+.yimai-gso-faq-atext {
     font-size: 14px;
     line-height: 1.8;
     color: #475569;
 }
-.wpaip-faq-atext p {
+.yimai-gso-faq-atext p {
     margin: 0 0 10px 0;
 }
-.wpaip-faq-atext p:last-child {
+.yimai-gso-faq-atext p:last-child {
     margin-bottom: 0;
 }
 ';
@@ -455,7 +455,7 @@ class WPAIP_LZDO {
      * ================================================ */
 
     public function ajax_detect_faq() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );

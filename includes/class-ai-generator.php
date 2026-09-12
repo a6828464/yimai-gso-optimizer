@@ -1,12 +1,12 @@
 <?php
 /**
- * AI 文章生成器 - v1.3.0
+ * AI 文章生成器
  * SEO+内容优化：强化内容实用性（实操方法/案例）、去AI味（禁高频词/反套路写法）
  * 支持生成、改写、摘要、标题、ALT文本等多种AI内容任务
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_CGGE {
+class YIMAI_GSO_AI_Generator {
 
     private $api_key;
     private $api_url;
@@ -14,16 +14,16 @@ class WPAIP_CGGE {
     private $provider;
 
     public function __construct( $api_key = null, $api_url = null, $model = null, $provider = null ) {
-        $this->provider = $provider ?: WPAIP_9XCU::get( 'ai_provider', 'openai' );
-        $this->api_key  = $api_key ?: WPAIP_9XCU::get( 'ai_api_key', '' );
-        $this->model    = $model ?: WPAIP_9XCU::get( 'ai_model', 'gpt-4o' );
+        $this->provider = $provider ?: YIMAI_GSO_Settings::get( 'ai_provider', 'openai' );
+        $this->api_key  = $api_key ?: YIMAI_GSO_Settings::get( 'ai_api_key', '' );
+        $this->model    = $model ?: YIMAI_GSO_Settings::get( 'ai_model', 'gpt-4o' );
 
         // 确定 API URL
         if ( $api_url ) {
             $this->api_url = $api_url;
         } else {
-            $providers     = WPAIP_9XCU::get_ai_providers();
-            $this->api_url = WPAIP_9XCU::get( 'ai_api_url' )
+            $providers     = YIMAI_GSO_Settings::get_ai_providers();
+            $this->api_url = YIMAI_GSO_Settings::get( 'ai_api_url' )
                 ?: ( $providers[ $this->provider ]['url'] ?? 'https://api.openai.com/v1/chat/completions' );
         }
     }
@@ -41,7 +41,7 @@ class WPAIP_CGGE {
         }
 
         $lang_name   = $language === 'zh_CN' ? '中文' : 'English';
-        $sys_prompt  = WPAIP_9XCU::get( 'system_prompt' );
+        $sys_prompt  = YIMAI_GSO_Settings::get( 'system_prompt' );
         if ( empty( $sys_prompt ) ) {
             $sys_prompt = "【输出格式强制要求 - 极其重要】\n" .
                           "1. 你必须且只能返回一个合法的 JSON 对象，不能包含任何其他文字、说明、注释\n" .
@@ -49,16 +49,16 @@ class WPAIP_CGGE {
                           "3. 禁止在 JSON 内部添加注释或说明文字\n" .
                           "4. 如果无法生成完整内容，返回尽可能完整的 JSON，不要输出非 JSON 内容\n" .
                           "5. 违反以上任何一条，将导致程序解析失败，用户无法看到你生成的内容\n\n" .
-                          WPAIP_9XCU::get_default_system_prompt() .
+                          YIMAI_GSO_Settings::get_default_system_prompt() .
                           "\n\n八、禁止生成图片标签\n" .
                           "- 正文中严禁输出任何 <img> 标签，图片由系统自动配图，你只需要输出纯文字内容\n" .
                           "- 即使你找到了相关图片，也不要在正文中写 <img> 标签，系统会统一处理配图";
         }
         $sys_prompt .= "\n\n【一麦瑜伽品牌事实硬约束】除非用户明确要求竞品对比，否则不得推荐或虚构其他品牌、机构或门店；涉及一麦瑜伽的名称、服务和地址只能使用提示词中的 canonical 实体与资料事实。";
 
-        $user_prompt_tpl = WPAIP_9XCU::get( 'user_prompt' );
+        $user_prompt_tpl = YIMAI_GSO_Settings::get( 'user_prompt' );
         if ( empty( $user_prompt_tpl ) ) {
-            $user_prompt_tpl = WPAIP_9XCU::get_default_user_prompt();
+            $user_prompt_tpl = YIMAI_GSO_Settings::get_default_user_prompt();
         }
 
         $user_message = str_replace(
@@ -68,7 +68,7 @@ class WPAIP_CGGE {
         );
 
         // 动态计算 max_tokens：中文字约 1.5~2.5 token/字（模型差异大），JSON 结构开销约 500~800 tokens
-        // v2.9.73: 系数从 3 提升至 4（批量生成 ~30% 截断率→标题有内容空），配合 2048 结构开销
+        // 系数从 3 提升至 4（批量生成 ~30% 截断率→标题有内容空），配合 2048 结构开销
         // 留足余量：1000 字 = 4000 + 2048 = 6048 tokens，最低 4096，最高 16384
         $dynamic_max_tokens = max( 4096, min( 16384, (int) ( $word_count * 4 ) + 2048 ) );
 
@@ -298,7 +298,7 @@ class WPAIP_CGGE {
             }
         }
 
-        // v2.9.73 修复：原来兜底用 $prompt（即文章标题），导致标题被当标签插入。
+        //  修复：原来兜底用 $prompt（即文章标题），导致标题被当标签插入。
         // AI 无 tags/keywords 时不强制赋值，留给下游 build_tags() 用 keywords/主题词做 fallback。
         // 不再用 prompt（标题）当标签。
 
@@ -847,7 +847,7 @@ class WPAIP_CGGE {
 
         $user_message = "行业关键词/主题：{$keyword}\n请生成{$count}个热门文章标题。";
 
-        // v2.9.67: 标题生成增加一次重试，应对 API 偶发空返回
+        // 标题生成增加一次重试，应对 API 偶发空返回
         $max_attempts = 2;
         $last_error   = null;
         $response     = null;
@@ -973,7 +973,7 @@ class WPAIP_CGGE {
         $type = $params['type'] ?? 'guide';
         $style = $params['style'] ?? '';
         $with_image = $params['with_image'] ?? true;
-        $angle = $params['angle'] ?? ''; // v2.9.73: 写作角度
+        $angle = $params['angle'] ?? ''; // 写作角度
 
         // 长度映射
         $length_map = array(
@@ -1037,8 +1037,8 @@ class WPAIP_CGGE {
             }
 
             // 单篇生成系统提示词：优先使用设置中的自定义值，否则使用内置默认
-            $custom_system_prompt = WPAIP_9XCU::get( 'single_generate_system_prompt', '' );
-            $default_system_prompt = WPAIP_9XCU::get_default_single_generate_system_prompt();
+            $custom_system_prompt = YIMAI_GSO_Settings::get( 'single_generate_system_prompt', '' );
+            $default_system_prompt = YIMAI_GSO_Settings::get_default_single_generate_system_prompt();
 
             // 自定义提示词完全覆盖；留空则用内置默认
             $system_content = ! empty( trim( $custom_system_prompt ) )
@@ -1067,7 +1067,7 @@ class WPAIP_CGGE {
         }
 
         if ( is_wp_error( $last_error ) ) {
-            error_log( '[WPAIP SingleGenerate] AI调用失败（' . $max_attempts . '次尝试后）: ' . $last_error->get_error_message() );
+            error_log( '[YIMAI GSO] AI调用失败（' . $max_attempts . '次尝试后）: ' . $last_error->get_error_message() );
             return $last_error;
         }
 
@@ -1075,7 +1075,7 @@ class WPAIP_CGGE {
 
         // 空内容检测
         if ( empty( trim( $content ) ) ) {
-            error_log( '[WPAIP SingleGenerate] AI 返回空内容，参数: keyword=' . $keyword . ', length=' . $length . ', type=' . $type );
+            error_log( '[YIMAI GSO] AI 返回空内容，参数: keyword=' . $keyword . ', length=' . $length . ', type=' . $type );
         }
 
         // 解析 JSON - 使用增强的提取方法
@@ -1115,23 +1115,23 @@ class WPAIP_CGGE {
         $image_count = 0;
         $first_attach_id = 0;
         if ( $with_image && ! empty( $article['image_keywords'] ) ) {
-            require_once WPAIP_PLUGIN_DIR . 'includes/class-image-handler.php';
-            $image_handler = new WPAIP_OQ4C();
+            require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-image-handler.php';
+            $image_handler = new YIMAI_GSO_Image_Handler();
 
             // 获取配图数量设置
-            $image_count_setting = (int) WPAIP_9XCU::get( 'image_count', 3 );
+            $image_count_setting = (int) YIMAI_GSO_Settings::get( 'image_count', 3 );
             $image_keyword = is_array( $article['image_keywords'] )
                 ? implode( ',', $article['image_keywords'] )
                 : $article['image_keywords'];
 
             // ★ AI 生图模式：使用 image_prompts 分段生成
-            $img_provider = WPAIP_9XCU::get( 'image_provider', 'pexels' );
+            $img_provider = YIMAI_GSO_Settings::get( 'image_provider', 'pexels' );
             $image_prompts = isset( $article['image_prompts'] ) && is_array( $article['image_prompts'] )
                 ? $article['image_prompts'] : array();
 
-            if ( 'ai' === $img_provider && ! empty( $image_prompts ) && class_exists( 'WPAIP_6DVW' ) ) {
+            if ( 'ai' === $img_provider && ! empty( $image_prompts ) && class_exists( 'YIMAI_GSO_AI_Image_Generator' ) ) {
                 // AI 生图模式：生成阶段只画 1 张封面，其余留给发布阶段
-                $ai_gen = new WPAIP_6DVW();
+                $ai_gen = new YIMAI_GSO_AI_Image_Generator();
                 $images = array();
                 $section_map = array();
                 $pending_prompts = array();
@@ -1420,7 +1420,7 @@ class WPAIP_CGGE {
         );
         $strength_desc = $strength_instructions[ $strength ] ?? $strength_instructions['medium'];
 
-        // 风格预设（v2.6.0）
+        // 风格预设
         $style_instructions = array(
             'default'     => '保持原文的语气和风格',
             'professional'=> '【专业风格】使用正式、权威的表达方式。多用行业术语、数据支撑、逻辑连接词。语气严谨、客观、可信。',
@@ -1430,7 +1430,7 @@ class WPAIP_CGGE {
         );
         $style_desc = $style_instructions[ $style ] ?? $style_instructions['default'];
 
-        // 字段选择（v2.6.0）
+        // 字段选择
         $rewrite_title   = empty( $fields ) || in_array( 'title', $fields, true );
         $rewrite_content = empty( $fields ) || in_array( 'content', $fields, true );
         $rewrite_excerpt = empty( $fields ) || in_array( 'excerpt', $fields, true );
@@ -1453,7 +1453,7 @@ class WPAIP_CGGE {
         if ( ! $rewrite_excerpt ) $field_constraints .= "\n- **摘要**：不需要生成，excerpt留空";
         if ( ! $rewrite_tags )    $field_constraints .= "\n- **标签**：不需要生成，tags留空";
 
-        // 关键词注入（v2.6.0）
+        // 关键词注入
         $keyword_constraint = '';
         if ( ! empty( trim( $keywords ) ) ) {
             $keyword_list = array_map( 'trim', explode( ',', $keywords ) );

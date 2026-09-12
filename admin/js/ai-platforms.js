@@ -2,7 +2,7 @@
  * 一麦GSO AI 平台管理面板 JS
  *
  * 依赖：jQuery（WordPress 默认加载）
- * 在 wpaipData 全局对象可用时运行
+ * 在 yimaiGsoData 全局对象可用时运行
  *
  * @since 3.0.0
  */
@@ -27,9 +27,9 @@
         loadConfig: function() {
             var self = this;
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_platform_get_config',
-                _wpnonce: wpaipData.nonce
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_platform_get_config',
+                _wpnonce: yimaiGsoData.nonce
             }, function(resp) {
                 if (resp && resp.success && resp.data) {
                     self.platforms = resp.data.platforms || {};
@@ -45,7 +45,7 @@
          * 渲染管理面板
          */
         render: function() {
-            var $container = $('.wpaip-platform-list');
+            var $container = $('.yimai-gso-platform-list');
             if (!$container.length) return;
 
             var html = '';
@@ -53,9 +53,9 @@
             var activeKeys = this.activeKeys;
 
             // P0 平台
-            html += '<div class="wpaip-platform-group">';
+            html += '<div class="yimai-gso-platform-group">';
             html += '<h3>核心平台（P0）</h3>';
-            html += '<p class="wpaip-platform-group-desc">默认启用，覆盖全球主流 AI 搜索引擎</p>';
+            html += '<p class="yimai-gso-platform-group-desc">默认启用，覆盖全球主流 AI 搜索引擎</p>';
 
             $.each(platforms, function(key, platform) {
                 if (platform.priority !== 'p0') return true; // continue
@@ -64,9 +64,9 @@
             html += '</div>';
 
             // P1 平台
-            html += '<div class="wpaip-platform-group">';
+            html += '<div class="yimai-gso-platform-group">';
             html += '<h3>扩展平台（P1）</h3>';
-            html += '<p class="wpaip-platform-group-desc">按需启用，覆盖国内及新兴 AI 平台</p>';
+            html += '<p class="yimai-gso-platform-group-desc">按需启用，覆盖国内及新兴 AI 平台</p>';
 
             $.each(platforms, function(key, platform) {
                 if (platform.priority !== 'p1') return true; // continue
@@ -99,18 +99,18 @@
             }
 
             return '' +
-            '<div class="wpaip-platform-card' + (enabled ? ' enabled' : '') + '" data-key="' + PlatformManager.escapeHtml(key) + '">' +
-            '  <div class="wpaip-platform-card-header">' +
-            '    <label class="wpaip-platform-toggle">' +
+            '<div class="yimai-gso-platform-card' + (enabled ? ' enabled' : '') + '" data-key="' + PlatformManager.escapeHtml(key) + '">' +
+            '  <div class="yimai-gso-platform-card-header">' +
+            '    <label class="yimai-gso-platform-toggle">' +
             '      <input type="checkbox" ' + (enabled ? 'checked' : '') + ' data-toggle="platform" data-key="' + PlatformManager.escapeHtml(key) + '">' +
-            '      <span class="wpaip-platform-toggle-slider"></span>' +
+            '      <span class="yimai-gso-platform-toggle-slider"></span>' +
             '    </label>' +
-            '    <div class="wpaip-platform-card-info">' +
+            '    <div class="yimai-gso-platform-card-info">' +
             '      <strong>' + PlatformManager.escapeHtml(platform.name) + '</strong>' +
             '      <span class="pf-bots">' + botsHtml + '</span>' +
             '    </div>' +
             '  </div>' +
-            '  <div class="wpaip-platform-card-body">' +
+            '  <div class="yimai-gso-platform-card-body">' +
             '    <p>' + PlatformManager.escapeHtml(platform.note || '') + '</p>' +
             '    <div class="pf-badges">' + badges + '</div>' +
             '  </div>' +
@@ -128,7 +128,7 @@
                 var $checkbox = $(this);
                 var key = $checkbox.data('key');
                 var enabled = $checkbox.is(':checked');
-                var $card = $checkbox.closest('.wpaip-platform-card');
+                var $card = $checkbox.closest('.yimai-gso-platform-card');
 
                 if (enabled) {
                     $card.addClass('enabled');
@@ -140,7 +140,7 @@
             });
 
             // 保存按钮
-            $(document).on('click', '#wpaip-platform-save', function() {
+            $(document).on('click', '#yimai-gso-platform-save', function() {
                 self.saveConfig();
             });
         },
@@ -160,9 +160,9 @@
                 };
             });
 
-            $.post(wpaipData.ajaxUrl, {
-                action: 'wpaip_platform_save_config',
-                _wpnonce: wpaipData.nonce,
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_platform_save_config',
+                _wpnonce: yimaiGsoData.nonce,
                 config: JSON.stringify(config)
             }, function(resp) {
                 if (resp && resp.success) {
@@ -186,7 +186,7 @@
 
     // 页面就绪时初始化
     $(document).ready(function() {
-        if ($('.wpaip-platform-list').length) {
+        if ($('.yimai-gso-platform-list').length) {
             PlatformManager.init();
         }
     });

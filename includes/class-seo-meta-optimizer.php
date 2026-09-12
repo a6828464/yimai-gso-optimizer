@@ -4,15 +4,15 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_UZSV {
+class YIMAI_GSO_SEO_Meta_Optimizer {
 
-    const LOG_OPTION = 'wpaip_seo_meta_logs';
+    const LOG_OPTION = 'yimai_gso_seo_meta_logs';
     const MAX_LOGS   = 100;
 
     /** @var string 异步SEO元数据队列 option 键名 */
-    const SEO_META_QUEUE_OPTION = 'wpaip_seo_meta_queue';
+    const SEO_META_QUEUE_OPTION = 'yimai_gso_seo_meta_queue';
     /** @var string 异步处理 cron 钩子名 */
-    const SEO_META_QUEUE_CRON   = 'wpaip_process_seo_meta_queue';
+    const SEO_META_QUEUE_CRON   = 'yimai_gso_process_seo_meta_queue';
     /** @var int 单次最多处理篇数 */
     const BATCH_SIZE = 3;
     /** @var int 队列最大容量 */
@@ -56,7 +56,7 @@ class WPAIP_UZSV {
      */
     public function handle_transition_post_status( $new_status, $old_status, $post ) {
         // 预览请求跳过
-        if ( function_exists( 'wpaip_is_preview_request' ) && wpaip_is_preview_request() ) {
+        if ( function_exists( 'yimai_gso_is_preview_request' ) && yimai_gso_is_preview_request() ) {
             return;
         }
 
@@ -75,7 +75,7 @@ class WPAIP_UZSV {
         }
 
         // 仅处理插件支持的内容类型（默认：post + page）
-        if ( ! WPAIP_B7PQ::is_supported( $post->post_type ) ) {
+        if ( ! YIMAI_GSO_Post_Type_Helper::is_supported( $post->post_type ) ) {
             return;
         }
 
@@ -104,7 +104,7 @@ class WPAIP_UZSV {
         }
 
         // 防重复：5分钟内已处理过
-        $last_processed = get_post_meta( $post->ID, '_wpaip_seo_auto_processed', true );
+        $last_processed = get_post_meta( $post->ID, '_yimai_gso_seo_auto_processed', true );
         if ( $last_processed && ( time() - absint( $last_processed ) ) < self::DEDUP_WINDOW ) {
             return;
         }
@@ -151,10 +151,10 @@ class WPAIP_UZSV {
 
         // 主动触发 wp-cron.php 立即处理（防止低流量站点队列堆积）
         if ( ! ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) && function_exists( 'spawn_cron' ) ) {
-            $last_trigger = get_transient( 'wpaip_last_cron_trigger' );
+            $last_trigger = get_transient( 'yimai_gso_last_cron_trigger' );
             if ( false === $last_trigger ) {
                 spawn_cron();
-                set_transient( 'wpaip_last_cron_trigger', time(), 1 );
+                set_transient( 'yimai_gso_last_cron_trigger', time(), 1 );
             }
         }
     }
@@ -192,11 +192,11 @@ class WPAIP_UZSV {
             unset( self::$processing_posts[ $post_id ] );
 
             // 标记处理时间（防重复窗口）
-            update_post_meta( $post_id, '_wpaip_seo_auto_processed', time() );
+            update_post_meta( $post_id, '_yimai_gso_seo_auto_processed', time() );
 
             if ( is_wp_error( $result ) ) {
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( '[WPAIP] SEO元数据自动生成失败 post_id=' . $post_id . ': ' . $result->get_error_message() );
+                    error_log( '[YIMAI GSO] SEO元数据自动生成失败 post_id=' . $post_id . ': ' . $result->get_error_message() );
                 }
             }
         }
@@ -312,7 +312,7 @@ class WPAIP_UZSV {
      * @return bool
      */
     private static function should_skip_manual_seo() {
-        return (bool) WPAIP_9XCU::get( 'auto_seo_meta_skip_manual', 1 );
+        return (bool) YIMAI_GSO_Settings::get( 'auto_seo_meta_skip_manual', 1 );
     }
 
     // ==================== 增强B：分类白名单 ====================
@@ -325,7 +325,7 @@ class WPAIP_UZSV {
      * @return bool
      */
     private static function is_category_whitelisted( $post_id ) {
-        $categories_setting = WPAIP_9XCU::get( 'auto_seo_meta_categories', '' );
+        $categories_setting = YIMAI_GSO_Settings::get( 'auto_seo_meta_categories', '' );
         $category_ids       = array_filter( array_map( 'absint', explode( ',', $categories_setting ) ) );
 
         // 白名单为空 → 不限制，全部通过
@@ -350,13 +350,13 @@ class WPAIP_UZSV {
      * @return bool
      */
     private static function is_auto_seo_enabled() {
-        return (bool) WPAIP_9XCU::get( 'auto_seo_meta_enabled', 0 );
+        return (bool) YIMAI_GSO_Settings::get( 'auto_seo_meta_enabled', 0 );
     }
 
     // ==================== 原有公开方法（保持不变） ====================
 
     public static function ajax_scan_posts() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -376,7 +376,7 @@ class WPAIP_UZSV {
     }
 
     public static function ajax_generate_preview() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -411,7 +411,7 @@ class WPAIP_UZSV {
     }
 
     public static function ajax_apply_preview() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -439,7 +439,7 @@ class WPAIP_UZSV {
      * AJAX: 获取批量SEO统计（用于页面局部刷新）
      */
     public static function ajax_get_stats() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -455,7 +455,7 @@ class WPAIP_UZSV {
         $only_missing = ! empty( $args['only_missing'] );
 
         $query = new WP_Query( array(
-            'post_type'      => WPAIP_B7PQ::get_supported(),
+            'post_type'      => YIMAI_GSO_Post_Type_Helper::get_supported(),
             'post_status'    => self::normalize_status_arg( $post_status ),
             'posts_per_page' => $limit,
             'orderby'        => 'date',
@@ -492,7 +492,7 @@ class WPAIP_UZSV {
 
     public static function generate_preview( $post_id ) {
         $post = get_post( $post_id );
-        if ( ! $post || ! WPAIP_B7PQ::is_supported( $post->post_type ) ) {
+        if ( ! $post || ! YIMAI_GSO_Post_Type_Helper::is_supported( $post->post_type ) ) {
             return new WP_Error( 'invalid_post', '文章不存在或类型不支持' );
         }
 
@@ -502,8 +502,8 @@ class WPAIP_UZSV {
             return new WP_Error( 'empty_post', '文章内容过短，无法生成 SEO 预览' );
         }
 
-        require_once WPAIP_PLUGIN_DIR . 'includes/class-ai-generator.php';
-        $generator  = new WPAIP_CGGE();
+        require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-ai-generator.php';
+        $generator  = new YIMAI_GSO_AI_Generator();
 
         // 产品专用 Prompt
         if ( 'product' === $post->post_type ) {
@@ -563,7 +563,7 @@ class WPAIP_UZSV {
 
     public static function apply_preview( $post_id, $data ) {
         $post = get_post( $post_id );
-        if ( ! $post || ! WPAIP_B7PQ::is_supported( $post->post_type ) ) {
+        if ( ! $post || ! YIMAI_GSO_Post_Type_Helper::is_supported( $post->post_type ) ) {
             return new WP_Error( 'invalid_post', '文章不存在或类型不支持' );
         }
 
@@ -573,7 +573,7 @@ class WPAIP_UZSV {
         }
 
         $before = self::get_post_seo_snapshot( $post_id );
-        WPAIP_2I0E::write_seo_fields( $post_id, $normalized['keywords'], $normalized['description'], $normalized['title'] );
+        YIMAI_GSO_Publisher::write_seo_fields( $post_id, $normalized['keywords'], $normalized['description'], $normalized['title'] );
         $after = self::get_post_seo_snapshot( $post_id );
 
         self::append_log( array(

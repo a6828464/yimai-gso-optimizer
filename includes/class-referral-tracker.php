@@ -3,7 +3,7 @@
  * AI 引荐流量追踪器 — Referrer 解析 + 访问日志写入
  *
  * 识别 AI 平台引荐来源（ChatGPT/Perplexity/Claude/Gemini/Copilot/DeepSeek/豆包/Kimi/元宝）
- * 写入 wp_wpaip_referral_logs 表，供第5层仪表盘统计使用
+ * 写入 wp_yimai_gso_referral_logs 表，供第5层仪表盘统计使用
  *
  * 触发: shutdown 钩子，仅在匹配到 AI 平台 Referrer 时写入，正常用户零开销
  *
@@ -13,12 +13,12 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_4BA2 {
+class YIMAI_GSO_Referral_Tracker {
 
     private static $instance = null;
 
     /** 数据库表名 */
-    const TABLE_NAME = 'wpaip_referral_logs';
+    const TABLE_NAME = 'yimai_gso_referral_logs';
 
     /** AI 平台 Referrer 域名匹配模式 */
     const PLATFORM_PATTERNS = array(
@@ -170,8 +170,8 @@ class WPAIP_4BA2 {
      * 确保表存在 — 在初始化时懒检查
      */
     public static function ensure_table() {
-        if ( false === get_transient( 'wpaip_referral_table_checked' ) ) {
-            set_transient( 'wpaip_referral_table_checked', 1, HOUR_IN_SECONDS );
+        if ( false === get_transient( 'yimai_gso_referral_table_checked' ) ) {
+            set_transient( 'yimai_gso_referral_table_checked', 1, HOUR_IN_SECONDS );
             self::create_table();
         }
     }

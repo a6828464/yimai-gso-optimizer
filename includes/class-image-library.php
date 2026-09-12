@@ -4,13 +4,13 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_UY9D {
+class YIMAI_GSO_Image_Library {
 
-    const TAXONOMY   = 'wpaip_image_group';
-    const META_WEIGHT    = 'wpaip_img_weight';
-    const META_KEYWORDS  = 'wpaip_img_keywords';
-    const META_USED      = 'wpaip_img_used_count';
-    const META_LAST_USED = 'wpaip_img_last_used';
+    const TAXONOMY   = 'yimai_gso_image_group';
+    const META_WEIGHT    = 'yimai_gso_img_weight';
+    const META_KEYWORDS  = 'yimai_gso_img_keywords';
+    const META_USED      = 'yimai_gso_img_used_count';
+    const META_LAST_USED = 'yimai_gso_img_last_used';
 
     /**
      * 注册 taxonomy（插件激活时调用）

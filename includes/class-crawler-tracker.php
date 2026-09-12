@@ -15,7 +15,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_9W9L {
+class YIMAI_GSO_Crawler_Tracker {
 
     private static $instance = null;
 
@@ -160,8 +160,8 @@ class WPAIP_9W9L {
      * 确保表存在 — 在每次 init 时懒检查
      */
     public static function ensure_table() {
-        if ( false === get_transient( 'wpaip_crawler_table_checked' ) ) {
-            set_transient( 'wpaip_crawler_table_checked', 1, HOUR_IN_SECONDS );
+        if ( false === get_transient( 'yimai_gso_crawler_table_checked' ) ) {
+            set_transient( 'yimai_gso_crawler_table_checked', 1, HOUR_IN_SECONDS );
             self::create_table();
         }
     }

@@ -11,7 +11,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-class WPAIP_SDZH {
+class YIMAI_GSO_Content_Freshness {
 
     private static $instance = null;
 
@@ -35,10 +35,10 @@ class WPAIP_SDZH {
 
     private function __construct() {
         add_action( 'save_post', array( $this, 'on_save_post' ), 20 );
-        add_action( 'wp_ajax_wpaip_refresh_content', array( $this, 'ajax_refresh_content' ) );
-        add_action( 'wp_ajax_wpaip_batch_mark_fresh', array( $this, 'ajax_batch_mark_fresh' ) );
-        add_action( 'wp_ajax_wpaip_get_freshness_stats', array( $this, 'ajax_get_stats' ) );
-        add_action( 'wp_ajax_wpaip_get_freshness_posts', array( $this, 'ajax_get_freshness_posts' ) );
+        add_action( 'wp_ajax_yimai_gso_refresh_content', array( $this, 'ajax_refresh_content' ) );
+        add_action( 'wp_ajax_yimai_gso_batch_mark_fresh', array( $this, 'ajax_batch_mark_fresh' ) );
+        add_action( 'wp_ajax_yimai_gso_get_freshness_stats', array( $this, 'ajax_get_stats' ) );
+        add_action( 'wp_ajax_yimai_gso_get_freshness_posts', array( $this, 'ajax_get_freshness_posts' ) );
     }
 
     /* ================================================
@@ -92,7 +92,7 @@ class WPAIP_SDZH {
             'checked_at'        => $now,
         );
 
-        update_post_meta( $post_id, 'wpaip_content_freshness', $result );
+        update_post_meta( $post_id, 'yimai_gso_content_freshness', $result );
 
         return $result;
     }
@@ -101,7 +101,7 @@ class WPAIP_SDZH {
      * 获取文章新鲜度（优先读缓存，缓存基于 post_modified 时间戳防过期）
      */
     public function get_freshness( $post_id ) {
-        $cached    = get_post_meta( $post_id, 'wpaip_content_freshness', true );
+        $cached    = get_post_meta( $post_id, 'yimai_gso_content_freshness', true );
         $modified  = get_post_modified_time( 'U', false, $post_id );
 
         // 缓存失效条件：不存在 或 文章被修改过（用 Unix 时间戳精确比较）
@@ -134,7 +134,7 @@ class WPAIP_SDZH {
      */
     public function on_save_post( $post_id ) {
         if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) return;
-        if ( class_exists( 'WPAIP_B7PQ' ) && ! WPAIP_B7PQ::is_supported( $post_id ) ) return;
+        if ( class_exists( 'YIMAI_GSO_Post_Type_Helper' ) && ! YIMAI_GSO_Post_Type_Helper::is_supported( $post_id ) ) return;
 
         $this->calculate( $post_id );
     }
@@ -148,7 +148,7 @@ class WPAIP_SDZH {
      * @return array { total, fresh, normal, stale, old, fresh_pct }
      */
     public function get_summary_stats() {
-        $cache_key = 'wpaip_freshness_summary';
+        $cache_key = 'yimai_gso_freshness_summary';
         $cached    = get_transient( $cache_key );
 
         if ( false !== $cached ) {
@@ -160,8 +160,8 @@ class WPAIP_SDZH {
 
         // 动态获取支持的内容类型
         $supported_types = array( 'post', 'page' );
-        if ( class_exists( 'WPAIP_B7PQ' ) ) {
-            $supported_types = WPAIP_B7PQ::get_supported();
+        if ( class_exists( 'YIMAI_GSO_Post_Type_Helper' ) ) {
+            $supported_types = YIMAI_GSO_Post_Type_Helper::get_supported();
         }
         $pt_placeholders = implode( ',', array_fill( 0, count( $supported_types ), '%s' ) );
 
@@ -204,7 +204,7 @@ class WPAIP_SDZH {
      * 一键刷新：将文章标记为已审核（更新 post_modified）
      */
     public function ajax_refresh_content() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -226,7 +226,7 @@ class WPAIP_SDZH {
         $freshness = $this->calculate( $post_id );
 
         // 清除统计缓存
-        delete_transient( 'wpaip_freshness_summary' );
+        delete_transient( 'yimai_gso_freshness_summary' );
 
         wp_send_json_success( array(
             'message'   => '已标记为已审核',
@@ -238,7 +238,7 @@ class WPAIP_SDZH {
      * 批量标记为新鲜
      */
     public function ajax_batch_mark_fresh() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -260,7 +260,7 @@ class WPAIP_SDZH {
             $count++;
         }
 
-        delete_transient( 'wpaip_freshness_summary' );
+        delete_transient( 'yimai_gso_freshness_summary' );
 
         wp_send_json_success( array(
             'message' => sprintf( '已刷新 %d 篇文章的新鲜度', $count ),
@@ -272,7 +272,7 @@ class WPAIP_SDZH {
      * 获取新鲜度统计数据
      */
     public function ajax_get_stats() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -286,7 +286,7 @@ class WPAIP_SDZH {
      * 获取新鲜度文章列表（分页、可筛选）
      */
     public function ajax_get_freshness_posts() {
-        check_ajax_referer( 'wpaip_nonce', 'nonce' );
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 
         if ( ! current_user_can( 'edit_posts' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
@@ -300,8 +300,8 @@ class WPAIP_SDZH {
         global $wpdb;
 
         $supported_types = array( 'post', 'page' );
-        if ( class_exists( 'WPAIP_B7PQ' ) ) {
-            $supported_types = WPAIP_B7PQ::get_supported();
+        if ( class_exists( 'YIMAI_GSO_Post_Type_Helper' ) ) {
+            $supported_types = YIMAI_GSO_Post_Type_Helper::get_supported();
         }
         $pt_placeholders = implode( ',', array_fill( 0, count( $supported_types ), '%s' ) );
 
