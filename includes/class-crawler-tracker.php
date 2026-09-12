@@ -1,0 +1,280 @@
+<?php
+/**
+ * AI 爬虫追踪器 — User-Agent 识别 + 访问日志写入
+ *
+ * 提供:
+ * - 30+ 种 AI 爬虫 UA 识别
+ * - 访问日志写入 wp_geo_crawler_logs 表
+ * - 统计查询接口
+ *
+ * 触发: shutdown 钩子，仅在匹配到 AI 爬虫 UA 时写入，正常用户零开销
+ *
+ * @package BaiqueAI_SEO_Content_Engine
+ * @since 2.9.0
+ */
+
+if ( ! defined( 'ABSPATH' ) ) exit;
+
+class WPAIP_9W9L {
+
+    private static $instance = null;
+
+    /** 已知 AI 爬虫 UA 映射表 */
+    const KNOWN_CRAWLERS = array(
+        // ─── 训练型（高频抓取，消耗资源，谨慎放行）───
+        'GPTBot'              => array( 'name' => 'ChatGPT / OpenAI',       'family' => 'openai',    'type' => 'training' ),
+        'ClaudeBot'           => array( 'name' => 'Claude / Anthropic',     'family' => 'anthropic', 'type' => 'training' ),
+        'Bytespider'          => array( 'name' => '字节通用爬虫 (字节)',     'family' => 'bytedance', 'type' => 'training' ),
+        'DoubaoBot'           => array( 'name' => '豆包 AI采集 (字节)',       'family' => 'bytedance', 'type' => 'training' ),
+        'AISpider'            => array( 'name' => '文心一言 AI采集 (百度)',   'family' => 'baidu',     'type' => 'training' ),
+        'HunyuanBot'          => array( 'name' => '混元大模型 (腾讯)',         'family' => 'tencent',   'type' => 'training' ),
+        'KimiBot'             => array( 'name' => 'Kimi 训练采集',           'family' => 'moonshot',  'type' => 'training' ),
+        'AlibabaBot'          => array( 'name' => '阿里巴巴通用采集 (阿里)', 'family' => 'alibaba',   'type' => 'training' ),
+        'TongyiBot'           => array( 'name' => '通义千问 AI训练 (阿里)',   'family' => 'alibaba',   'type' => 'training' ),
+        'DeepSeekBot'         => array( 'name' => 'DeepSeek',               'family' => 'deepseek',  'type' => 'training' ),
+        'Meta-ExternalFetcher'=> array( 'name' => 'Meta AI',                'family' => 'meta',      'type' => 'training' ),
+        'Applebot'            => array( 'name' => 'Apple Intelligence',     'family' => 'apple',     'type' => 'training' ),
+        'CCBot'               => array( 'name' => 'Common Crawl',           'family' => 'research',  'type' => 'training' ),
+        'Microsoft-Edge-Bot'  => array( 'name' => 'Edge AI采集 (微软)',       'family' => 'microsoft', 'type' => 'training' ),
+        // ─── 搜索/引用型（建索引、带返链流量，建议放行）───
+        'OAI-SearchBot'       => array( 'name' => 'ChatGPT Search',         'family' => 'openai',    'type' => 'search' ),
+        'Kimi-SearchBot'      => array( 'name' => 'Kimi 搜索索引',           'family' => 'moonshot',  'type' => 'search' ),
+        'PerplexityBot'       => array( 'name' => 'Perplexity',             'family' => 'perplexity','type' => 'search' ),
+        'Claude-SearchBot'    => array( 'name' => 'Claude Search',          'family' => 'anthropic', 'type' => 'search' ),
+        'Google-Extended'     => array( 'name' => 'Google AI Overviews',    'family' => 'google',    'type' => 'search' ),
+        'Gemini'              => array( 'name' => 'Google Gemini',          'family' => 'google',    'type' => 'search' ),
+        'BingBot'             => array( 'name' => 'Bing / Copilot (微软)',   'family' => 'microsoft', 'type' => 'search' ),
+        'Baiduspider-mobile'  => array( 'name' => '百度移动搜索 (百度)',     'family' => 'baidu',     'type' => 'search' ),
+        'Baiduspider'         => array( 'name' => '百度搜索 (百度)',         'family' => 'baidu',     'type' => 'search' ),
+        'YisouSpider'         => array( 'name' => '夸克/神马搜索 (阿里)',   'family' => 'alibaba',   'type' => 'search' ),
+        'Sogou web spider'    => array( 'name' => '搜狗搜索',                'family' => 'sogou',     'type' => 'search' ),
+        '360Spider'           => array( 'name' => '360 搜索',                'family' => '360',       'type' => 'search' ),
+        'WechatBot'           => array( 'name' => '微信搜一搜',                'family' => 'tencent',   'type' => 'search' ),
+        'TencentBot'          => array( 'name' => '腾讯通用爬虫',             'family' => 'tencent',   'type' => 'search' ),
+        // ─── 用户触发型（按需单次抓取，几乎无影响）───
+        'ChatGPT-User'        => array( 'name' => 'ChatGPT User',           'family' => 'openai',    'type' => 'user' ),
+        'Kimi-User'           => array( 'name' => 'Kimi 用户抓取',           'family' => 'moonshot',  'type' => 'user' ),
+    );
+
+    /** 数据库表名 */
+    const TABLE_NAME = 'geo_crawler_logs';
+
+    public static function get_instance() {
+        if ( null === self::$instance ) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    private function __construct() {
+        // 在 shutdown 阶段异步写入日志，不阻塞用户请求
+        add_action( 'shutdown', array( $this, 'maybe_log' ), 999 );
+    }
+
+    // ==================== 爬虫识别 ====================
+
+    /**
+     * 从 User-Agent 检测是否为已知 AI 爬虫
+     *
+     * @param string|null $ua User-Agent 字符串，null 则从 $_SERVER 获取
+     * @return array|null 返回爬虫信息 ['key' => ..., 'name' => ..., 'family' => ...] 或 null
+     */
+    public static function detect( $ua = null ) {
+        if ( null === $ua ) {
+            $ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? $_SERVER['HTTP_USER_AGENT'] : '';
+        }
+
+        if ( empty( $ua ) ) {
+            return null;
+        }
+
+        foreach ( self::KNOWN_CRAWLERS as $key => $info ) {
+            if ( false !== stripos( $ua, $key ) ) {
+                return array_merge( array( 'key' => $key ), $info );
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 获取所有已知爬虫列表（用于前端）
+     *
+     * @return array
+     */
+    public static function get_known_crawlers() {
+        return self::KNOWN_CRAWLERS;
+    }
+
+    // ==================== 数据库 ====================
+
+    /**
+     * 获取完整表名
+     *
+     * @return string
+     */
+    public static function table_name() {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_NAME;
+    }
+
+    /**
+     * 创建爬虫日志表
+     *
+     * @return bool
+     */
+    public static function create_table() {
+        global $wpdb;
+        $table = self::table_name();
+
+        // 检查表是否已存在
+        if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table ) {
+            return true;
+        }
+
+        $charset_collate = $wpdb->get_charset_collate();
+
+        $sql = "CREATE TABLE `{$table}` (
+            `id`            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `crawler_key`   VARCHAR(50)  NOT NULL COMMENT '爬虫标识,如 GPTBot',
+            `crawler_name`  VARCHAR(100) NOT NULL COMMENT '爬虫中文名',
+            `family`        VARCHAR(30)  DEFAULT NULL COMMENT '爬虫家族,如 openai',
+            `user_agent`    VARCHAR(500) DEFAULT NULL COMMENT '完整 User-Agent',
+            `request_url`   VARCHAR(2083) NOT NULL COMMENT '请求 URL',
+            `visit_time`    DATETIME     NOT NULL COMMENT '访问时间',
+            `ip_address`    VARCHAR(45)  DEFAULT NULL COMMENT 'IP 地址',
+            `response_code` SMALLINT     DEFAULT 200 COMMENT '响应状态码',
+            INDEX `idx_crawler` (`crawler_key`, `visit_time`),
+            INDEX `idx_url`     (`request_url`(255)),
+            INDEX `idx_time`    (`visit_time`)
+        ) ENGINE=InnoDB {$charset_collate};";
+
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        dbDelta( $sql );
+
+        // 验证建表结果
+        return ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table );
+    }
+
+    /**
+     * 确保表存在 — 在每次 init 时懒检查
+     */
+    public static function ensure_table() {
+        if ( false === get_transient( 'wpaip_crawler_table_checked' ) ) {
+            set_transient( 'wpaip_crawler_table_checked', 1, HOUR_IN_SECONDS );
+            self::create_table();
+        }
+    }
+
+    // ==================== 日志写入 ====================
+
+    /**
+     * Shutdown 钩子: 检测并记录 AI 爬虫访问
+     */
+    public function maybe_log() {
+        $crawler = self::detect();
+        if ( ! $crawler ) {
+            return; // 非AI爬虫，零开销
+        }
+
+        self::log_visit( $crawler );
+    }
+
+    /**
+     * 写入一条爬虫访问日志
+     *
+     * @param array $crawler detect() 返回的爬虫信息
+     */
+    public static function log_visit( $crawler ) {
+        global $wpdb;
+        $table = self::table_name();
+
+        // 确保表存在
+        self::ensure_table();
+
+        $request_url = ( is_ssl() ? 'https://' : 'http://' ) .
+                        ( isset( $_SERVER['HTTP_HOST'] ) ? $_SERVER['HTTP_HOST'] : '' ) .
+                        ( isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '' );
+
+        $request_url = substr( $request_url, 0, 2083 );
+
+        $data = array(
+            'crawler_key'   => $crawler['key'],
+            'crawler_name'  => $crawler['name'],
+            'family'        => $crawler['family'],
+            'user_agent'    => substr( ( isset( $_SERVER['HTTP_USER_AGENT'] ) ? $_SERVER['HTTP_USER_AGENT'] : '' ), 0, 500 ),
+            'request_url'   => $request_url,
+            'visit_time'    => current_time( 'mysql' ),
+            'ip_address'    => isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '',
+            'response_code' => http_response_code() ?: 200,
+        );
+
+        $wpdb->insert( $table, $data, array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d' ) );
+    }
+
+    // ==================== 统计查询 ====================
+
+    /**
+     * 获取爬虫访问统计（供后续仪表盘使用）
+     *
+     * @param int $days 统计天数
+     * @return array
+     */
+    public static function get_stats( $days = 30 ) {
+        global $wpdb;
+        $table = self::table_name();
+        self::ensure_table();
+
+        $since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
+
+        // 按爬虫聚合
+        $by_crawler = $wpdb->get_results( $wpdb->prepare(
+            "SELECT crawler_key, crawler_name, family, COUNT(*) as total_visits,
+                    COUNT(DISTINCT request_url) as unique_urls,
+                    MAX(visit_time) as last_visit
+             FROM `{$table}`
+             WHERE visit_time >= %s
+             GROUP BY crawler_key, crawler_name, family
+             ORDER BY total_visits DESC",
+            $since
+        ), ARRAY_A );
+
+        // 总访问量
+        $total = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM `{$table}` WHERE visit_time >= %s",
+            $since
+        ) );
+
+        return array(
+            'total_visits' => (int) $total,
+            'by_crawler'   => $by_crawler ?: array(),
+            'days'         => $days,
+        );
+    }
+
+    /**
+     * 获取被爬最多的页面排行
+     *
+     * @param int $days
+     * @param int $limit
+     * @return array
+     */
+    public static function get_top_pages( $days = 30, $limit = 20 ) {
+        global $wpdb;
+        $table = self::table_name();
+        self::ensure_table();
+
+        $since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
+
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT request_url, COUNT(*) as hits,
+                    GROUP_CONCAT(DISTINCT crawler_name ORDER BY crawler_name SEPARATOR ', ') as crawlers
+             FROM `{$table}`
+             WHERE visit_time >= %s
+             GROUP BY request_url
+             ORDER BY hits DESC
+             LIMIT %d",
+            $since, $limit
+        ), ARRAY_A ) ?: array();
+    }
+}
