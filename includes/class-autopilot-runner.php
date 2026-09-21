@@ -171,7 +171,6 @@ class YIMAI_GSO_Autopilot_Runner {
                 $trigger_resp = wp_remote_get( $wp_cron_url, array(
                     'timeout'   => 3,
                     'blocking'  => false,
-                    'sslverify' => false,
                 ) );
                 if ( is_wp_error( $trigger_resp ) && defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
                     error_log( '[一麦GSO] queue_run wp-cron.php 触发失败: ' . $trigger_resp->get_error_message() );
@@ -226,9 +225,21 @@ class YIMAI_GSO_Autopilot_Runner {
         // 阈值从 30 分钟缩短为 8 分钟，与 run_single_item 的 $item_max_runtime 对齐
         // 锁 TTL 改为 10 分钟 + run_single_item 内部刷新后，30 分钟窗口明显偏长
         if ( 'running' === ( $run['status'] ?? '' ) ) {
-            $started_at = strtotime( $run['started_at'] ?? '' );
+            // 时区修正：started_at 是 current_time('mysql') 写入的「站点本地时间」串。
+            // 直接 strtotime() 会按 PHP 的 UTC 解析（WordPress 强制 UTC），在 UTC+8 站点
+            // 得到「真实时间 - 8 小时」的假过去值，使 time()-started_at 虚增 8 小时，
+            // 8 分钟超时判定被恒真触发（正常续批会被误判为超时）。
+            // 正确做法：用 DateTimeImmutable 显式按站点时区解析，再取时间戳。
             $stuck_timeout = 8 * MINUTE_IN_SECONDS;
-            if ( $started_at && ( time() - $started_at ) > $stuck_timeout ) {
+            $started_ts    = 0;
+            if ( ! empty( $run['started_at'] ) ) {
+                try {
+                    $started_ts = ( new DateTimeImmutable( (string) $run['started_at'], wp_timezone() ) )->getTimestamp();
+                } catch ( Exception $e ) {
+                    $started_ts = 0;
+                }
+            }
+            if ( $started_ts > 0 && ( time() - $started_ts ) > $stuck_timeout ) {
                 YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
                     'status'       => 'pending',
                     'last_message' => '检测到上次执行超时（>8分钟），自动恢复重新派发。',
@@ -414,7 +425,10 @@ class YIMAI_GSO_Autopilot_Runner {
                 'finished_at'     => current_time( 'mysql' ),
                 'settings_snapshot' => $snapshot,
             ) );
-        } catch ( Exception $e ) {
+        } catch ( \Throwable $e ) {
+            // 必须捕获 \Throwable 而非仅 Exception：PHP 7+ 的 Error（TypeError、DivisionByZeroError、
+            // 未定义函数调用等）不继承 Exception，只 catch Exception 会让它们逃逸出本方法，
+            // 使 run 永久停在 'running' 且锁不释放（与 class-autopilot-runner.php:610 的正确写法对齐）。
             YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
                 'status'       => 'failed',
                 'last_error'   => $e->getMessage(),
@@ -452,7 +466,6 @@ class YIMAI_GSO_Autopilot_Runner {
                 $trigger_resp = wp_remote_get( $wp_cron_url, array(
                     'timeout'   => 3,
                     'blocking'  => false,
-                    'sslverify' => false,
                 ) );
                 if ( is_wp_error( $trigger_resp ) && defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
                     error_log( '[一麦GSO] schedule_next_batch wp-cron.php 触发失败: ' . $trigger_resp->get_error_message() );
@@ -784,6 +797,36 @@ class YIMAI_GSO_Autopilot_Runner {
             $source = 'unknown';
         }
 
+        global $wpdb;
+
+        // 并发修正（B3）：锁状态存在 option 里，整个「读 → 检查冲突 → 写」是非原子的。
+        // 两个并发 worker（例如重叠的 WP-Cron 进程）可同时通过互斥检查，各自生成并插入文章，
+        // 产生重复内容——这是本插件唯一会造成文章重复的路径。
+        // 修复：用 MySQL 命名锁把该临界区串行化（与 class-publisher.php / 调度器同一模式），
+        // 命名锁由数据库保证互斥，且不依赖 option 的读改写原子性。
+        $mutex     = 'yimai_gso_gen_lock_mutex';
+        $got_mutex = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $mutex ) );
+        if ( ! $got_mutex ) {
+            // 拿不到互斥锁说明另一进程正在改锁状态，视为「当前有其他生成任务」以免重复生成
+            return new WP_Error( 'yimai_gso_generation_locked', '当前有其他生成任务正在执行，请稍后再试。' );
+        }
+
+        try {
+            return self::acquire_generation_lock_locked( $source, $ttl );
+        } finally {
+            // 任何路径都必须释放命名锁，否则后续所有生成都会被永久挡住
+            $wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $mutex ) );
+        }
+    }
+
+    /**
+     * acquire_generation_lock() 的临界区实现——调用方必须已持有 $mutex 命名锁。
+     *
+     * @param string $source 已 sanitize_key 的锁来源
+     * @param int    $ttl    锁有效期（秒）
+     * @return true|WP_Error
+     */
+    private static function acquire_generation_lock_locked( $source, $ttl = 900 ) {
         $now     = time();
         $locks   = get_option( self::GENERATION_LOCK_OPTION, array() );
 
@@ -916,7 +959,13 @@ class YIMAI_GSO_Autopilot_Runner {
 
         global $wpdb;
         $stuck_threshold = 5 * MINUTE_IN_SECONDS;
-        $cutoff_time     = date( 'Y-m-d H:i:s', time() - $stuck_threshold );
+
+        // 时区修正：updated_at 由 current_time('mysql') 写入，是「站点本地时间」。
+        // 早期版本这里用裸 date()（PHP 处于 WordPress 强制的 UTC），在 UTC+8 站点会得到
+        // 比本地时间早 8 小时的截止值，导致 "updated_at < cutoff" 永不为真、卡死恢复完全失效。
+        // 正确做法：用 current_time('timestamp') 取本地时间戳，再 gmdate() 格式化为本地字符串，
+        // 与 current_time('mysql') 的写入口径一致。
+        $cutoff_time = gmdate( 'Y-m-d H:i:s', current_time( 'timestamp' ) - $stuck_threshold );
 
         $stuck_items = $wpdb->get_results( $wpdb->prepare(
             "SELECT id, title, updated_at FROM {$wpdb->prefix}yimai_gso_autopilot_items
@@ -948,19 +997,72 @@ class YIMAI_GSO_Autopilot_Runner {
             ) );
         }
 
-        // 如果本次恢复了任何卡死 item，强制释放 autopilot 锁。
-        // 理由：卡死说明 PHP 进程已被切断（被 nginx kill / AI 永久挂起 / OOM），
-        // 该进程已不会再调用 release_generation_lock，锁必须由本次执行的 recover 阶段主动释放。
+        // 卡死 item 恢复后，需要处理「上次进程被切断、锁未释放」的遗留锁。
+        // 但早期实现是无条件 release_generation_lock('autopilot')：它在每次 run() 开头都会执行，
+        // 因此可能删掉「另一个仍在正常执行的进程」持有的活锁，反而放行第三个进程 → 重复生成（F-18）。
+        // 正确做法：只释放「确已过期」的槽位。真被切断的进程留下的锁必然已过期（TTL 10 分钟），
+        // 而未过期的锁说明有进程正在工作，必须尊重它。
         if ( $recovered > 0 ) {
-            self::release_generation_lock( 'autopilot' );
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
+            $released = self::release_generation_lock_if_expired( 'autopilot' );
+            if ( $released && defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
                 error_log( sprintf(
-                    '[一麦GSO Autopilot] Run %d: 强制释放 autopilot 锁（因卡死恢复 %d 个 item）',
-                    $run_id, $recovered
+                    '[一麦GSO Autopilot] Run %d: 释放已过期的 autopilot 遗留锁（因卡死恢复 %d 个 item）',
+                    $run_id,
+                    $recovered
                 ) );
             }
         }
 
         return $recovered;
+    }
+
+    /**
+     * 仅当指定来源的锁槽位「已过期」时才释放它。
+     *
+     * 与 release_generation_lock() 的区别：后者无条件释放，用于持有者正常收尾；
+     * 本方法用于恢复路径，必须确认锁已过期（持有进程确已死亡），避免误删活跃进程的锁。
+     *
+     * @param string $source 锁来源
+     * @return bool 是否真的释放了
+     */
+    public static function release_generation_lock_if_expired( $source ) {
+        $source = sanitize_key( $source );
+        if ( '' === $source ) {
+            return false;
+        }
+
+        global $wpdb;
+
+        // 与 acquire 使用同一命名锁，保证「检查过期 → 删除」不会与并发 acquire 交错
+        $mutex     = 'yimai_gso_gen_lock_mutex';
+        $got_mutex = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $mutex ) );
+        if ( ! $got_mutex ) {
+            return false;
+        }
+
+        try {
+            $locks = get_option( self::GENERATION_LOCK_OPTION, array() );
+
+            if ( ! isset( $locks[ $source ] ) ) {
+                return false;
+            }
+
+            $expires = absint( $locks[ $source ]['expires_at'] ?? 0 );
+            // 未过期 → 有进程正在持有，尊重它，不释放
+            if ( $expires > time() ) {
+                return false;
+            }
+
+            unset( $locks[ $source ] );
+            if ( empty( $locks ) ) {
+                delete_option( self::GENERATION_LOCK_OPTION );
+            } else {
+                update_option( self::GENERATION_LOCK_OPTION, $locks, false );
+            }
+
+            return true;
+        } finally {
+            $wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $mutex ) );
+        }
     }
 }

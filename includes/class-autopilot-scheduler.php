@@ -153,6 +153,13 @@ class YIMAI_GSO_Autopilot_Scheduler {
             return;
         }
 
+        // === 孤儿任务救援（B2 修复）：必须放在所有去重 return 之前 ===
+        // 正常派发会把 run 交给 ASYNC_CRON_HOOK 的单次事件续批。该事件一旦丢失，
+        // run 会永久停在 pending：下方 dedupe transient（2天）与 has_run_today()
+        // 都会直接 return，没有任何路径能再唤醒它 → 当天内容静默缺失。
+        // 因此救援必须在这些 return 之前执行，且只做「重新排入续批事件」，不新建 run。
+        self::rescue_stranded_pending_run();
+
         if ( ! YIMAI_GSO_Autopilot_Plan::has_topic_keywords( $settings ) ) {
             return;
         }
@@ -186,6 +193,8 @@ class YIMAI_GSO_Autopilot_Scheduler {
         }
 
         if ( YIMAI_GSO_Autopilot_Log::has_run_today( $date_key ) ) {
+            // 今日已有 run（含上面的孤儿救援已在函数开头处理过 pending 情形）。
+            // 这里保持原有去重语义：标记今日已派发并退出，不再新建 run。
             set_transient( $dedupe_id, 1, 2 * DAY_IN_SECONDS );
             $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
             return;
@@ -194,6 +203,59 @@ class YIMAI_GSO_Autopilot_Scheduler {
         $this->dispatch_due_run( 'cron', false, 0, true );
 
         $wpdb->query( $wpdb->prepare( "SELECT RELEASE_LOCK(%s)", $lock_name ) );
+    }
+
+    /**
+     * 救援「卡在 pending 且从未续批」的孤儿任务（B2 修复）
+     *
+     * 背景：正常流程会把 run 交给 ASYNC_CRON_HOOK 的单次事件去处理。该事件一旦丢失，
+     * run 会永久停在 pending：handle_tick() 的每日去重（has_run_today 把 pending 计入）
+     * 不会再次派发，也就没有任何路径能唤醒它。
+     *
+     * 本方法只做「重新排入续批事件」这一件事：
+     *  - 不创建新 run，因此不破坏「每天一个 run」的去重契约；
+     *  - 未到期的 pending run 才救援，且用 transient 限频，避免每 5 分钟重复排队；
+     *  - 通过 wp_next_scheduled() 判重，已排队的不再重复注册。
+     *
+     * @return bool 是否执行了救援
+     */
+    public static function rescue_stranded_pending_run() {
+        // 限频：15 分钟内只尝试一次救援，避免 tick 每 5 分钟都查库
+        if ( false !== get_transient( 'yimai_gso_autopilot_rescue_checked' ) ) {
+            return false;
+        }
+        set_transient( 'yimai_gso_autopilot_rescue_checked', 1, 15 * MINUTE_IN_SECONDS );
+
+        if ( ! class_exists( 'YIMAI_GSO_Autopilot_Runner' ) ) {
+            return false;
+        }
+
+        $hook    = YIMAI_GSO_Autopilot_Runner::ASYNC_CRON_HOOK;
+        $pending = YIMAI_GSO_Autopilot_Log::get_pending_cron_runs( 3 );
+        if ( empty( $pending ) ) {
+            return false;
+        }
+
+        $rescued = false;
+        foreach ( $pending as $run ) {
+            $run_id = absint( $run['id'] ?? 0 );
+            if ( $run_id <= 0 ) {
+                continue;
+            }
+
+            // 给一个短暂的未来时间，避免与正常续批在同一秒竞争
+            $args = array( $run_id );
+            if ( ! wp_next_scheduled( $hook, $args ) ) {
+                wp_schedule_single_event( time() + MINUTE_IN_SECONDS, $hook, $args );
+                $rescued = true;
+
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
+                    error_log( '[一麦GSO Autopilot] 救援孤儿 pending 任务 run_id=' . $run_id . '，已重新排入续批事件。' );
+                }
+            }
+        }
+
+        return $rescued;
     }
 
     public function dispatch_due_run( $trigger_source = 'cron', $force = false, $requested_by = 0, $async = false ) {
