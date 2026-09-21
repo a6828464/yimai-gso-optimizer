@@ -3551,12 +3551,10 @@ class YIMAI_GSO_Admin {
             <!-- ==================== 标签1：仪表盘 v5 ==================== -->
             <div class="yimai-gso-main-panel <?php echo $active_tab === 'dashboard' ? 'active' : ''; ?>" data-tab="dashboard">
                 <div class="yimai-gso-dashboard-shell">
-                    <?php
-                    $trial_banner_html = '';
-                    $is_trial_active = false;
-                    $trial_days_remaining = 0;
-                    $trial_expired_at = '';
-                    ?>
+                    <!-- T1：原此处有 4 个 write-only 的 trial_* 变量
+                         （$trial_banner_html / $is_trial_active / $trial_days_remaining /
+                         $trial_expired_at），每个都只被赋值一次、从不被读取，
+                         是已移除的试用期授权系统残留。dashboard-v5.php 也不使用它们。已删除。 -->
 
                     <!-- ===== 仪表盘 v5 双引擎数据驾驶舱 ===== -->
                     <?php include plugin_dir_path( __FILE__ ) . "dashboard-v5.php"; ?>

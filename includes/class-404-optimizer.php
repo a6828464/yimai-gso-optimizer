@@ -20,7 +20,6 @@ class YIMAI_GSO_404_Optimizer {
         //  新增 AJAX
         add_action( 'wp_ajax_yimai_gso_404_apply_redirect', array( __CLASS__, 'ajax_apply_redirect' ) );
         add_action( 'wp_ajax_yimai_gso_404_remove_dead_link', array( __CLASS__, 'ajax_remove_dead_link' ) );
-        add_action( 'wp_ajax_yimai_gso_404_batch_apply', array( __CLASS__, 'ajax_batch_apply_redirects' ) );
         add_action( 'wp_ajax_yimai_gso_404_get_redirects', array( __CLASS__, 'ajax_get_redirects' ) );
         add_action( 'wp_ajax_yimai_gso_404_delete_redirect', array( __CLASS__, 'ajax_delete_redirect' ) );
         add_action( 'wp_ajax_yimai_gso_404_import_redirects', array( __CLASS__, 'ajax_import_redirects' ) );

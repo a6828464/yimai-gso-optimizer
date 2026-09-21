@@ -70,8 +70,6 @@ class YIMAI_GSO_AI_Platform_Adapter {
 
         // AJAX 端点
         add_action( 'wp_ajax_yimai_gso_platform_save_config', array( $this, 'ajax_save_config' ) );
-        add_action( 'wp_ajax_yimai_gso_platform_preview', array( $this, 'ajax_preview' ) );
-        add_action( 'wp_ajax_yimai_gso_platform_batch_adapt', array( $this, 'ajax_batch_adapt' ) );
         add_action( 'wp_ajax_yimai_gso_platform_get_config', array( $this, 'ajax_get_config' ) );
     }
 

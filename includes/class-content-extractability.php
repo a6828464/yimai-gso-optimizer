@@ -40,7 +40,6 @@ class YIMAI_GSO_Content_Extractability {
     private function __construct() {
         add_action( 'save_post', array( $this, 'schedule_analysis' ), 20 );
         add_action( 'shutdown', array( $this, 'process_scheduled' ) );
-        add_action( 'wp_ajax_yimai_gso_get_extractability', array( $this, 'ajax_get_extractability' ) );
     }
 
     /* ================================================

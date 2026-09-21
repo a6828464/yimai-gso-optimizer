@@ -50,7 +50,6 @@ class YIMAI_GSO_Citation_Helper {
     private function __construct() {
         add_action( 'save_post', array( $this, 'schedule_analysis' ), 25 );
         add_action( 'shutdown', array( $this, 'process_scheduled' ) );
-        add_action( 'wp_ajax_yimai_gso_get_citations', array( $this, 'ajax_get_citations' ) );
     }
 
     private static $pending = array();

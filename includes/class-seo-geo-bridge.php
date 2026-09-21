@@ -56,8 +56,6 @@ class YIMAI_GSO_SEO_GEO_Bridge {
         add_filter( 'yimai_gso_sitemap_entry_filter', array( $this, 'enhance_sitemap_entry' ), 10, 2 );
 
         // AJAX 端点
-        add_action( 'wp_ajax_yimai_gso_seo_geo_plugin_info', array( $this, 'ajax_get_plugin_info' ) );
-        add_action( 'wp_ajax_yimai_gso_seo_geo_meta_check', array( $this, 'ajax_check_meta_consistency' ) );
         // 桥接管理页面 AJAX
         add_action( 'wp_ajax_yimai_gso_seo_geo_get_conflicts', array( $this, 'ajax_get_conflicts' ) );
         add_action( 'wp_ajax_yimai_gso_seo_geo_apply_fix', array( $this, 'ajax_apply_fix' ) );

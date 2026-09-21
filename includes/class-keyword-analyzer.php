@@ -31,9 +31,6 @@ class YIMAI_GSO_Keyword_Analyzer {
     }
 
     private function __construct() {
-        add_action( 'wp_ajax_yimai_gso_analyze_keywords', array( $this, 'ajax_analyze_keywords' ) );
-        add_action( 'wp_ajax_yimai_gso_save_keywords', array( $this, 'ajax_save_keywords' ) );
-        add_action( 'wp_ajax_yimai_gso_suggest_keywords', array( $this, 'ajax_suggest_keywords' ) );
     }
 
     // ==================== AJAX 关键词分析 ====================

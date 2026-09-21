@@ -41,7 +41,6 @@ class YIMAI_GSO_SEO_Pusher {
         add_action( 'yimai_gso_process_seo_push_queue', array( $this, 'process_seo_queue' ) );
         
         // AJAX 钩子
-        add_action( 'wp_ajax_yimai_gso_seo_push_single', array( $this, 'ajax_push_single' ) );
         add_action( 'wp_ajax_yimai_gso_seo_push_batch', array( $this, 'ajax_push_batch' ) );
         add_action( 'wp_ajax_yimai_gso_seo_push_sitemap', array( $this, 'ajax_push_sitemap' ) );
         add_action( 'wp_ajax_yimai_gso_seo_push_get_logs', array( $this, 'ajax_get_logs' ) );
@@ -464,38 +463,25 @@ class YIMAI_GSO_SEO_Pusher {
     }
 
     /**
-     * Google Sitemap Ping（零配置，GET请求通知Google抓取Sitemap）
+     * Google Sitemap Ping
+     *
+     * T2/正确性说明：Google 已于 2023 年正式**停用** sitemap ping 接口
+     * （https://www.google.com/ping 返回 404）。该方法原为默认推送模式，
+     * 意味着默认配置下每次推送都会发起一个必然失败的请求，并把失败计入统计，
+     * 让后台长期显示「Google 推送失败」，而实际原因只是该接口已不存在。
+     *
+     * 处理策略（保守、不改变可用功能）：
+     *  - 不再发起注定失败的请求，直接返回「已跳过」结果并说明原因；
+     *  - 若要把内容推送给 Google，请在设置中改用 Indexing API（需 GCP 配置），
+     *    或依赖 sitemap.xml + Search Console 自动发现（Google 官方推荐方式）。
      */
     private function push_to_google_sitemap_ping() {
-        $sitemap_url = home_url( '/sitemap.xml' );
-        $ping_url = self::API_GOOGLE_PING . '?sitemap=' . urlencode( $sitemap_url );
-
-        $response = $this->google_proxy_request( $ping_url, array( 'method' => 'GET', 'timeout' => 10 ) );
-
-        if ( is_wp_error( $response ) ) {
-            return array(
-                'success' => 0,
-                'fail' => 1,
-                'msg' => 'Sitemap Ping请求失败: ' . $response->get_error_message(),
-                'codes' => array()
-            );
-        }
-
-        $code = wp_remote_retrieve_response_code( $response );
-        if ( $code === 200 ) {
-            return array(
-                'success' => 1,
-                'fail' => 0,
-                'msg' => 'Sitemap Ping成功，Google已收到通知',
-                'codes' => array()
-            );
-        }
-
         return array(
             'success' => 0,
-            'fail' => 1,
-            'msg' => 'Sitemap Ping返回 HTTP ' . $code,
-            'codes' => array()
+            'fail'    => 0,
+            'skipped' => 1,
+            'msg'     => 'Google 已于 2023 年停用 sitemap ping 接口，本条已跳过（建议改用 Indexing API 或依赖 sitemap.xml 自动发现）。',
+            'codes'   => array(),
         );
     }
 

@@ -28,7 +28,6 @@ class YIMAI_GSO_FAQ_Detector {
     private function __construct() {
         add_shortcode( 'yimai_gso_faq', array( $this, 'render_faq_shortcode' ) );
         add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_faq_styles' ) );
-        add_action( 'wp_ajax_yimai_gso_detect_faq', array( $this, 'ajax_detect_faq' ) );
     }
 
     /* ================================================

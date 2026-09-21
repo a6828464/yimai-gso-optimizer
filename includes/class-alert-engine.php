@@ -45,7 +45,6 @@ class YIMAI_GSO_Alert_Engine {
     private function __construct() {
         // AJAX 端点
         add_action( 'wp_ajax_yimai_gso_l5_alerts_list',        array( $this, 'ajax_list' ) );
-        add_action( 'wp_ajax_yimai_gso_l5_alerts_count',       array( $this, 'ajax_count' ) );
         add_action( 'wp_ajax_yimai_gso_l5_alerts_acknowledge',  array( $this, 'ajax_acknowledge' ) );
         add_action( 'wp_ajax_yimai_gso_l5_alerts_resolve',      array( $this, 'ajax_resolve' ) );
         add_action( 'wp_ajax_yimai_gso_l5_alerts_dismiss',      array( $this, 'ajax_dismiss' ) );

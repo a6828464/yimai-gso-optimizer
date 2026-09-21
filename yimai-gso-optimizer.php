@@ -142,7 +142,9 @@ require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-seo-geo-bridge.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-admin.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-updater.php';
 YIMAI_GSO_Updater::init();
-require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-merged-geo-automation.php';
+// T2：class-merged-geo-automation.php 已删除（整个模块不可达：钩子只在其构造函数注册，
+// 而唯一的 get_instance() 调用点是它自己的 activate()，从不被调用；583 行中 78% 为死代码）。
+// 其 5 张 GEO 表不再创建；已有的表保留在卸载清单中，随插件卸载一并清理（不在此处 DROP）。
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-knowledge-center.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-migration.php';
 
@@ -449,7 +451,6 @@ class YIMAI_GSO_Plugin {
         add_action( 'wp_ajax_yimai_gso_delete_title_history', array( $this, 'ajax_delete_title_history' ) );
         add_action( 'wp_ajax_yimai_gso_clear_title_history', array( $this, 'ajax_clear_title_history' ) );
         add_action( 'wp_ajax_yimai_gso_dashboard_stats', array( $this, 'ajax_dashboard_stats' ) );
-        add_action( 'wp_ajax_yimai_gso_generate_excerpt', array( $this, 'ajax_generate_excerpt' ) );
         add_action( 'wp_ajax_yimai_gso_batch_generate_excerpt', array( $this, 'ajax_batch_generate_excerpt' ) );
         add_action( 'wp_ajax_yimai_gso_excerpt_fetch_posts', array( $this, 'ajax_excerpt_fetch_posts' ) );
         add_action( 'wp_ajax_yimai_gso_seo_meta_scan', array( 'YIMAI_GSO_SEO_Meta_Optimizer', 'ajax_scan_posts' ) );
@@ -465,7 +466,6 @@ class YIMAI_GSO_Plugin {
         add_action( 'wp_ajax_yimai_gso_seo_score_batch_scan', array( 'YIMAI_GSO_SEO_Scorer', 'ajax_batch_scan' ) );
         add_action( 'wp_ajax_yimai_gso_seo_score_batch_analyze', array( 'YIMAI_GSO_SEO_Scorer', 'ajax_batch_analyze' ) );
         add_action( 'wp_ajax_yimai_gso_heading_analyze', array( 'YIMAI_GSO_Heading_Analyzer', 'ajax_analyze' ) );
-        add_action( 'wp_ajax_yimai_gso_heading_batch_scan', array( 'YIMAI_GSO_Heading_Analyzer', 'ajax_batch_scan' ) );
         add_action( 'wp_ajax_yimai_gso_heading_optimize', array( 'YIMAI_GSO_Heading_Analyzer', 'ajax_optimize' ) );
         add_action( 'wp_ajax_yimai_gso_heading_apply_optimization', array( 'YIMAI_GSO_Heading_Analyzer', 'ajax_apply_optimization' ) );
         add_action( 'wp_ajax_yimai_gso_heading_check_optimized', array( 'YIMAI_GSO_Heading_Analyzer', 'ajax_check_optimized' ) );
@@ -482,7 +482,6 @@ class YIMAI_GSO_Plugin {
         add_action( 'wp_ajax_yimai_gso_history_delete', array( $this, 'ajax_history_delete' ) );
         add_action( 'wp_ajax_yimai_gso_history_stats', array( $this, 'ajax_history_stats' ) );
         add_action( 'wp_ajax_yimai_gso_search_posts', array( $this, 'ajax_search_posts' ) );
-        add_action( 'wp_ajax_yimai_gso_update_post', array( $this, 'ajax_update_post' ) );
         
         // 内容改写 AJAX
         add_action( 'wp_ajax_yimai_gso_rewrite_text', array( $this, 'ajax_rewrite_text' ) );
@@ -496,7 +495,6 @@ class YIMAI_GSO_Plugin {
         // 自动图片ALT AJAX
         add_action( 'wp_ajax_yimai_gso_save_alt_settings', array( 'YIMAI_GSO_Image_Alt_Admin', 'ajax_save_settings' ) );
         add_action( 'wp_ajax_yimai_gso_batch_alt', array( 'YIMAI_GSO_Image_Alt_Admin', 'ajax_batch_process' ) );
-        add_action( 'wp_ajax_yimai_gso_alt_estimate', array( 'YIMAI_GSO_Image_Alt_Admin', 'ajax_estimate_count' ) );
 
         // 智能内链高级功能 AJAX
         add_action( 'wp_ajax_yimai_gso_start_rebuild_links', array( 'YIMAI_GSO_Internal_Link', 'ajax_start_rebuild_links' ) );
@@ -528,9 +526,10 @@ class YIMAI_GSO_Plugin {
         // 2.2.0：提示词链路和前端生成时限已升级，清理旧统计缓存避免后台继续显示旧状态。
         delete_transient( 'yimai_gso_history_stats' );
         delete_transient( 'yimai_gso_dashboard_stats_' . current_time( 'Y-m-d' ) );
-        if ( class_exists( 'YIMAI_GSO_MERGED_GEO_AUTOMATION' ) ) {
-            wp_clear_scheduled_hook( YIMAI_GSO_MERGED_GEO_AUTOMATION::CRON_HOOK );
-        }
+        // 清理已退役的「GEO 自动化」模块遗留的 cron 任务。
+        // T2：该模块（class-merged-geo-automation.php）整体不可达，已删除；
+        // 此处改用字面量 hook 名，确保老站点升级后遗留的调度被清掉。
+        wp_clear_scheduled_hook( 'yimai_gso_merged_geo_process_jobs' );
 
         if ( class_exists( 'YIMAI_GSO_Knowledge_Center' ) ) {
             YIMAI_GSO_Knowledge_Center::create_tables();
@@ -1037,9 +1036,14 @@ class YIMAI_GSO_Plugin {
             YIMAI_GSO_Alert_Engine::schedule_crons();
         }
 
-        if ( class_exists( 'YIMAI_GSO_MERGED_GEO_AUTOMATION' ) ) {
-            YIMAI_GSO_MERGED_GEO_AUTOMATION::create_tables();
-        }
+        // T2 修复：原先在此调用 YIMAI_GSO_MERGED_GEO_AUTOMATION::create_tables()，
+        // 该模块整体不可达（钩子只在其构造函数注册，而唯一的 get_instance() 调用点是
+        // 它自己的 activate()，从不被调用），但它通过这里在**每次激活**时 dbDelta 出
+        // 5 张永远不会有数据的表（yimai_gso_geo_keywords / _geo_brand_scans /
+        // _geo_brand_scan_details / _geo_jobs / _geo_job_logs）。
+        // 已移除建表调用；5 张表仍保留在卸载清单中，因此将来卸载插件时会随其它表一并清理。
+        // **不在此处 DROP 已存在的表** —— 那是破坏性数据操作，需要单独确认。
+
         if ( class_exists( 'YIMAI_GSO_Knowledge_Center' ) ) {
             YIMAI_GSO_Knowledge_Center::create_tables();
         }
@@ -1060,9 +1064,9 @@ class YIMAI_GSO_Plugin {
             YIMAI_GSO_Alert_Engine::unschedule_crons();
         }
 
-        if ( class_exists( 'YIMAI_GSO_MERGED_GEO_AUTOMATION' ) ) {
-            YIMAI_GSO_MERGED_GEO_AUTOMATION::deactivate();
-        }
+        // 已退役的 GEO 自动化模块遗留任务（T2：模块已删除，此处按字面量清理）
+        wp_clear_scheduled_hook( 'yimai_gso_merged_geo_process_jobs' );
+
         wp_clear_scheduled_hook( 'yimai_gso_classify_knowledge' );
 
         // T5 修复：补清原先遗漏的 8 个计划任务。
