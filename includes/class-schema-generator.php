@@ -922,9 +922,25 @@ class YIMAI_GSO_Schema_Generator {
         }
 
         // Organization Schema
-        $org = $this->build_organization_schema();
-        if ( $org ) {
-            $schemas[] = $org;
+        //
+        // 修复（L2）：首页此前会恒定输出两个互相冲突的 Organization 节点。
+        // 三个发射器的守卫互不一致：
+        //   a) yimai-gso-optimizer.php:737  实体已配置则跳过（无首页判断）
+        //   b) 本方法                        仅判断 is_front_page()（无实体判断）← 恒输出
+        //   c) class-geo-entity.php:155      实体已配置才输出
+        // 于是「实体未配置」时为 a+b，「实体已配置」时为 b+c，两种配置下都是 2 个节点。
+        // 重复 Organization 正是 GEO 工作要消除的问题，且插件自身的 GEO 审计器
+        // 会拿这份自相矛盾的输出给「实体就绪度」打分。
+        // 修复：本方法遵循与 (a)(c) 相同的谓词——GEO 实体已配置时，
+        // 由 class-geo-entity.php 的增强版负责输出，这里不再重复。
+        $geo_entity_configured = class_exists( 'YIMAI_GSO_GEO_Entity' )
+            && YIMAI_GSO_GEO_Entity::is_configured();
+
+        if ( ! $geo_entity_configured ) {
+            $org = $this->build_organization_schema();
+            if ( $org ) {
+                $schemas[] = $org;
+            }
         }
 
         if ( empty( $schemas ) ) {

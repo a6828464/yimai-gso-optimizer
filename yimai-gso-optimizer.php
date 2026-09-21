@@ -740,6 +740,16 @@ class YIMAI_GSO_Plugin {
             return;
         }
 
+        // 修复（L2）：首页的 Organization 已由 class-schema-generator.php
+        // 的 output_front_page_schemas() 负责（它同时输出 WebSite + Organization）。
+        // 本方法原先没有首页判断，导致首页在「实体未配置」时同时输出本节点与
+        // schema-generator 的节点 —— 共 2 个重复 Organization。
+        // 首页交给 schema-generator 统一输出，本方法仅负责非首页页面
+        // （如文章页的 publisher 信息），从而保证任一页面恰好一个 Organization。
+        if ( is_front_page() || is_home() ) {
+            return;
+        }
+
         $schema = array(
             '@context'    => 'https://schema.org',
             '@type'       => 'Organization',

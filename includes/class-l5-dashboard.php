@@ -70,51 +70,22 @@ class YIMAI_GSO_L5_Dashboard {
 
     /**
      * 注册 L5 前端资源
+     *
+     * 说明（L1 审计结论）：本方法内的守卫检查 'yimai-gso-dashboard'，而该 slug 从未注册
+     * （L5 是主菜单 yimai-gso-center 内的 tab，$hook 恒为 toplevel_page_yimai-gso-center），
+     * 因此本方法整体不会执行，属已失效的重复 owner。
+     *
+     * 但**不能**简单地把 slug 改成 'yimai-gso-center' 让它复活：L5 面板的脚本实际由
+     * admin.js:loadL5Dashboard() 在点击 l5-* 标签时动态注入（这一设计是为了避免把
+     * Chart.js 与 l5-dashboard.js 加载到每个插件后台页面）。两条路径同时生效会导致
+     * Chart.js 重复加载，且 wp_localize_script 注入的 yimaiGsoL5Data 与
+     * output_page_assets() 手工输出的同名全局变量冲突。
+     * 因此保留 output_page_assets() 作为唯一 owner，本方法留空壳以免误用。
      */
     public function enqueue_assets( $hook ) {
-        if ( strpos( $hook, 'yimai-gso-dashboard' ) === false ) {
-            return;
-        }
-
-        // CSS
-        wp_enqueue_style(
-            'yimai-gso-l5-dashboard',
-            YIMAI_GSO_PLUGIN_URL . 'admin/css/l5-dashboard.css',
-            array(),
-            YIMAI_GSO_VERSION . '.1'
-        );
-
-        $tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'dashboard';
-
-        // Chart.js 和 L5 JS 仅在 l5-* 标签页直接 enqueue
-        if ( strpos( $tab, 'l5-' ) !== 0 ) {
-            return;
-        }
-
-        // Chart.js CDN
-        wp_enqueue_script(
-            'yimai-gso-chartjs',
-            'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
-            array(),
-            '4.4.0',
-            true
-        );
-
-        // L5 Dashboard JS
-        wp_enqueue_script(
-            'yimai-gso-l5-dashboard',
-            YIMAI_GSO_PLUGIN_URL . 'admin/js/l5-dashboard.js',
-            array( 'yimai-gso-chartjs' ),
-            YIMAI_GSO_VERSION . '.1',
-            true
-        );
-
-        wp_localize_script( 'yimai-gso-l5-dashboard', 'yimaiGsoL5Data', array(
-            'ajax_url' => admin_url( 'admin-ajax.php' ),
-            'nonce'    => wp_create_nonce( 'yimai_gso_ajax_nonce' ),
-            'tab'      => $tab,
-            'alert_count' => $this->get_alert_badge_count(),
-        ) );
+        // 明确不执行任何入队：L5 资源统一由 output_page_assets() + admin.js 动态加载负责。
+        // 保留方法体以兼容既有 add_action 注册（class-l5-dashboard.php:47）。
+        return;
     }
 
     // ==================== Tab 渲染 ====================

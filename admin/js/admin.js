@@ -504,6 +504,12 @@ function esc(s) {
 
     /**
      * 动态加载L5仪表盘JS并初始化指定标签页
+     *
+     * 修复（P9/L1）：Chart.js 已由 PHP 端（class-admin.php:274）以 handle
+     * 'yimai-gso-chartjs' 入队，版本 4.4.7 且带 SRI 完整性校验。
+     * 原实现无条件再加载一份 4.4.0（无 SRI），导致同一页面出现两个版本的 Chart.js：
+     * 既浪费一次 CDN 请求，又可能让后加载的 4.4.0 覆盖全局 Chart 对象。
+     * 现在优先复用已存在的 window.Chart，仅在确实缺失时才回退加载。
      */
     var _l5DashboardLoaded = false;
     function loadL5Dashboard(tab) {
@@ -511,14 +517,23 @@ function esc(s) {
             if (typeof window.yimaiGsoL5Init === "function") { window.yimaiGsoL5Init(t); }
         }
         if (_l5DashboardLoaded) { _initL5Panel(tab); return; }
-        var s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js";
-        s.onload = function() {
+
+        function _loadL5Script() {
             var s2 = document.createElement("script");
             s2.src = yimaiGsoData.pluginUrl + "admin/js/l5-dashboard.js?ver=" + yimaiGsoData.version;
             s2.onload = function() { _l5DashboardLoaded = true; _initL5Panel(tab); };
             document.body.appendChild(s2);
-        };
+        }
+
+        // Chart.js 已由 PHP enqueue 提供时直接复用，避免重复加载与版本冲突
+        if (typeof window.Chart !== "undefined") {
+            _loadL5Script();
+            return;
+        }
+
+        var s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js";
+        s.onload = _loadL5Script;
         document.body.appendChild(s);
     }
 

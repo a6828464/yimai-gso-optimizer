@@ -534,7 +534,10 @@ class YIMAI_GSO_Alert_Engine {
         }
 
         $alerts = self::get_active_critical_alerts( 3 );
-        $alert_page = admin_url( 'admin.php?page=yimai-gso-dashboard&tab=l5-alerts' );
+
+        // 修复（L1）：原链接指向 page=yimai-gso-dashboard，该 slug 从未注册，
+        // 点击后 WordPress 显示「抱歉，您不能访问此页面」。正确 slug 是 yimai-gso-center。
+        $alert_page = admin_url( 'admin.php?page=yimai-gso-center&tab=l5-alerts' );
 
         echo '<div class="notice notice-warning is-dismissible">';
         echo '<p><strong>🔔 一麦 SEO-GEO 预警：</strong>检测到 ' . esc_html( $count ) . ' 个需要关注的问题</p>';
