@@ -1,0 +1,6 @@
+# 发布包内容控制
+#
+# tools/release.sh 是开发期的双平台发布脚本，仅供本地/CI 使用，
+# 不应随插件包分发到生产站点（它引用仓库名与本地凭据读取方式）。
+# git archive 会遵循 export-ignore，因此在线更新包与 Release 资产中都不含该目录。
+tools/ export-ignore
