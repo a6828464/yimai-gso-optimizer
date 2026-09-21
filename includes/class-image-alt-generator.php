@@ -314,6 +314,14 @@ class YIMAI_GSO_Image_Alt_Generator {
             return $content;
         }
 
+        // P3 修复：绝不在这条「公开页面渲染」路径上发起外部 AI 调用。
+        // AI 模式的 ALT 生成由后台队列（yimai_gso_process_alt_queue）异步完成；
+        // 若在访客请求里同步调用（timeout 180 秒且无缓存），会长时间占用 php-fpm worker。
+        // 此处仅允许本地规则模式参与渲染期补全。
+        if ( self::MODE_AI === $this->mode ) {
+            return $content;
+        }
+
         // 获取当前文章上下文
         $post = get_post();
         $context = array();
@@ -321,13 +329,39 @@ class YIMAI_GSO_Image_Alt_Generator {
             $context['title']    = $post->post_title;
             $context['keyword']  = get_post_meta( $post->ID, 'yimai_gso_keywords', true );
             $context['language'] = YIMAI_GSO_Settings::get( 'article_language', 'zh_CN' );
+
+            // P3 修复：规则模式对同一篇文章的输出是确定性的（仅取决于标题/关键词/正文图片），
+            // 但原实现每次页面浏览都重新计算。按 post_id + post_modified 缓存结果，
+            // 文章一旦更新（post_modified 变化）缓存键自然失效。
+            $cache_key = 'yimai_gso_alt_render_' . absint( $post->ID ) . '_' . md5( (string) $post->post_modified );
+            $cached    = get_transient( $cache_key );
+            if ( is_string( $cached ) && '' !== $cached ) {
+                return $cached;
+            }
+
+            $result = $this->process_html_content( $content, $context );
+
+            if ( is_string( $result ) && '' !== $result ) {
+                set_transient( $cache_key, $result, 6 * HOUR_IN_SECONDS );
+            }
+
+            return $result;
         }
 
         return $this->process_html_content( $content, $context );
     }
 
     public function _xTR() {
-        return $this->enabled && $this->feature_is_usable();
+        // P3 修复：原实现为 $this->enabled && $this->feature_is_usable()，
+        // 而 feature_is_usable() 是恒真的 `if (true) return true;` 死门控，
+        // 等价于只看 $this->enabled（默认为 1）。
+        // 该门控背后是一条会把请求打到外部 AI 的链路：
+        //   the_content → generate_alt_map → MODE_AI 时 call_api（timeout 180 秒，无缓存）
+        // 激活默认是 rule 模式（无 HTTP），但一旦后台把模式切成 ai，
+        // 就会变成同步、最长 180 秒、无缓存的外部调用卡在公开页面渲染里，
+        // 可能耗尽 php-fpm worker。
+        // 这里只保留真实生效的条件，并删除恒真死门控（见 feature_is_usable 的移除）。
+        return (bool) $this->enabled;
     }
 
     public function process_images( $images, $article_context = array() ) {
@@ -391,12 +425,9 @@ class YIMAI_GSO_Image_Alt_Generator {
         return is_string( $updated ) ? $updated : $content;
     }
 
-    private function feature_is_usable() {
-        if ( true ) {
-            return true;
-        }
-        return false;
-    }
+    // P3：已删除恒真死门控 feature_is_usable()（原为 `if (true) return true;`）。
+    // 该方法是已移除的授权/功能门控系统残留，恒返回 true，唯一作用是把读者引向
+    // 一个不存在的开关。_xTR() 现只依据真实条件 $this->enabled（见该处注释）。
 
     private function build_slots_from_images( $images, $article_context ) {
         $slots    = array();

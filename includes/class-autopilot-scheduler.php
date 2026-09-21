@@ -333,10 +333,18 @@ class YIMAI_GSO_Autopilot_Scheduler {
         return $result;
     }
 
+    /**
+     * 永动发布功能可用性检查。
+     *
+     * T1 说明：原实现为 `if ( true ) { return true; } return false;` —— 恒真的死门控，
+     * 是已移除的授权/功能门控系统残留（约 245 个调用点之一）。
+     * 保留方法签名是因为有 4 处调用点，直接删除会扩大改动面且无收益；
+     * 但把方法体改为直白的 `return true;` 并说明原因，使读者不再以为
+     * 这里存在一个可配置的开关。真正的启用判定在调用点由 settings['enabled'] 负责。
+     *
+     * @return bool 始终为 true（不再有授权门控）
+     */
     public static function can_run_feature() {
-        if ( true ) {
-            return true;
-        }
-        return false;
+        return true;
     }
 }

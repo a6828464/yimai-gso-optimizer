@@ -224,13 +224,43 @@ class YIMAI_GSO_Plugin {
             yimai_gso_log_memory( 'after Settings' );
         }
 
-        YIMAI_GSO_Admin::get_instance();
-        if ( function_exists( 'yimai_gso_log_memory' ) ) {
-            yimai_gso_log_memory( 'after Admin' );
+        // P2 修复：以下类只在后台（含 admin-ajax.php，它也会设置 WP_ADMIN）注册
+        // admin_menu / admin_enqueue_scripts / admin_post_ / 后台 AJAX 处理器，
+        // 不注册任何前台或 cron 钩子（已逐个核对每个类的完整钩子集合）。
+        // 原先它们在**每一次前台请求**上都会被实例化，插件因此每次请求要解析
+        // 约 1.82 MB PHP 并构造 34 个单例，其中 class-admin.php 单文件 568 KB（占 31%）。
+        // 现在这些纯后台类只在后台请求上实例化，前台访客不再承担这部分开销。
+        //
+        // 注意：这里必须用 is_admin() 而非再排除 AJAX —— admin-ajax.php 会设置 WP_ADMIN，
+        // 后台 AJAX 处理器需要在其中完成注册，不能排除。
+        // cron 请求（wp-cron.php）不设置 WP_ADMIN，因此 cron 专属逻辑仍在下方无条件执行。
+        if ( is_admin() ) {
+            YIMAI_GSO_Admin::get_instance();
+            if ( function_exists( 'yimai_gso_log_memory' ) ) {
+                yimai_gso_log_memory( 'after Admin' );
+            }
+
+            // 纯后台功能模块（后台菜单 / 后台 AJAX / 表单处理）
+            // 注意：Knowledge_Center **不在此列出** —— 它的构造函数还注册了 cron 钩子
+            // yimai_gso_classify_knowledge（AI 分类队列），而 cron 请求不设置 WP_ADMIN，
+            // 且其静态方法 get_topic_seeds()/augment_prompt() 会被自动发布与 AI 生成器
+            // 在后台任务中调用。放进本分支会让这两个功能在 cron 场景静默失效。
+            // 因此它必须无条件实例化（见下方 is_admin() 块之外）。
+            if ( class_exists( 'YIMAI_GSO_Keyword_Analyzer' ) ) {
+                YIMAI_GSO_Keyword_Analyzer::get_instance();
+            }
+            if ( class_exists( 'YIMAI_GSO_Crawler_Dashboard' ) ) {
+                YIMAI_GSO_Crawler_Dashboard::get_instance();
+            }
+            if ( class_exists( 'YIMAI_GSO_L5_Dashboard' ) ) {
+                YIMAI_GSO_L5_Dashboard::get_instance();
+            }
         }
 
-        YIMAI_GSO_Content_Detector::get_instance();
+        // Knowledge_Center：必须无条件实例化（原因见上）。
         YIMAI_GSO_Knowledge_Center::get_instance();
+
+        YIMAI_GSO_Content_Detector::get_instance();
         if ( function_exists( 'yimai_gso_log_memory' ) ) {
             yimai_gso_log_memory( 'after Content_Detector' );
         }
@@ -295,11 +325,13 @@ class YIMAI_GSO_Plugin {
             yimai_gso_log_memory( 'after LLMs_Txt_Generator' );
         }
 
-        // GEO 实体优化 + AI 爬虫追踪 + 作者档案 + 焦点关键词 + 爬虫编辑器
+        // GEO 实体优化 + AI 爬虫追踪 + 作者档案 + 爬虫编辑器
         YIMAI_GSO_GEO_Entity::get_instance();
         YIMAI_GSO_Crawler_Tracker::get_instance();
         YIMAI_GSO_Author_Profile::get_instance();
-        YIMAI_GSO_Keyword_Analyzer::get_instance();
+        // 注意（P2）：Keyword_Analyzer / Crawler_Dashboard / L5_Dashboard 已移至上方
+        // is_admin() 分支内实例化（它们只注册后台钩子与后台 AJAX）。
+        // 原在此处的无条件调用会绕过门控，故移除。
         YIMAI_GSO_Crawler_Editor::get_instance();
         // L3 内容分析层可提取性 + FAQ + 新鲜度 + 引用溯源
         YIMAI_GSO_Content_Extractability::get_instance();
@@ -309,12 +341,10 @@ class YIMAI_GSO_Plugin {
         // L4 综合评估层GEO评分 + 双引擎面板 + 22因子审计
         YIMAI_GSO_GEO_Scorer::get_instance();
         YIMAI_GSO_GEO_Auditor::get_instance();
-        // L5 监控与仪表盘
+        // L5 监控与仪表盘（仅前台需要的部分）
         YIMAI_GSO_Referral_Tracker::get_instance();
         YIMAI_GSO_Alert_Engine::get_instance();
-        YIMAI_GSO_Crawler_Dashboard::get_instance();
         YIMAI_GSO_Crawler_Diagnosis::get_instance();
-        YIMAI_GSO_L5_Dashboard::get_instance();
         // L6 高级联动
         YIMAI_GSO_AI_Platform_Adapter::get_instance();
         YIMAI_GSO_SEO_GEO_Bridge::get_instance();

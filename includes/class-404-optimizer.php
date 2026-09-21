@@ -91,6 +91,16 @@ class YIMAI_GSO_404_Optimizer {
      */
     public static function log_404_hit() {
         if ( is_404() ) {
+            // 设置开关（P1 修复）：后台「基础设置」里的「记录 404 日志」复选框
+            // 会被写入 optimize_404_log_enabled，但本方法原先**从不读取它**，
+            // 管理员以为关掉了日志、实际仍在全量记录 —— 既是性能问题也是虚假安全感。
+            // 本方法每次 404 都会：读全量 option（最多 500 条 × 11 字段）→ O(n) 扫描
+            // → array_unshift → 整体序列化写回 wp_options。
+            // 404 流量由机器人驱动、与真实访客量无关，低流量站点反而更易被单一扫描淹没。
+            if ( ! YIMAI_GSO_Settings::get( 'optimize_404_log_enabled', 1 ) ) {
+                return;
+            }
+
             $url   = $_SERVER['REQUEST_URI'] ?? '';
             $query = $_SERVER['QUERY_STRING'] ?? '';
             $key   = 'yimai_gso_404_logs';
@@ -146,7 +156,56 @@ class YIMAI_GSO_404_Optimizer {
                 array_unshift( $logs, $entry );
             }
 
-            update_option( $key, array_slice( $logs, 0, 500 ) );
+            // 写入合并（P1 修复）：原先每次 404 都做一次完整 option 序列化 + 整行 UPDATE。
+            // 机器人扫描会在短时间内重复请求同一批路径，逐次写库会造成大量无谓的
+            // wp_options 写入（与备份/日志争用）。此处用 5 秒窗口内的写标记合并突发写入：
+            // 首次命中正常落库，随后 5 秒内的重复 404 只累加内存计数、不写库，
+            // 窗口结束后下一次 404 会把累计结果一并落库。数据不丢失，写入量大幅下降。
+            $write_debounce_key = 'yimai_gso_404_write_debounce';
+            if ( false !== get_transient( $write_debounce_key ) ) {
+                // 窗口内：把计数暂存到 transient，等窗口结束由下一次请求合并写库
+                $pending = get_transient( 'yimai_gso_404_pending' );
+                if ( ! is_array( $pending ) ) {
+                    $pending = array();
+                }
+                $pending[ $entry['path'] ] = ( $pending[ $entry['path'] ] ?? 0 ) + 1;
+                set_transient( 'yimai_gso_404_pending', $pending, 10 * MINUTE_IN_SECONDS );
+                return;
+            }
+            set_transient( $write_debounce_key, 1, 5 );
+
+            // 合并上一次窗口累积的计数
+            $pending = get_transient( 'yimai_gso_404_pending' );
+            if ( is_array( $pending ) && ! empty( $pending ) ) {
+                foreach ( $logs as $i => $log ) {
+                    if ( isset( $pending[ $log['path'] ] ) ) {
+                        $logs[ $i ]['count'] = ( $logs[ $i ]['count'] ?? 1 ) + absint( $pending[ $log['path'] ] );
+                        unset( $pending[ $log['path'] ] );
+                    }
+                }
+                // 剩余的是尚未进入 logs 的新路径，补录
+                foreach ( $pending as $pending_path => $pending_count ) {
+                    if ( count( $logs ) >= 500 ) {
+                        break;
+                    }
+                    array_unshift( $logs, array(
+                        'url'       => esc_url_raw( home_url( $pending_path ) ),
+                        'path'      => sanitize_text_field( $pending_path ),
+                        'query'     => '',
+                        'referer'   => '',
+                        'ip'        => '',
+                        'ua'        => '',
+                        'bot_type'  => 'bot',
+                        'bot_label' => '机器人',
+                        'bot_icon'  => '🤖',
+                        'hit_time'  => current_time( 'mysql' ),
+                        'count'     => absint( $pending_count ),
+                    ) );
+                }
+                delete_transient( 'yimai_gso_404_pending' );
+            }
+
+            update_option( $key, array_slice( $logs, 0, 500 ), false );
 
             // 自动应用重定向建议：开启且最佳匹配≥80时，实时为本次 404 建立 301
             self::maybe_auto_apply_redirect( $entry['path'] );
