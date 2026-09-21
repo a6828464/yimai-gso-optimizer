@@ -21,6 +21,25 @@
 
     // ==================== 工具函数 ====================
 
+    /**
+     * HTML 转义 — 安全修正（S1）
+     *
+     * 本文件此前没有任何转义函数，所有服务端数据都直接拼进 .html()。
+     * 其中 request_url 等字段来自攻击者可控的请求数据，构成存储型 XSS。
+     * 转义 & < > " ' 五个字符，可同时安全用于文本与属性上下文。
+     */
+    function escHtml(s) {
+        if (s === null || typeof s === 'undefined') {
+            return '';
+        }
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     function ajaxGet(action, data, callback) {
         data = data || {};
         data.action = action;
@@ -444,16 +463,18 @@
             var data = resp.data || [];
             var html = '<table class="yimai-gso-l5-table"><thead><tr><th style="width:50%">页面</th><th style="width:18%">访问次数</th><th style="width:32%">爬虫</th></tr></thead><tbody>';
             data.forEach(function (p) {
-                var title = p.post_title || p.request_url || '-';
-                var url   = p.edit_url ? p.edit_url : '#';
+                // 安全修正（S1）：post_title / request_url / crawlers 均来自服务端的爬虫记录
+                //（其中 request_url 由攻击者可控的请求数据写入），必须转义后再拼接。
+                var title = escHtml(p.post_title || p.request_url || '-');
+                var url   = p.edit_url ? escHtml(p.edit_url) : '#';
                 var link  = p.edit_url ? '<a href="' + url + '" target="_blank">' + title + '</a>' : title;
                 // 截断爬虫名超过4个时显示 "前3个 +N"
                 var crawlers = p.crawlers || '';
                 var crawlerList = crawlers.split(',').map(function (s) { return s.trim(); });
                 var crawlerDisplay = crawlerList.length > 3
-                    ? crawlerList.slice(0, 3).join(', ') + ' +' + (crawlerList.length - 3)
-                    : crawlers;
-                html += '<tr><td>' + link + '</td><td><strong>' + p.hits + '</strong></td><td class="yimai-gso-l5-crawler-cell" title="' + crawlers.replace(/"/g, '&quot;') + '">' + crawlerDisplay + '</td></tr>';
+                    ? escHtml(crawlerList.slice(0, 3).join(', ') + ' +' + (crawlerList.length - 3))
+                    : escHtml(crawlers);
+                html += '<tr><td>' + link + '</td><td><strong>' + escHtml(p.hits) + '</strong></td><td class="yimai-gso-l5-crawler-cell" title="' + escHtml(crawlers) + '">' + crawlerDisplay + '</td></tr>';
             });
             html += '</tbody></table>';
             $('#yimai-gso-l5-top-pages-list').html(html);
@@ -466,7 +487,9 @@
             var data = resp.data || [];
             var html = '<table class="yimai-gso-l5-table"><thead><tr><th>时间</th><th>爬虫</th><th>URL</th><th>状态码</th></tr></thead><tbody>';
             data.forEach(function (r) {
-                html += '<tr><td>' + (r.time_ago || '') + '</td><td>' + r.crawler_name + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r.request_url || '') + '</td><td>' + (r.response_code || 200) + '</td></tr>';
+                // 安全修正（S1）：request_url / crawler_name 均来自服务端记录的攻击者可控数据，
+                // 必须转义后再拼接（本行曾是未认证存储型 XSS 的执行点）。
+                html += '<tr><td>' + escHtml(r.time_ago || '') + '</td><td>' + escHtml(r.crawler_name) + '</td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(r.request_url || '') + '</td><td>' + escHtml(r.response_code || 200) + '</td></tr>';
             });
             html += '</tbody></table>';
             $('#yimai-gso-l5-recent-log').html(html);
@@ -685,18 +708,20 @@
                     var sevLabel = alert.severity === 'critical' ? '严重' : (alert.severity === 'warning' ? '警告' : '信息');
                     var statusLabel = { active:'未处理', acknowledged:'已确认', resolved:'已解决', dismissed:'已忽略' }[alert.status] || alert.status;
 
-                    html += '<div class="yimai-gso-l5-alert-item yimai-gso-l5-alert-' + sevClass + '" data-id="' + alert.id + '">' +
+                    // 安全修正（S1）：alert 的 title/message/rule_label 由预警引擎写入，
+                    // 其内容可能包含来自请求数据的 URL（如异常访问路径），必须转义后拼接。
+                    html += '<div class="yimai-gso-l5-alert-item yimai-gso-l5-alert-' + sevClass + '" data-id="' + escHtml(alert.id) + '">' +
                         '<div class="yimai-gso-l5-alert-item-left"><span class="yimai-gso-l5-alert-severity yimai-gso-l5-alert-sev-' + sevClass + '">' + sevLabel + '</span></div>' +
                         '<div class="yimai-gso-l5-alert-item-body">' +
-                            '<div class="yimai-gso-l5-alert-item-title">' + (alert.title || '') + ' <span class="yimai-gso-l5-alert-rule">' + (alert.rule_label || '') + '</span></div>' +
-                            '<div class="yimai-gso-l5-alert-item-message">' + (alert.message || '') + '</div>' +
-                            '<div class="yimai-gso-l5-alert-item-meta">' + alert.created_at + ' · ' + statusLabel + '</div>' +
+                            '<div class="yimai-gso-l5-alert-item-title">' + escHtml(alert.title || '') + ' <span class="yimai-gso-l5-alert-rule">' + escHtml(alert.rule_label || '') + '</span></div>' +
+                            '<div class="yimai-gso-l5-alert-item-message">' + escHtml(alert.message || '') + '</div>' +
+                            '<div class="yimai-gso-l5-alert-item-meta">' + escHtml(alert.created_at) + ' · ' + escHtml(statusLabel) + '</div>' +
                         '</div>' +
                         '<div class="yimai-gso-l5-alert-item-actions">';
                     if (alert.status === 'active') {
-                        html += '<button class="button button-small yimai-gso-l5-alert-ack" data-id="' + alert.id + '">确认</button> ' +
-                                '<button class="button button-small yimai-gso-l5-alert-resolve" data-id="' + alert.id + '">解决</button> ' +
-                                '<button class="button button-small yimai-gso-l5-alert-dismiss" data-id="' + alert.id + '">忽略</button>';
+                        html += '<button class="button button-small yimai-gso-l5-alert-ack" data-id="' + escHtml(alert.id) + '">确认</button> ' +
+                                '<button class="button button-small yimai-gso-l5-alert-resolve" data-id="' + escHtml(alert.id) + '">解决</button> ' +
+                                '<button class="button button-small yimai-gso-l5-alert-dismiss" data-id="' + escHtml(alert.id) + '">忽略</button>';
                     }
                     html += '</div></div>';
                 });

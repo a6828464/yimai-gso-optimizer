@@ -207,9 +207,20 @@ class YIMAI_GSO_Referral_Tracker {
 
         self::ensure_table();
 
-        $landing_url = ( is_ssl() ? 'https://' : 'http://' ) .
-                        ( isset( $_SERVER['HTTP_HOST'] ) ? $_SERVER['HTTP_HOST'] : '' ) .
-                        ( isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '' );
+        // 安全修正（S1 同类缺陷）：HTTP_HOST / REQUEST_URI 攻击者可控，不得原样拼接入库。
+        // 同时 Host 头投毒会让 url_to_postid() 解析出错误结果，故先校验 host 再使用。
+        $home_host = (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST );
+        $req_host  = isset( $_SERVER['HTTP_HOST'] ) ? strtolower( trim( (string) $_SERVER['HTTP_HOST'] ) ) : '';
+        $host_ok   = ( '' !== $req_host && '' !== $home_host && strtolower( $home_host ) === $req_host );
+
+        $scheme = is_ssl() ? 'https://' : 'http://';
+        $host   = $host_ok ? $req_host : $home_host;
+        $uri    = esc_url_raw( (string) ( $_SERVER['REQUEST_URI'] ?? '/' ) );
+
+        $landing_url = esc_url_raw( $scheme . $host . $uri );
+        if ( '' === $landing_url ) {
+            $landing_url = home_url( '/' );
+        }
         $landing_url = substr( $landing_url, 0, 2083 );
 
         // 尝试解析 landing URL 对应的 post_id

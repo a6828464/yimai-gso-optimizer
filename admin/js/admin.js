@@ -3,12 +3,24 @@
  * 修复：配图现在在前端直接嵌入正文，然后整体提交
  */
 
-/** HTML 转义 — 统一实现（原生 DOM，无 jQuery 依赖），全局作用域供所有模块 IIFE 使用 */
+/**
+ * HTML 转义 — 统一实现（原生 DOM，无 jQuery 依赖），全局作用域供所有模块 IIFE 使用
+ *
+ * 安全修正（S2）：原实现用 createTextNode → innerHTML，按 HTML 规范只转义 & < >（及 nbsp），
+ * 不转义引号。本函数有约 30 处用在属性上下文（data-*="' + esc(x) + '"），
+ * 因此含引号的输入可闭合属性并注入事件处理器，例如：
+ *   esc('/x" onmouseover="alert(1)" data-x="')
+ *     → /x" onmouseover="alert(1)" data-x=""   ← 注入成功
+ * 修复：在原有转义基础上补上 " 与 '（与同文件 escapeHtml() 语义一致），
+ * 使本函数在文本与属性两种上下文中都安全。
+ */
 function esc(s) {
     if (!s && s !== 0) return '';
     var d = document.createElement('div');
     d.appendChild(document.createTextNode(String(s)));
-    return d.innerHTML;
+    return d.innerHTML
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 (function ($) {

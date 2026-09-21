@@ -181,6 +181,43 @@ class YIMAI_GSO_Crawler_Tracker {
     }
 
     /**
+     * 构造经过校验的请求 URL（安全修正 S1）
+     *
+     * HTTP_HOST 与 REQUEST_URI 均为攻击者可控（请求头 / 请求行）。此处曾原样拼接入库，
+     * 造成未认证的存储型 XSS：攻击者用 AI 爬虫 UA 请求携带 HTML/引号的 URL 即可写库，
+     * 该值随后由 ajax_recent() 返回、被 l5-dashboard.js 直接拼进 .html()，
+     * 管理员访问 L5 面板时在 wp-admin 内执行脚本（会话骑乘）。
+     *
+     * 修复要点：
+     *  1. host 必须与 home_url() 的 host 一致，否则丢弃（防 Host 头投毒）；
+     *  2. path 部分经 esc_url_raw() 过滤，去掉标签与危险字符；
+     *  3. 最终仍由输出侧独立转义（双保险，见 l5-dashboard.js）。
+     *
+     * @return string 安全的请求 URL；host 不可信时返回站点首页 URL
+     */
+    private static function build_validated_request_url() {
+        $home_host = (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST );
+        $req_host  = isset( $_SERVER['HTTP_HOST'] ) ? strtolower( trim( (string) $_SERVER['HTTP_HOST'] ) ) : '';
+
+        // Host 头与站点 host 不一致（含带端口/畸形值）时，不信任请求中的 host
+        $host_ok = ( '' !== $req_host && '' !== $home_host && strtolower( $home_host ) === $req_host );
+
+        $scheme = is_ssl() ? 'https://' : 'http://';
+        $host   = $host_ok ? $req_host : $home_host;
+        $uri    = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '/';
+
+        // 先做 URL 过滤（剥离标签、编码危险字符），再拼接
+        $uri = esc_url_raw( $uri );
+
+        $url = $scheme . $host . $uri;
+
+        // 最终再兜一层：过滤结果若仍不合法则退回首页
+        $url = esc_url_raw( $url );
+
+        return '' !== $url ? $url : home_url( '/' );
+    }
+
+    /**
      * 写入一条爬虫访问日志
      *
      * @param array $crawler detect() 返回的爬虫信息
@@ -192,9 +229,7 @@ class YIMAI_GSO_Crawler_Tracker {
         // 确保表存在
         self::ensure_table();
 
-        $request_url = ( is_ssl() ? 'https://' : 'http://' ) .
-                        ( isset( $_SERVER['HTTP_HOST'] ) ? $_SERVER['HTTP_HOST'] : '' ) .
-                        ( isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '' );
+        $request_url = self::build_validated_request_url();
 
         $request_url = substr( $request_url, 0, 2083 );
 
