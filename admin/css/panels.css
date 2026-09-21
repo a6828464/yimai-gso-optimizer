@@ -1,0 +1,2332 @@
+/**
+ * 一麦GSO双擎优化 — 后台主面板样式
+ *
+ * P7：本文件内容原先以 2,325 行内联 <style> 的形式嵌在 includes/class-admin.php
+ * 的 render_main_center() 中（占该文件 22%）。抽取后：
+ *   - 与 admin/css/admin.css 的 45 个重叠选择器集中在一处，不再"同一类名两个 owner"；
+ *   - 浏览器可独立缓存该文件，编辑时不必在 10,362 行的 PHP 里定位样式。
+ * 加载顺序保持与原内联块一致（在主面板样式之后加载，层叠优先级不变）。
+ *
+ * @package 一麦GSO SEO-GEO
+ */
+/* ===== AI内容助手主框架样式（侧边栏布局） ===== */
+
+            .yimai-gso-center-wrap {
+
+                max-width: 100%;
+
+            }
+
+
+
+            /* 侧边栏布局 */
+
+            .yimai-gso-sidebar-layout {
+
+                display: flex;
+
+                gap: 0;
+
+                min-height: calc(100vh - 100px);
+
+            }
+
+
+
+            /* 左侧边栏 */
+
+            .yimai-gso-sidebar {
+
+                width: 240px;
+
+                flex-shrink: 0;
+
+                background: #fff;
+
+                border-right: 1px solid var(--yimai-gso-border);
+
+                display: flex;
+
+                flex-direction: column;
+
+            }
+
+
+
+            .yimai-gso-sidebar-header {
+                padding: 24px 20px 20px;
+                background: linear-gradient(135deg, #6366f1 0%, #7c3aed 50%, #8b5cf6 100%);
+                border-bottom: none;
+                text-align: center;
+            }
+            .yimai-gso-sidebar-brand-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 52px;
+                height: 52px;
+                border-radius: 16px;
+                background: linear-gradient(135deg, rgba(251,191,36,.3), rgba(245,158,11,.2));
+                box-shadow: 0 4px 16px rgba(251,191,36,.2);
+                margin-bottom: 14px;
+                border: 1px solid rgba(251,191,36,.3);
+            }
+            .yimai-gso-sidebar-brand-icon .dashicons {
+                font-size: 26px;
+                width: 26px;
+                height: 26px;
+                color: #fbbf24;
+            }
+            .yimai-gso-sidebar-brand-text h2 {
+                font-size: 16px;
+                font-weight: 700;
+                color: #fff;
+                letter-spacing: 0.5px;
+                margin: 0 0 6px 0;
+            }
+            .yimai-gso-sidebar-brand-text p {
+                font-size: 12px;
+                color: rgba(255,255,255,.65);
+                font-weight: 500;
+            }
+
+
+
+            .yimai-gso-sidebar-nav {
+
+                display: flex;
+
+                flex-direction: column;
+
+                padding: 12px 10px;
+
+                gap: 4px;
+
+                overflow-y: auto;
+
+            }
+
+
+
+            .yimai-gso-sidebar-tab {
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 12px;
+
+                padding: 12px 14px;
+
+                border: none;
+
+                background: transparent;
+
+                border-radius: 8px;
+
+                cursor: pointer;
+
+                font-size: 14px;
+
+                font-weight: 500;
+
+                color: #64748b;
+
+                transition: all .2s;
+
+                text-align: left;
+
+                width: 100%;
+
+            }
+
+
+
+            .yimai-gso-sidebar-tab .dashicons {
+
+                font-size: 18px;
+
+                width: 18px;
+
+                height: 18px;
+
+                flex-shrink: 0;
+
+            }
+
+
+
+            .yimai-gso-sidebar-tab:hover {
+
+                background: #f1f5f9;
+
+                color: #1e293b;
+
+            }
+
+
+
+            .yimai-gso-sidebar-tab.active {
+
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+
+                color: #fff;
+
+                box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+
+            }
+
+
+
+            /* 主内容区 */
+
+            .yimai-gso-main-content {
+
+                flex: 1;
+
+                padding: 24px 32px;
+
+                overflow-y: auto;
+
+                background: var(--yimai-gso-bg);
+
+            }
+
+
+
+            /* 主面板 */
+
+            .yimai-gso-main-panel {
+
+                display: none;
+
+            }
+
+
+
+            .yimai-gso-main-panel.active {
+
+                display: block;
+
+            }
+
+
+
+            /* 响应式 */
+
+            @media (max-width: 960px) {
+
+                .yimai-gso-sidebar-layout {
+
+                    flex-direction: column;
+
+                }
+
+                .yimai-gso-sidebar {
+
+                    width: 100%;
+
+                    border-right: none;
+
+                    border-bottom: 1px solid var(--yimai-gso-border);
+
+                }
+
+                .yimai-gso-sidebar-nav {
+
+                    flex-direction: row;
+
+                    flex-wrap: wrap;
+
+                    padding: 10px;
+
+                }
+
+                .yimai-gso-sidebar-tab {
+
+                    flex: 1;
+
+                    min-width: 120px;
+
+                    justify-content: center;
+
+                }
+
+                .yimai-gso-main-content {
+
+                    padding: 20px;
+
+                }
+
+            }
+
+
+
+            /* ===== 复用的样式 ===== */
+
+
+
+            /* Schema Generator / SEO Scorer / Heading Analyzer 公共样式 */
+
+            .yimai-gso-schema-desc, .yimai-gso-seo-score-desc, .yimai-gso-heading-desc {
+
+                color: #64748b;
+
+                font-size: 14px;
+
+                margin: 0 0 20px;
+
+                line-height: 1.6;
+
+            }
+
+            .yimai-gso-seo-score-stats-row {
+
+                display: grid;
+
+                grid-template-columns: repeat(4, 1fr);
+
+                gap: 16px;
+
+                margin-bottom: 24px;
+
+            }
+
+            .yimai-gso-seo-score-stat-card {
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 12px;
+
+                padding: 20px;
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 16px;
+
+                box-shadow: 0 1px 3px rgba(0,0,0,.04);
+
+            }
+
+            .yimai-gso-seo-score-stat-icon {
+
+                width: 48px;
+
+                height: 48px;
+
+                border-radius: 12px;
+
+                display: flex;
+
+                align-items: center;
+
+                justify-content: center;
+
+                flex-shrink: 0;
+
+            }
+
+            .yimai-gso-seo-score-stat-icon .dashicons {
+
+                font-size: 24px;
+
+                width: 24px;
+
+                height: 24px;
+
+                color: #fff;
+
+            }
+
+            .yimai-gso-seo-score-stat-value {
+
+                font-size: 28px;
+
+                font-weight: 800;
+
+                color: #1e293b;
+
+                line-height: 1.2;
+
+            }
+
+            .yimai-gso-seo-score-stat-label {
+
+                font-size: 13px;
+
+                color: #94a3b8;
+
+                margin-top: 2px;
+
+            }
+
+            .yimai-gso-schema-type-toggles {
+
+                display: grid;
+
+                grid-template-columns: repeat(2, 1fr);
+
+                gap: 12px;
+
+            }
+
+            .yimai-gso-schema-toggle {
+
+                display: flex;
+
+                flex-wrap: wrap;
+
+                align-items: center;
+
+                gap: 8px;
+
+                padding: 12px 16px;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 8px;
+
+                cursor: pointer;
+
+                transition: all .2s;
+
+            }
+
+            .yimai-gso-schema-toggle:hover {
+
+                border-color: #6366f1;
+
+                background: #f8fafc;
+
+            }
+
+            .yimai-gso-schema-toggle input[type="checkbox"] {
+
+                width: 18px;
+
+                height: 18px;
+
+            }
+
+            .yimai-gso-schema-toggle-label {
+
+                font-weight: 600;
+
+                font-size: 14px;
+
+                color: #1e293b;
+
+            }
+
+            .yimai-gso-schema-toggle small {
+
+                width: 100%;
+
+                color: #94a3b8;
+
+                font-size: 12px;
+
+                margin-top: -4px;
+
+            }
+
+
+
+            /* SEO Score Detail Modal */
+
+            .yimai-gso-ss-detail-overlay {
+
+                position: fixed;
+
+                top: 0; left: 0; right: 0; bottom: 0;
+
+                background: rgba(0,0,0,.5);
+
+                z-index: 100000;
+
+            }
+
+            .yimai-gso-ss-detail-content {
+
+                position: fixed;
+
+                top: 50%; left: 50%;
+
+                transform: translate(-50%, -50%);
+
+                background: #fff;
+
+                border-radius: 16px;
+
+                padding: 32px;
+
+                width: 90%;
+
+                max-width: 700px;
+
+                max-height: 80vh;
+
+                overflow-y: auto;
+
+                z-index: 100001;
+
+                box-shadow: 0 20px 60px rgba(0,0,0,.2);
+
+            }
+
+            .yimai-gso-ss-detail-header {
+
+                display: flex;
+
+                justify-content: space-between;
+
+                align-items: center;
+
+                margin-bottom: 24px;
+
+                padding-bottom: 16px;
+
+                border-bottom: 1px solid var(--yimai-gso-border);
+
+            }
+
+            .yimai-gso-ss-detail-header h2 {
+
+                margin: 0;
+
+                font-size: 20px;
+
+            }
+
+            .yimai-gso-ss-score-ring {
+
+                width: 100px;
+
+                height: 100px;
+
+                border-radius: 50%;
+
+                display: flex;
+
+                align-items: center;
+
+                justify-content: center;
+
+                font-size: 32px;
+
+                font-weight: 800;
+
+                color: #fff;
+
+                margin: 0 auto 20px;
+
+            }
+
+            .yimai-gso-ss-dim-row {
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 12px;
+
+                padding: 10px 0;
+
+                border-bottom: 1px solid #f1f5f9;
+
+            }
+
+            .yimai-gso-ss-dim-icon {
+
+                width: 32px;
+
+                height: 32px;
+
+                border-radius: 8px;
+
+                background: #f1f5f9;
+
+                display: flex;
+
+                align-items: center;
+
+                justify-content: center;
+
+                flex-shrink: 0;
+
+            }
+
+            .yimai-gso-ss-dim-icon .dashicons {
+
+                font-size: 16px;
+
+                width: 16px;
+
+                height: 16px;
+
+                color: #64748b;
+
+            }
+
+            .yimai-gso-ss-dim-label {
+
+                flex: 1;
+
+                font-size: 14px;
+
+                font-weight: 500;
+
+                color: #1e293b;
+
+            }
+
+            .yimai-gso-ss-dim-score {
+
+                font-size: 16px;
+
+                font-weight: 700;
+
+                min-width: 40px;
+
+                text-align: right;
+
+            }
+
+            .yimai-gso-ss-dim-bar {
+
+                width: 100%;
+
+                height: 6px;
+
+                background: #e2e8f0;
+
+                border-radius: 3px;
+
+                margin-top: 4px;
+
+            }
+
+            .yimai-gso-ss-dim-bar-fill {
+
+                height: 100%;
+
+                border-radius: 3px;
+
+                transition: width .3s;
+
+            }
+
+            .yimai-gso-ss-dim-tips {
+
+                padding: 8px 0 4px;
+
+                font-size: 12px;
+
+                color: #64748b;
+
+                line-height: 1.6;
+
+            }
+
+            .yimai-gso-ss-dim-tips li {
+
+                margin-bottom: 4px;
+
+            }
+
+            .yimai-gso-grade-badge {
+
+                display: inline-block;
+
+                padding: 2px 10px;
+
+                border-radius: 12px;
+
+                font-size: 12px;
+
+                font-weight: 700;
+
+                color: #fff;
+
+            }
+
+
+
+            /* Heading Analyzer */
+
+            .yimai-gso-ha-heading-list {
+
+                list-style: none;
+
+                padding: 0;
+
+                margin: 0;
+
+            }
+
+            .yimai-gso-ha-heading-item {
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 10px;
+
+                padding: 10px 14px;
+
+                border-bottom: 1px solid #f1f5f9;
+
+                font-size: 14px;
+
+            }
+
+            .yimai-gso-ha-heading-level {
+
+                padding: 2px 8px;
+
+                border-radius: 4px;
+
+                font-size: 11px;
+
+                font-weight: 700;
+
+                color: #fff;
+
+                flex-shrink: 0;
+
+            }
+
+            .yimai-gso-ha-heading-level.h2 { background: #6366f1; }
+
+            .yimai-gso-ha-heading-level.h3 { background: #3b82f6; }
+
+            .yimai-gso-ha-heading-kw { color: #22c55e; font-size: 12px; }
+
+
+
+            @media (max-width: 768px) {
+
+                .yimai-gso-seo-score-stats-row { grid-template-columns: repeat(2, 1fr); }
+
+                .yimai-gso-schema-type-toggles { grid-template-columns: 1fr; }
+
+                .yimai-gso-ss-detail-content { width: 95%; padding: 20px; }
+
+            }
+
+
+
+            .yimai-gso-dashboard-wrap,
+
+            .yimai-gso-generate-wrap,
+
+            .yimai-gso-history-wrap {
+
+                max-width: 1400px;
+
+            }
+
+
+
+            .yimai-gso-page-title {
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 12px;
+
+                font-size: 24px;
+
+                font-weight: 700;
+
+                color: #1e293b;
+
+                margin: 0 0 8px;
+
+                line-height: 1.4;
+
+            }
+
+
+
+            .yimai-gso-dashboard-header {
+
+                display: flex;
+
+                justify-content: space-between;
+
+                align-items: center;
+
+                margin-bottom: 28px;
+
+                padding-bottom: 24px;
+
+                border-bottom: 1px solid var(--yimai-gso-border);
+
+            }
+
+
+
+            .yimai-gso-dashboard-welcome h1 {
+
+                font-size: 28px;
+
+                font-weight: 800;
+
+                color: #1e293b;
+
+                margin: 0 0 4px;
+
+            }
+
+
+
+            .yimai-gso-dashboard-welcome p {
+
+                font-size: 14px;
+
+                color: #64748b;
+
+                margin: 0;
+
+            }
+
+
+
+            
+
+
+
+            .yimai-gso-dashboard-stats {
+
+                display: grid;
+
+                grid-template-columns: repeat(4, 1fr);
+
+                gap: 20px;
+
+                margin-bottom: 32px;
+
+            }
+
+
+
+            .yimai-gso-stat-card {
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 16px;
+
+                padding: 20px 24px;
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 16px;
+
+                box-shadow: 0 1px 3px rgba(0,0,0,.04);
+
+                transition: transform .2s, box-shadow .2s;
+
+            }
+
+
+
+            .yimai-gso-stat-card:hover {
+
+                transform: translateY(-3px);
+
+                box-shadow: 0 8px 24px rgba(0,0,0,.08);
+
+            }
+
+
+
+            .yimai-gso-stat-icon {
+
+                width: 52px;
+
+                height: 52px;
+
+                border-radius: 14px;
+
+                display: flex;
+
+                align-items: center;
+
+                justify-content: center;
+
+                font-size: 24px;
+
+                flex-shrink: 0;
+
+            }
+
+
+
+            .yimai-gso-stat-primary .yimai-gso-stat-icon { background: linear-gradient(135deg, #667eea, #764ba2); }
+
+            .yimai-gso-stat-success .yimai-gso-stat-icon { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+
+            .yimai-gso-stat-info .yimai-gso-stat-icon { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+
+            .yimai-gso-stat-warning .yimai-gso-stat-icon { background: linear-gradient(135deg, #fa709a, #fee140); }
+
+
+
+            .yimai-gso-stat-content {
+
+                flex: 1;
+
+            }
+
+
+
+            .yimai-gso-stat-card .yimai-gso-stat-num {
+
+                font-size: 32px;
+
+                font-weight: 800;
+
+                color: #1e293b;
+
+                line-height: 1.1;
+
+            }
+
+
+
+            .yimai-gso-stat-card .yimai-gso-stat-label {
+
+                font-size: 13px;
+
+                color: #64748b;
+
+                font-weight: 500;
+
+            }
+
+
+
+            .yimai-gso-dashboard-quick-actions {
+
+                margin-bottom: 32px;
+
+            }
+
+
+
+            .yimai-gso-section-title {
+
+                font-size: 18px;
+
+                font-weight: 700;
+
+                color: #1e293b;
+
+                margin: 0 0 16px;
+
+            }
+
+
+
+            .yimai-gso-quick-actions-grid {
+
+                display: grid;
+
+                grid-template-columns: repeat(3, 1fr);
+
+                gap: 16px;
+
+            }
+
+
+
+            .yimai-gso-quick-action {
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 16px;
+
+                padding: 20px;
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 16px;
+
+                cursor: pointer;
+
+                text-decoration: none;
+
+                transition: all .2s;
+
+            }
+
+
+
+            .yimai-gso-quick-action:hover {
+
+                border-color: #6366f1;
+
+                box-shadow: 0 4px 12px rgba(99, 102, 241, .15);
+
+            }
+
+
+
+            .yimai-gso-quick-action-primary {
+
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+
+                border-color: transparent;
+
+                color: #fff;
+
+            }
+
+
+
+            .yimai-gso-quick-action-primary:hover {
+
+                background: linear-gradient(135deg, #5558e3, #7c4ef0);
+
+                border-color: transparent;
+
+                color: #fff;
+
+            }
+
+
+
+            .yimai-gso-quick-icon {
+
+                width: 44px;
+
+                height: 44px;
+
+                border-radius: 12px;
+
+                background: rgba(255,255,255,.2);
+
+                display: flex;
+
+                align-items: center;
+
+                justify-content: center;
+
+                font-size: 20px;
+
+                flex-shrink: 0;
+
+            }
+
+
+
+            .yimai-gso-quick-action:not(.yimai-gso-quick-action-primary) .yimai-gso-quick-icon {
+
+                background: #f1f5f9;
+
+            }
+
+
+
+            .yimai-gso-quick-info {
+
+                flex: 1;
+
+            }
+
+
+
+            .yimai-gso-quick-title {
+
+                font-size: 15px;
+
+                font-weight: 700;
+
+                color: inherit;
+
+                margin-bottom: 2px;
+
+            }
+
+
+
+            .yimai-gso-quick-action:not(.yimai-gso-quick-action-primary) .yimai-gso-quick-title {
+
+                color: #1e293b;
+
+            }
+
+
+
+            .yimai-gso-quick-desc {
+
+                font-size: 12px;
+
+                color: #94a3b8;
+
+            }
+
+
+
+            .yimai-gso-quick-action:not(.yimai-gso-quick-action-primary) .yimai-gso-quick-desc {
+
+                color: #64748b;
+
+            }
+
+
+
+            .yimai-gso-quick-action .dashicons {
+
+                font-size: 18px;
+
+                width: 18px;
+
+                height: 18px;
+
+                opacity: .5;
+
+            }
+
+
+
+            .yimai-gso-dashboard-recent {
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 16px;
+
+                padding: 24px;
+
+                box-shadow: 0 1px 3px rgba(0,0,0,.04);
+
+            }
+
+
+
+            .yimai-gso-dashboard-recent-header {
+
+                display: flex;
+
+                justify-content: space-between;
+
+                align-items: center;
+
+                margin-bottom: 16px;
+
+            }
+
+
+
+            .yimai-gso-view-all {
+
+                font-size: 13px;
+
+                color: var(--yimai-gso-primary);
+
+                text-decoration: none;
+
+                font-weight: 600;
+
+                background: none;
+
+                border: none;
+
+                cursor: pointer;
+
+            }
+
+
+
+            .yimai-gso-view-all:hover {
+
+                text-decoration: underline;
+
+            }
+
+
+
+            /* 生成页面 */
+
+            .yimai-gso-generate-header {
+
+                margin-bottom: 24px;
+
+            }
+
+
+
+            /* 批量标题/批量文章 Tab 切换 */
+
+            .yimai-gso-batch-tabs {
+
+                display: flex;
+
+                gap: 4px;
+
+                padding: 6px;
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 14px;
+
+                margin-bottom: 24px;
+
+                box-shadow: 0 1px 3px rgba(0,0,0,.04);
+
+            }
+
+
+
+            .yimai-gso-batch-tab {
+
+                flex: 1;
+
+                display: flex;
+
+                align-items: center;
+
+                justify-content: center;
+
+                gap: 8px;
+
+                padding: 14px 20px;
+
+                background: transparent;
+
+                border: none;
+
+                border-radius: 10px;
+
+                cursor: pointer;
+
+                font-size: 15px;
+
+                font-weight: 600;
+
+                color: #64748b;
+
+                transition: all .2s;
+
+            }
+
+
+
+            .yimai-gso-batch-tab:hover {
+
+                background: #f8fafc;
+
+                color: #1e293b;
+
+            }
+
+
+
+            .yimai-gso-batch-tab.active {
+
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+
+                color: #fff;
+
+                box-shadow: 0 2px 8px rgba(99,102,241,.25);
+
+            }
+
+
+
+            .yimai-gso-step-content {
+
+                display: none;
+
+            }
+
+
+
+            .yimai-gso-step-content.active {
+
+                display: block;
+
+            }
+
+
+
+            /* 历史页面 */
+
+            .yimai-gso-history-header {
+
+                display: flex;
+
+                justify-content: space-between;
+
+                align-items: center;
+
+                margin-bottom: 24px;
+
+            }
+
+
+
+            .yimai-gso-history-filters {
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 16px;
+
+                padding: 20px;
+
+                margin-bottom: 24px;
+
+            }
+
+
+
+            .yimai-gso-filter-row {
+
+                display: flex;
+
+                flex-wrap: wrap;
+
+                gap: 12px;
+
+                margin-bottom: 12px;
+
+            }
+
+
+
+            .yimai-gso-filter-row select,
+
+            .yimai-gso-filter-row input {
+
+                padding: 8px 12px;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 8px;
+
+                font-size: 14px;
+
+            }
+
+
+
+            .yimai-gso-filter-actions {
+
+                display: flex;
+
+                gap: 8px;
+
+            }
+
+
+
+            .yimai-gso-history-list {
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 16px;
+
+                padding: 20px;
+
+            }
+
+
+
+            .yimai-gso-loading-state {
+
+                text-align: center;
+
+                padding: 40px;
+
+                color: #64748b;
+
+            }
+
+
+
+            /* 设置页面 */
+
+            .yimai-gso-settings-header {
+
+                display: flex;
+
+                justify-content: space-between;
+
+                align-items: center;
+
+                margin-bottom: 24px;
+
+            }
+
+
+
+            .yimai-gso-settings-tabs {
+
+                display: flex;
+
+                gap: 4px;
+
+                padding: 6px;
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 12px;
+
+                margin-bottom: 24px;
+
+                flex-wrap: wrap;
+
+            }
+
+
+
+            .yimai-gso-settings-tab {
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 6px;
+
+                padding: 10px 16px;
+
+                border: none;
+
+                background: transparent;
+
+                border-radius: 8px;
+
+                cursor: pointer;
+
+                font-size: 13px;
+
+                font-weight: 600;
+
+                color: #64748b;
+
+                transition: all .2s;
+
+            }
+
+
+
+            .yimai-gso-settings-tab:hover {
+
+                background: #f8fafc;
+
+                color: #1e293b;
+
+            }
+
+
+
+            .yimai-gso-settings-tab.active {
+
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+
+                color: #fff;
+
+            }
+
+
+
+            .yimai-gso-settings-tab .dashicons {
+
+                font-size: 16px;
+
+                width: 16px;
+
+                height: 16px;
+
+            }
+
+
+
+            .yimai-gso-settings-panel {
+
+                display: none;
+
+            }
+
+
+
+            .yimai-gso-settings-panel.active {
+
+                display: block;
+
+            }
+
+
+
+            .yimai-gso-settings-section {
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 16px;
+
+                padding: 24px;
+
+                margin-bottom: 20px;
+
+            }
+
+
+
+            .yimai-gso-settings-section-header {
+
+                margin-bottom: 20px;
+
+                padding-bottom: 16px;
+
+                border-bottom: 1px solid var(--yimai-gso-border);
+
+            }
+
+
+
+            .yimai-gso-settings-section-header h2 {
+
+                font-size: 18px;
+
+                font-weight: 700;
+
+                color: #1e293b;
+
+                margin: 0 0 8px;
+
+            }
+
+
+
+            .yimai-gso-settings-desc {
+
+                font-size: 13px;
+
+                color: #64748b;
+
+                margin: 0;
+
+            }
+
+
+
+            .yimai-gso-settings-fields {
+
+                display: flex;
+
+                flex-direction: column;
+
+                gap: 20px;
+
+            }
+
+
+
+            .yimai-gso-field-group {
+
+                display: flex;
+
+                flex-direction: column;
+
+                gap: 8px;
+
+            }
+
+
+
+            .yimai-gso-field-group label {
+
+                font-size: 14px;
+
+                font-weight: 600;
+
+                color: #1e293b;
+
+            }
+
+
+
+            .yimai-gso-field-group .required {
+
+                color: #ef4444;
+
+            }
+
+
+
+            .yimai-gso-field-group input,
+
+            .yimai-gso-field-group select {
+
+                padding: 10px 14px;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 8px;
+
+                font-size: 14px;
+
+                transition: border-color .2s;
+
+            }
+
+
+
+            .yimai-gso-field-group input:focus,
+
+            .yimai-gso-field-group select:focus {
+
+                outline: none;
+
+                border-color: var(--yimai-gso-primary);
+
+            }
+
+
+
+            .yimai-gso-field-group small {
+
+                font-size: 12px;
+
+                color: #94a3b8;
+
+            }
+
+
+        
+
+
+
+            /* ===== 卡片式生成记录页面 ===== */
+
+            .yimai-gso-history-wrap {
+
+                max-width: 1200px;
+
+            }
+
+
+
+            .yimai-gso-history-header {
+
+                display: flex;
+
+                justify-content: space-between;
+
+                align-items: center;
+
+                margin-bottom: 24px;
+
+            }
+
+
+
+            .yimai-gso-history-header-actions {
+
+                display: flex;
+
+                gap: 8px;
+
+            }
+
+
+
+            /* 统计迷你卡片 */
+
+            .yimai-gso-history-stats-mini {
+
+                display: flex;
+
+                gap: 12px;
+
+                margin-bottom: 20px;
+
+            }
+
+
+
+            .yimai-gso-stat-mini {
+
+                flex: 1;
+
+                display: flex;
+
+                flex-direction: column;
+
+                align-items: center;
+
+                padding: 16px 12px;
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 12px;
+
+                cursor: pointer;
+
+                transition: all .2s;
+
+            }
+
+
+
+            .yimai-gso-stat-mini:hover {
+
+                border-color: var(--yimai-gso-primary);
+
+                background: #f8faff;
+
+            }
+
+
+
+            .yimai-gso-stat-mini.active {
+
+                border-color: var(--yimai-gso-primary);
+
+                background: #eef2ff;
+
+            }
+
+
+
+            .yimai-gso-stat-today {
+
+                background: linear-gradient(135deg, #667eea, #764ba2);
+
+                border-color: transparent;
+
+            }
+
+
+
+            .yimai-gso-stat-today:hover {
+
+                background: linear-gradient(135deg, #5a70e0, #6a42d9);
+
+                border-color: transparent;
+
+            }
+
+
+
+            .yimai-gso-stat-mini .yimai-gso-stat-mini-num {
+
+                font-size: 28px;
+
+                font-weight: 800;
+
+                color: #1e293b;
+
+                line-height: 1.1;
+
+            }
+
+
+
+            .yimai-gso-stat-today .yimai-gso-stat-mini-num {
+
+                color: #fff;
+
+            }
+
+
+
+            .yimai-gso-stat-mini .yimai-gso-stat-mini-label {
+
+                font-size: 12px;
+
+                color: #64748b;
+
+                font-weight: 500;
+
+                margin-top: 4px;
+
+            }
+
+
+
+            .yimai-gso-stat-today .yimai-gso-stat-mini-label {
+
+                color: rgba(255,255,255,.8);
+
+            }
+
+
+
+            /* 筛选栏 */
+
+            .yimai-gso-history-filter-bar {
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 12px;
+
+                padding: 16px 20px;
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 12px;
+
+                margin-bottom: 20px;
+
+                flex-wrap: wrap;
+
+            }
+
+
+
+            .yimai-gso-history-search {
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 8px;
+
+                padding: 8px 14px;
+
+                background: #f8fafc;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 8px;
+
+                flex: 1;
+
+                min-width: 200px;
+
+            }
+
+
+
+            .yimai-gso-history-search .dashicons {
+
+                color: #94a3b8;
+
+                font-size: 18px;
+
+                width: 18px;
+
+                height: 18px;
+
+            }
+
+
+
+            .yimai-gso-history-search input {
+
+                flex: 1;
+
+                border: none;
+
+                background: transparent;
+
+                font-size: 14px;
+
+                color: #1e293b;
+
+                outline: none;
+
+            }
+
+
+
+            .yimai-gso-history-search input::placeholder {
+
+                color: #94a3b8;
+
+            }
+
+
+
+            .yimai-gso-history-filter-group {
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 8px;
+
+            }
+
+
+
+            .yimai-gso-history-filter-group select,
+
+            .yimai-gso-history-filter-group .yimai-gso-date-input {
+
+                padding: 8px 12px;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 8px;
+
+                font-size: 13px;
+
+                color: #374151;
+
+                background: #fff;
+
+            }
+
+
+
+            .yimai-gso-date-sep {
+
+                color: #94a3b8;
+
+                font-size: 13px;
+
+            }
+
+
+
+            .yimai-gso-history-filter-actions {
+
+                display: flex;
+
+                gap: 6px;
+
+                margin-left: auto;
+
+            }
+
+
+
+            /* 卡片列表 */
+
+            .yimai-gso-history-cards {
+
+                display: grid;
+
+                grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+
+                gap: 16px;
+
+            }
+
+
+
+            .yimai-gso-history-loading {
+
+                grid-column: 1 / -1;
+
+                display: flex;
+
+                align-items: center;
+
+                justify-content: center;
+
+                gap: 10px;
+
+                padding: 60px;
+
+                color: #64748b;
+
+            }
+
+
+
+            .yimai-gso-history-empty {
+
+                grid-column: 1 / -1;
+
+                display: flex;
+
+                flex-direction: column;
+
+                align-items: center;
+
+                padding: 60px 20px;
+
+                background: #fff;
+
+                border: 1px dashed var(--yimai-gso-border);
+
+                border-radius: 16px;
+
+                text-align: center;
+
+            }
+
+
+
+            .yimai-gso-history-empty .dashicons {
+
+                font-size: 56px;
+
+                width: 56px;
+
+                height: 56px;
+
+                color: #cbd5e1;
+
+                margin-bottom: 16px;
+
+            }
+
+
+
+            .yimai-gso-history-empty h3 {
+
+                font-size: 16px;
+
+                font-weight: 700;
+
+                color: #1e293b;
+
+                margin: 0 0 8px;
+
+            }
+
+
+
+            .yimai-gso-history-empty p {
+
+                font-size: 13px;
+
+                color: #64748b;
+
+                margin: 0 0 20px;
+
+            }
+
+
+
+            /* 文章卡片 */
+
+            .yimai-gso-article-card {
+
+                background: #fff;
+
+                border: 1px solid var(--yimai-gso-border);
+
+                border-radius: 16px;
+
+                overflow: hidden;
+
+                transition: all .2s;
+
+            }
+
+
+
+            .yimai-gso-article-card:hover {
+
+                border-color: var(--yimai-gso-primary);
+
+                box-shadow: 0 8px 24px rgba(0,0,0,.08);
+
+                transform: translateY(-2px);
+
+            }
+
+
+
+            .yimai-gso-card-thumb {
+
+                position: relative;
+
+                height: 160px;
+
+                background: linear-gradient(135deg, #667eea, #764ba2);
+
+                overflow: hidden;
+
+            }
+
+
+
+            .yimai-gso-card-thumb img {
+
+                width: 100%;
+
+                height: 100%;
+
+                object-fit: cover;
+
+            }
+
+
+
+            .yimai-gso-card-thumb-placeholder {
+
+                width: 100%;
+
+                height: 100%;
+
+                display: flex;
+
+                align-items: center;
+
+                justify-content: center;
+
+                font-size: 48px;
+
+                color: rgba(255,255,255,.3);
+
+            }
+
+
+
+            .yimai-gso-card-status {
+
+                position: absolute;
+
+                top: 12px;
+
+                right: 12px;
+
+                padding: 4px 10px;
+
+                border-radius: 20px;
+
+                font-size: 11px;
+
+                font-weight: 700;
+
+                text-transform: uppercase;
+
+            }
+
+
+
+            .yimai-gso-card-status.publish { background: #dcfce7; color: #16a34a; }
+
+            .yimai-gso-card-status.draft { background: #f1f5f9; color: #64748b; }
+
+            .yimai-gso-card-status.future { background: #dbeafe; color: #2563eb; }
+
+            .yimai-gso-card-status.pending { background: #fef9c3; color: #ca8a04; }
+
+            .yimai-gso-card-status.trash { background: #fef2f2; color: #dc2626; }
+
+
+
+            .yimai-gso-card-body {
+
+                padding: 16px;
+
+            }
+
+
+
+            .yimai-gso-card-title {
+
+                font-size: 15px;
+
+                font-weight: 700;
+
+                color: #1e293b;
+
+                line-height: 1.4;
+
+                margin-bottom: 10px;
+
+                display: -webkit-box;
+
+                -webkit-line-clamp: 2;
+
+                -webkit-box-orient: vertical;
+
+                overflow: hidden;
+
+            }
+
+
+
+            .yimai-gso-card-title:hover {
+
+                color: var(--yimai-gso-primary);
+
+            }
+
+
+
+            .yimai-gso-card-meta {
+
+                display: flex;
+
+                flex-wrap: wrap;
+
+                gap: 8px;
+
+                margin-bottom: 12px;
+
+            }
+
+
+
+            .yimai-gso-card-meta-item {
+
+                display: inline-flex;
+
+                align-items: center;
+
+                gap: 4px;
+
+                font-size: 12px;
+
+                color: #64748b;
+
+            }
+
+
+
+            .yimai-gso-card-meta-item .dashicons {
+
+                font-size: 14px;
+
+                width: 14px;
+
+                height: 14px;
+
+            }
+
+
+
+            .yimai-gso-card-source {
+
+                display: inline-block;
+
+                padding: 2px 8px;
+
+                border-radius: 6px;
+
+                font-size: 11px;
+
+                font-weight: 600;
+
+                background: #eef2ff;
+
+                color: #4f46e5;
+
+            }
+
+
+
+            .yimai-gso-card-source.manual { background: #ecfdf5; color: #059669; }
+
+            .yimai-gso-card-source.rewrite { background: #fef3c7; color: #d97706; }
+
+
+
+            .yimai-gso-card-actions {
+
+                display: flex;
+
+                gap: 8px;
+
+                padding-top: 12px;
+
+                border-top: 1px solid #f1f5f9;
+
+            }
+
+
+
+            .yimai-gso-card-actions .button {
+
+                flex: 1;
+
+                padding: 6px 12px !important;
+
+                font-size: 12px !important;
+
+                border-radius: 6px !important;
+
+            }
+
+
+
+            .yimai-gso-card-actions .button:first-child {
+
+                background: var(--yimai-gso-primary) !important;
+
+                border-color: var(--yimai-gso-primary) !important;
+
+                color: #fff !important;
+
+            }
+
+
+
+            /* 响应式 */
+
+            @media (max-width: 768px) {
+
+                .yimai-gso-history-stats-mini {
+
+                    flex-wrap: wrap;
+
+                }
+
+                .yimai-gso-stat-mini {
+
+                    flex: none;
+
+                    width: calc(33.33% - 8px);
+
+                }
+
+                .yimai-gso-history-cards {
+
+                    grid-template-columns: 1fr;
+
+                }
+
+                .yimai-gso-history-filter-bar {
+
+                    flex-direction: column;
+
+                    align-items: stretch;
+
+                }
+
+                .yimai-gso-history-filter-group {
+
+                    flex-wrap: wrap;
+
+                }
+
+                .yimai-gso-history-filter-actions {
+
+                    margin-left: 0;
+
+                    justify-content: flex-end;
+
+                }
+
+            }
