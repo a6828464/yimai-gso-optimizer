@@ -227,7 +227,6 @@ class YIMAI_GSO_Crawler_Diagnosis {
         // 获取实际 robots.txt
         $response = wp_remote_get( home_url( '/robots.txt' ), array(
             'timeout'   => 10,
-            'sslverify' => false,
         ) );
 
         if ( is_wp_error( $response ) ) {
@@ -396,13 +395,13 @@ class YIMAI_GSO_Crawler_Diagnosis {
         $full_ok  = get_transient( 'yimai_gso_l5_llms_full_available' );
 
         if ( false === $llms_ok ) {
-            $response = wp_remote_head( $llms_url, array( 'timeout' => $timeout, 'sslverify' => false ) );
+            $response = wp_remote_head( $llms_url, array( 'timeout' => $timeout ) );
             $llms_ok  = ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) );
             set_transient( 'yimai_gso_l5_llms_available', $llms_ok, HOUR_IN_SECONDS );
         }
 
         if ( false === $full_ok ) {
-            $response = wp_remote_head( $full_url, array( 'timeout' => $timeout, 'sslverify' => false ) );
+            $response = wp_remote_head( $full_url, array( 'timeout' => $timeout ) );
             $full_ok  = ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) );
             set_transient( 'yimai_gso_l5_llms_full_available', $full_ok, HOUR_IN_SECONDS );
         }
@@ -556,7 +555,6 @@ class YIMAI_GSO_Crawler_Diagnosis {
         }
         $response = wp_remote_get( home_url( '/robots.txt' ), array(
             'timeout'   => 10,
-            'sslverify' => false,
         ) );
 
         if ( is_wp_error( $response ) ) {

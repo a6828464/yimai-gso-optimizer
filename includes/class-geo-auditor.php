@@ -175,7 +175,7 @@ class YIMAI_GSO_GEO_Auditor {
         $has_viewport = false;
         $theme_root   = get_template_directory();
         // 快速检测：查看首页输出
-        $front_page = wp_remote_get( home_url( '/' ), array( 'timeout' => 10, 'sslverify' => false ) );
+        $front_page = wp_remote_get( home_url( '/' ), array( 'timeout' => 10 ) );
         if ( ! is_wp_error( $front_page ) ) {
             $html = wp_remote_retrieve_body( $front_page );
             $has_viewport = ( false !== stripos( $html, 'viewport' ) );
@@ -522,7 +522,7 @@ class YIMAI_GSO_GEO_Auditor {
 
         // R2: llms.txt
         $llms_url  = home_url( '/llms.txt' );
-        $response  = wp_remote_head( $llms_url, array( 'timeout' => 5, 'sslverify' => false ) );
+        $response  = wp_remote_head( $llms_url, array( 'timeout' => 5 ) );
         $llms_ok   = ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response );
         $factors['R2'] = $this->make_factor( 'R2', $llms_ok ? 100 : 0,
             $llms_ok ? 'llms.txt 可访问' : 'llms.txt 不可访问' );
@@ -542,11 +542,11 @@ class YIMAI_GSO_GEO_Auditor {
         $sitemap_ok = false;
         if ( class_exists( 'YIMAI_GSO_Sitemap_Generator' ) ) {
             $sitemap_url = home_url( '/wp-sitemap.xml' );
-            $response    = wp_remote_head( $sitemap_url, array( 'timeout' => 5, 'sslverify' => false ) );
+            $response    = wp_remote_head( $sitemap_url, array( 'timeout' => 5 ) );
             $sitemap_ok  = ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response );
             if ( ! $sitemap_ok ) {
                 $sitemap_url = home_url( '/sitemap.xml' );
-                $response    = wp_remote_head( $sitemap_url, array( 'timeout' => 5, 'sslverify' => false ) );
+                $response    = wp_remote_head( $sitemap_url, array( 'timeout' => 5 ) );
                 $sitemap_ok  = ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response );
             }
         }

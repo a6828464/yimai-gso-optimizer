@@ -376,6 +376,104 @@ class YIMAI_GSO_Image_Handler {
     }
 
     /**
+     * 校验远端图片 URL，防止 SSRF（安全修正 S3）
+     *
+     * upload_image_to_media() 会把 URL 交给 download_url() 发起服务端 GET。
+     * 若 URL 由用户提交（ajax_upload_image），攻击者可借服务端身份探测内网。
+     * 本方法在真正下载前拦截：
+     *   1. 只允许 http / https 协议（拒绝 file:// gopher:// dict:// 等）；
+     *   2. 解析主机名后校验其所有解析结果，任一落在私有/保留网段即拒绝；
+     *   3. 同时拒绝字面量 IP 形式的内网地址与常见内部主机名。
+     *
+     * 说明：DNS 重绑定无法在纯 PHP 层完全消除（解析与连接之间存在窗口），
+     * 但对本站的实际威胁模型（低权限账号探测内网）已构成有效阻断。
+     *
+     * @param string $url 待校验的 URL
+     * @return true|WP_Error
+     */
+    public static function validate_remote_image_url( $url ) {
+        $url = trim( (string) $url );
+        if ( '' === $url ) {
+            return new WP_Error( 'yimai_gso_ssrf_empty', '图片URL不能为空。' );
+        }
+
+        $parts  = wp_parse_url( $url );
+        $scheme = strtolower( (string) ( $parts['scheme'] ?? '' ) );
+        $host   = (string) ( $parts['host'] ?? '' );
+
+        if ( ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
+            return new WP_Error( 'yimai_gso_ssrf_scheme', '只允许 http 或 https 协议的图片地址。' );
+        }
+        if ( '' === $host ) {
+            return new WP_Error( 'yimai_gso_ssrf_host', '图片地址缺少有效主机名。' );
+        }
+
+        $host_lc = strtolower( trim( $host, '[]' ) );
+
+        // 常见内部主机名直接拒绝
+        // 注意：此处不能用 str_ends_with()（PHP 8.0+），插件声明兼容 PHP 7.4，
+        // 必须用 substr 比较以免引入新的版本兼容缺陷。
+        foreach ( array( 'localhost', 'localhost.localdomain', 'metadata', 'metadata.google.internal' ) as $blocked ) {
+            if ( $host_lc === $blocked ) {
+                return new WP_Error( 'yimai_gso_ssrf_host', '出于安全考虑，不允许下载该地址的图片。' );
+            }
+            $suffix = '.' . $blocked;
+            if ( strlen( $host_lc ) > strlen( $suffix ) && substr( $host_lc, -strlen( $suffix ) ) === $suffix ) {
+                return new WP_Error( 'yimai_gso_ssrf_host', '出于安全考虑，不允许下载该地址的图片。' );
+            }
+        }
+
+        // 收集待检查的 IP：字面量 IP，或主机名解析出的所有地址
+        $ips = array();
+        if ( filter_var( $host_lc, FILTER_VALIDATE_IP ) ) {
+            $ips[] = $host_lc;
+        } else {
+            $records = @gethostbynamel( $host_lc );
+            if ( is_array( $records ) ) {
+                $ips = $records;
+            }
+            // gethostbynamel 只返回 IPv4；再尝试 AAAA
+            if ( function_exists( 'dns_get_record' ) ) {
+                $aaaa = @dns_get_record( $host_lc, DNS_AAAA );
+                if ( is_array( $aaaa ) ) {
+                    foreach ( $aaaa as $rec ) {
+                        if ( ! empty( $rec['ipv6'] ) ) {
+                            $ips[] = $rec['ipv6'];
+                        }
+                    }
+                }
+            }
+        }
+
+        // 一个地址都解析不出来 → 让后续下载自然失败，这里放行以免误伤
+        foreach ( $ips as $ip ) {
+            if ( ! self::is_public_ip( $ip ) ) {
+                return new WP_Error( 'yimai_gso_ssrf_private', '出于安全考虑，不允许下载内网或保留地址的图片。' );
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * 判断 IP 是否属于公网可路由地址（非私有/保留/环回/链路本地）
+     *
+     * @param string $ip
+     * @return bool
+     */
+    private static function is_public_ip( $ip ) {
+        // FILTER_FLAG_NO_PRIV_RANGE 排除 10/8、172.16/12、192.168/16、fc00::/7
+        // FILTER_FLAG_NO_RES_RANGE  排除 0.0.0.0/8、169.254/16、127/8、::1、240/4 等
+        $is_ip = filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        );
+
+        return false !== $is_ip;
+    }
+
+    /**
      * 将图片下载并上传到 WordPress 媒体库
      * 返回 attachment ID
      *
@@ -385,7 +483,14 @@ class YIMAI_GSO_Image_Handler {
      * @param int    $timeout   下载超时（秒），默认60
      * @return int|WP_Error
      */
-    public function upload_image_to_media( $image_url, $filename = '', $alt_text = '', $timeout = 60 ) {        require_once ABSPATH . 'wp-admin/includes/image.php';
+    public function upload_image_to_media( $image_url, $filename = '', $alt_text = '', $timeout = 60 ) {
+        // SSRF 防护：无论调用方是否已校验，这里再校验一次作为最终防线
+        $ssrf_check = self::validate_remote_image_url( $image_url );
+        if ( is_wp_error( $ssrf_check ) ) {
+            return $ssrf_check;
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/image.php';
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/media.php';
 

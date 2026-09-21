@@ -668,6 +668,14 @@ class YIMAI_GSO_404_Optimizer {
         }
 
         $conf_file = $nginx_config_dir . '301-redirects.conf';
+
+        // 换行注入防护（S3）：preg_quote($from_path, '#') 只为 '#' 定界符转义，
+        // 不会转义 \r\n。若来源路径含换行，写入 .conf 后会变成一条独立指令
+        // （该文件由管理员 include 进 Nginx 主配置）。此处先剥离所有换行与制表符，
+        // 并对写入片段做最终过滤。
+        $from_path = str_replace( array( "\r", "\n", "\t", "\0" ), '', (string) $from_path );
+        $to_url    = str_replace( array( "\r", "\n", "\t", "\0" ), '', (string) $to_url );
+
         $rule      = 'rewrite ^' . preg_quote( $from_path, '#' ) . '$ ' . $to_url . ' permanent;';
 
         // 避免重复
@@ -800,6 +808,15 @@ class YIMAI_GSO_404_Optimizer {
 
         if ( empty( $post_id ) || empty( $href ) ) {
             wp_send_json_error( array( 'message' => '缺少参数。' ) );
+        }
+
+        // 越权修正（S3）：本接口会用 wp_update_post() 覆盖整篇正文，
+        // 但原先只校验 edit_posts（投稿者级）且没有归属检查，
+        // 于是任何能进插件页面的低权限账号都能改写「他人已发布」的文章内容。
+        // 正确做法：用 edit_post 元能力（WordPress 标准），它会按文章归属/状态
+        // 判定当前用户是否可编辑该篇，覆盖作者与编辑的差异。
+        if ( ! current_user_can( 'edit_post', $post_id ) ) {
+            wp_send_json_error( array( 'message' => '权限不足：无法编辑这篇文章。' ) );
         }
 
         $post = get_post( $post_id );

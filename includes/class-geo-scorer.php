@@ -345,14 +345,14 @@ class YIMAI_GSO_GEO_Scorer {
 
             if ( false === $llms_ok ) {
                 $llms_url  = home_url( '/llms.txt' );
-                $response  = wp_remote_head( $llms_url, array( 'timeout' => 5, 'sslverify' => false ) );
+                $response  = wp_remote_head( $llms_url, array( 'timeout' => 5 ) );
                 $llms_ok   = ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ) ? 1 : 0;
                 set_transient( 'yimai_gso_llms_txt_available', $llms_ok, HOUR_IN_SECONDS );
             }
 
             if ( false === $full_ok ) {
                 $full_url  = home_url( '/llms-full.txt' );
-                $response2 = wp_remote_head( $full_url, array( 'timeout' => 5, 'sslverify' => false ) );
+                $response2 = wp_remote_head( $full_url, array( 'timeout' => 5 ) );
                 $full_ok   = ( ! is_wp_error( $response2 ) && 200 === wp_remote_retrieve_response_code( $response2 ) ) ? 1 : 0;
                 set_transient( 'yimai_gso_llms_full_available', $full_ok, HOUR_IN_SECONDS );
             }

@@ -1187,6 +1187,15 @@ class YIMAI_GSO_Plugin {
             wp_send_json_error( array( 'message' => '图片URL不能为空' ) );
         }
 
+        // SSRF 防护（S3）：本接口把用户提交的 URL 交给 download_url() 发起服务端 GET，
+        // 任意持有 upload_files 的账号可借此探测内网（169.254.169.254 云元数据、
+        // 127.0.0.1 内部服务、内网面板等），并通过媒体库读回响应。
+        // 修复：把校验放在 handler 入口，同时保护所有调用方。
+        $ssrf_check = YIMAI_GSO_Image_Handler::validate_remote_image_url( $image_url );
+        if ( is_wp_error( $ssrf_check ) ) {
+            wp_send_json_error( array( 'message' => $ssrf_check->get_error_message() ) );
+        }
+
         $handler       = new YIMAI_GSO_Image_Handler();
         $attachment_id = $handler->upload_image_to_media( $image_url, '', $alt_text );
 

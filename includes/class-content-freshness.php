@@ -249,8 +249,17 @@ class YIMAI_GSO_Content_Freshness {
             wp_send_json_error( array( 'message' => '请选择文章' ) );
         }
 
-        $count = 0;
+        $count   = 0;
+        $skipped = 0;
         foreach ( $post_ids as $pid ) {
+            // 越权修正（S3）：批量接口原先只校验 edit_posts，对任意 post_ids 直接
+            // wp_update_post()，没有逐篇归属检查 → 低权限账号可改动他人已发布文章。
+            // 正确做法：逐篇校验 edit_post 元能力，无权限的跳过而非整批失败。
+            if ( ! current_user_can( 'edit_post', $pid ) ) {
+                $skipped++;
+                continue;
+            }
+
             wp_update_post( array(
                 'ID'                => $pid,
                 'post_modified'     => current_time( 'mysql' ),
@@ -262,9 +271,15 @@ class YIMAI_GSO_Content_Freshness {
 
         delete_transient( 'yimai_gso_freshness_summary' );
 
+        $message = sprintf( '已刷新 %d 篇文章的新鲜度', $count );
+        if ( $skipped > 0 ) {
+            $message .= sprintf( '，%d 篇因权限不足已跳过', $skipped );
+        }
+
         wp_send_json_success( array(
-            'message' => sprintf( '已刷新 %d 篇文章的新鲜度', $count ),
+            'message' => $message,
             'count'   => $count,
+            'skipped' => $skipped,
         ) );
     }
 

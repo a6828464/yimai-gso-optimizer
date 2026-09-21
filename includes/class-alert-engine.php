@@ -283,7 +283,7 @@ class YIMAI_GSO_Alert_Engine {
             $editor_rules = YIMAI_GSO_Crawler_Editor::get_rules();
 
             // 尝试获取实际 robots.txt
-            $response = wp_remote_get( home_url( '/robots.txt' ), array( 'timeout' => 10, 'sslverify' => false ) );
+            $response = wp_remote_get( home_url( '/robots.txt' ), array( 'timeout' => 10 ) );
             if ( ! is_wp_error( $response ) ) {
                 $robots_content = wp_remote_retrieve_body( $response );
 

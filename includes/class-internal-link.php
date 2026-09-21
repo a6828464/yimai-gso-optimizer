@@ -145,7 +145,6 @@ class YIMAI_GSO_Internal_Link {
                 $trigger_resp = wp_remote_get( site_url( 'wp-cron.php' ), array(
                     'timeout'   => 3,
                     'blocking'  => false,
-                    'sslverify' => false,
                 ) );
                 if ( is_wp_error( $trigger_resp ) && defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
                     error_log( '[一麦GSO] InternalLink add_to_queue wp-cron.php 触发失败: ' . $trigger_resp->get_error_message() );
@@ -1278,7 +1277,6 @@ class YIMAI_GSO_Internal_Link {
 
         $response = wp_remote_head( $url, array(
             'timeout'     => 10,
-            'sslverify'   => false,
             'user-agent'  => 'Mozilla/5.0 (compatible; BaiqueAI-LinkChecker/1.0)',
         ) );
 
@@ -1292,7 +1290,6 @@ class YIMAI_GSO_Internal_Link {
         if ( 405 === $status ) {
             $response = wp_remote_get( $url, array(
                 'timeout'     => 10,
-                'sslverify'   => false,
                 'user-agent'  => 'Mozilla/5.0 (compatible; BaiqueAI-LinkChecker/1.0)',
             ) );
             if ( ! is_wp_error( $response ) ) {

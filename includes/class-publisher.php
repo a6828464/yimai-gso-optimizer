@@ -815,7 +815,6 @@ class YIMAI_GSO_Publisher {
                 wp_remote_get( $wp_cron_url, array(
                     'timeout'   => 3,
                     'blocking'  => false,
-                    'sslverify' => false,
                 ) );
                 // 防抖：1秒内不重复触发
                 set_transient( 'yimai_gso_guardian_cron_trigger', time(), 1 );

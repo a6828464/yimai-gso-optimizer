@@ -122,6 +122,45 @@ class YIMAI_GSO_Updater {
 		throw new RuntimeException( '更新包下载失败（Gitee 与 GitHub 均不可达），请检查服务器外网后重试。' );
 	}
 
+	/**
+	 * 判断 zip 条目名是否可以安全解压（ZipSlip 防护）
+	 *
+	 * 拒绝：绝对路径、盘符路径、含 ".." 的路径段、含 NUL 字节的条目。
+	 *
+	 * @param string $entry 归档内条目名
+	 * @return bool
+	 */
+	private static function is_safe_zip_entry( $entry ) {
+		$entry = (string) $entry;
+
+		if ( '' === $entry ) {
+			return true; // 空条目（目录占位）无写入风险
+		}
+
+		// NUL 字节可截断底层路径处理
+		if ( false !== strpos( $entry, "\0" ) ) {
+			return false;
+		}
+
+		// 统一分隔符后判断绝对路径与盘符路径（Windows 归档可能用反斜杠）
+		$normalized = str_replace( '\\', '/', $entry );
+		if ( '/' === substr( $normalized, 0, 1 ) ) {
+			return false;
+		}
+		if ( preg_match( '#^[A-Za-z]:#', $normalized ) ) {
+			return false;
+		}
+
+		// 任一路径段为 ".." 即视为逃逸
+		foreach ( explode( '/', $normalized ) as $segment ) {
+			if ( '..' === $segment ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	/** 解压 zip（ZipArchive 或 PclZip），返回包根目录（含插件主文件的目录） */
 	private static function extract( $zipfile, $dest ) {
 		self::ensure_dir( $dest );
@@ -130,6 +169,18 @@ class YIMAI_GSO_Updater {
 			if ( $zip->open( $zipfile ) !== true ) {
 				throw new RuntimeException( '无法打开更新包' );
 			}
+
+			// ZipSlip 防护（S3）：extractTo() 会按归档内的条目名写文件，
+			// 若包含 "../" 或绝对路径即可逃逸出 $dest，覆盖任意可写路径。
+			// 官方包不会这样构造，但更新包来自网络，必须在解压前逐条校验。
+			for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+				$entry = (string) $zip->getNameIndex( $i );
+				if ( ! self::is_safe_zip_entry( $entry ) ) {
+					$zip->close();
+					throw new RuntimeException( '更新包包含非法路径条目，已中止安装：' . $entry );
+				}
+			}
+
 			$zip->extractTo( $dest );
 			$zip->close();
 		} else {
