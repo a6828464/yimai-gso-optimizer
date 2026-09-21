@@ -332,6 +332,15 @@ class YIMAI_GSO_Plugin {
             }
         }
 
+        // L5: 注册 6 小时 Cron 间隔
+        //
+        // 修复（D3）：本行原先位于下方 schedule_crons() **之后**，
+        // 导致首次调用 schedule_crons() 时 'six_hours' 尚未注册到 cron_schedules，
+        // wp_schedule_event(..., 'six_hours', ...) 因间隔不存在而返回 false，
+        // 6 小时 Schema 预警任务静默未被调度（直到下次该分支执行才可能成功）。
+        // 过滤器必须先注册，schedule_crons() 才能找到 'six_hours'。
+        add_filter( 'cron_schedules', array( 'YIMAI_GSO_Alert_Engine', 'add_cron_schedules' ) );
+
         // L5: 每小时懒检查预警 Cron 调度
         if ( false === get_transient( 'yimai_gso_alert_cron_checked' ) ) {
             set_transient( 'yimai_gso_alert_cron_checked', 1, HOUR_IN_SECONDS );
@@ -339,9 +348,6 @@ class YIMAI_GSO_Plugin {
                 YIMAI_GSO_Alert_Engine::schedule_crons();
             }
         }
-
-        // L5: 注册 6 小时 Cron 间隔
-        add_filter( 'cron_schedules', array( 'YIMAI_GSO_Alert_Engine', 'add_cron_schedules' ) );
 
         // 每小时懒检查定时发布守护进程调度是否存在（防止 WP-Cron 意外丢失）
         if ( false === get_transient( 'yimai_gso_guardian_schedule_checked' ) ) {
@@ -1001,10 +1007,30 @@ class YIMAI_GSO_Plugin {
         }
         wp_clear_scheduled_hook( 'yimai_gso_classify_knowledge' );
 
+        // T5 修复：补清原先遗漏的 8 个计划任务。
+        // 停用后它们仍留在 cron 表中，会在下次到期时触发已失效的回调；
+        // 其中 yimai_gso_generate_sitemap 是**每日重复事件**，
+        // 不清除会持续被调度（其余为一次性事件，会自行排空）。
+        foreach ( array(
+            'yimai_gso_process_seo_push_queue',
+            'yimai_gso_process_alt_queue',
+            'yimai_gso_process_internal_link_queue',
+            'yimai_gso_process_rebuild_link_queue',
+            'yimai_gso_process_broken_link_audit',
+            'yimai_gso_process_seo_meta_queue',
+            'yimai_gso_audit_content_batch',
+            'yimai_gso_generate_sitemap',       // 每日重复事件，最需要清除
+        ) as $cron_hook ) {
+            wp_clear_scheduled_hook( $cron_hook );
+        }
+
         // 清理 transient 缓存
         delete_transient( 'yimai_gso_history_stats' );
         delete_transient( 'yimai_gso_guardian_schedule_checked' );
         delete_transient( 'yimai_gso_alert_cron_checked' );
+        delete_transient( 'yimai_gso_cron_schedule_checked' );
+        delete_transient( 'yimai_gso_autopilot_rescue_checked' );
+        delete_transient( 'yimai_gso_autopilot_enabled_check' );
 
         flush_rewrite_rules();
     }
@@ -2962,25 +2988,99 @@ function yimai_gso_uninstall() {
 function yimai_gso_uninstall_site_data() {
     global $wpdb;
 
-    // 删除自定义表
-    $tables = array(
-        'yimai_gso_autopilot_log', 'yimai_gso_autopilot_runs', 'yimai_gso_autopilot_items',
-        'yimai_gso_crawler_logs', 'yimai_gso_referral_logs', 'yimai_gso_alert_logs',
-        'yimai_gso_geo_keywords', 'yimai_gso_geo_brand_scans', 'yimai_gso_geo_brand_scan_details',
-        'yimai_gso_geo_jobs', 'yimai_gso_geo_job_logs', 'yimai_gso_knowledge_documents',
-        'yimai_gso_knowledge_chunks',
-    );
-    foreach ( $tables as $table ) {
-        $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}{$table}" );
+    // 删除自定义表（D1 修复）
+    //
+    // 原清单有两类缺陷：
+    //   1. 写了 2 张**从不创建**的表，DROP 无效：
+    //        yimai_gso_autopilot_log （真实名 yimai_gso_autopilot_runs）
+    //        yimai_gso_crawler_logs  （真实名 geo_crawler_logs）
+    //   2. 漏删了 2 张真实存在的表，卸载后数据永久残留：
+    //        geo_crawler_logs        （爬虫日志，会持续增长）
+    //        yimai_gso_seo_push_logs （推送日志）
+    // 根因是表名硬编码后与各模块漂移。此处改为优先向各 owner 类取表名（唯一真源），
+    // 类不可用时回退到修正后的字面量，避免再次漂移。
+    $tables = array();
+
+    if ( class_exists( 'YIMAI_GSO_Crawler_Tracker' ) ) {
+        $tables[] = YIMAI_GSO_Crawler_Tracker::table_name();
+    } else {
+        $tables[] = 'geo_crawler_logs';
+    }
+    if ( class_exists( 'YIMAI_GSO_Referral_Tracker' ) ) {
+        $tables[] = YIMAI_GSO_Referral_Tracker::table_name();
+    } else {
+        $tables[] = 'yimai_gso_referral_logs';
+    }
+    if ( class_exists( 'YIMAI_GSO_Alert_Engine' ) ) {
+        $tables[] = YIMAI_GSO_Alert_Engine::table_name();
+    } else {
+        $tables[] = 'yimai_gso_alert_logs';
+    }
+    if ( class_exists( 'YIMAI_GSO_Autopilot_Log' ) ) {
+        $tables[] = YIMAI_GSO_Autopilot_Log::get_runs_table();
+        $tables[] = YIMAI_GSO_Autopilot_Log::get_items_table();
+    } else {
+        $tables[] = 'yimai_gso_autopilot_runs';
+        $tables[] = 'yimai_gso_autopilot_items';
     }
 
-    // 删除所有 yimai_gso_ 前缀的 options
-    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE 'yimai_gso_%'" );
+    // 其余表名在各模块中为私有常量，使用核对过的字面量
+    foreach ( array(
+        'yimai_gso_seo_push_logs',      // D1 补漏：原先漏删
+        'yimai_gso_knowledge_documents',
+        'yimai_gso_knowledge_chunks',
+        'yimai_gso_geo_keywords',
+        'yimai_gso_geo_brand_scans',
+        'yimai_gso_geo_brand_scan_details',
+        'yimai_gso_geo_jobs',
+        'yimai_gso_geo_job_logs',
+    ) as $literal_table ) {
+        $tables[] = $literal_table;
+    }
+
+    foreach ( array_unique( $tables ) as $table ) {
+        // 注意：各 owner 类的 table_name()/get_*_table() **已包含 $wpdb->prefix**，
+        // 而上面的字面量回退值不含前缀。此处统一归一化，避免出现 wp_wp_ 双重前缀。
+        $table = (string) $table;
+        if ( 0 === strpos( $table, $wpdb->prefix ) ) {
+            $full_table = $table;
+            $bare       = substr( $table, strlen( $wpdb->prefix ) );
+        } else {
+            $bare       = $table;
+            $full_table = $wpdb->prefix . $table;
+        }
+
+        // 严格标识符白名单校验，确保拼进 DDL 的字符串只含 [A-Za-z0-9_]。
+        // （不使用 %i 占位符：那是 WP 6.2+ 才支持，本插件声明兼容 WP 5.8+。）
+        if ( ! preg_match( '/^[A-Za-z0-9_]+$/', $bare ) ) {
+            continue;
+        }
+        $wpdb->query( "DROP TABLE IF EXISTS `{$full_table}`" );
+    }
+
+    // 删除所有 yimai_gso_ 前缀的 options（原先是连续两行完全相同的 DELETE，重复执行）
     $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE 'yimai_gso_%'" );
 
     // 清除相关 transients
     $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_yimai_gso_%'" );
     $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_timeout_yimai_gso_%'" );
+
+    // 清除文章/术语/用户元数据（D1 补漏）
+    // 原实现从不清理 meta，卸载后文章元数据（SEO 标题、GEO 评分、生成标记等）永久残留。
+    $wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE meta_key LIKE 'yimai\\_gso\\_%'" );
+    $wpdb->query( "DELETE FROM {$wpdb->termmeta} WHERE meta_key LIKE 'yimai\\_gso\\_%'" );
+    $wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE 'yimai\\_gso\\_%'" );
+
+    // 清除计划任务（原实现未清理，遗留 cron 会在下次请求触发已删除的回调）
+    if ( function_exists( '_get_cron_array' ) ) {
+        foreach ( (array) _get_cron_array() as $timestamp => $hooks ) {
+            foreach ( array_keys( (array) $hooks ) as $hook ) {
+                if ( is_string( $hook ) && strpos( $hook, 'yimai_gso' ) === 0 ) {
+                    wp_clear_scheduled_hook( $hook );
+                }
+            }
+        }
+    }
 }
 
 // 启动插件

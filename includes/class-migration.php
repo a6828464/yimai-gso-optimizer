@@ -66,6 +66,39 @@ class YIMAI_GSO_DB_Migration {
 	public static function migrate() {
 		global $wpdb;
 
+		// 并发锁（D2）：本方法同时挂在 init 与 admin_init（见本类 init()），
+		// 同一站点的多个并发请求可能同时进入，而原先没有任何锁保护。
+		// 交错执行会留下部分改名的中间状态。用 MySQL 命名锁（与插件其它处同一模式）
+		// 保证同一时刻只有一个进程执行迁移。
+		$mutex     = 'yimai_gso_migration_lock';
+		$got_mutex = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $mutex ) );
+		if ( ! $got_mutex ) {
+			// 其他进程正在迁移：本次直接返回，版本号尚未写入，下次请求会重新尝试
+			return;
+		}
+
+		try {
+			self::migrate_locked();
+		} finally {
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $mutex ) );
+		}
+	}
+
+	/**
+	 * 迁移的实际执行体——调用方必须已持有 migrate() 中的命名锁。
+	 *
+	 * D2 修复要点：原先所有 $wpdb->query() 的返回值都不检查，末尾却**无条件**写入版本号。
+	 * 一旦 ALTER TABLE RENAME 失败（例如数据库账号缺少 ALTER 权限），
+	 * 版本号照样被记录 → maybe_migrate() 此后永远直接 return，
+	 * 迁移**永不重试**，10 张旧表此后永远读为空（不可恢复）。
+	 * 现在：只要关键步骤（表重命名）确认失败，就不写版本号，让下次请求重试，
+	 * 并把失败详情写入错误日志与后台提示，避免静默失败。
+	 */
+	private static function migrate_locked() {
+		global $wpdb;
+
+		$errors = array();
+
 		// 1. 自定义数据表重命名（旧表存在且新表不存在才执行）
 		foreach ( self::LEGACY_TABLES as $legacy_table ) {
 			$new_table = 'yimai_gso_' . substr( $legacy_table, strlen( 'wpaip_' ) );
@@ -74,7 +107,24 @@ class YIMAI_GSO_DB_Migration {
 			$new_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->prefix . $new_table ) );
 
 			if ( $old_exists && ! $new_exists ) {
-				$wpdb->query( "ALTER TABLE `{$wpdb->prefix}{$legacy_table}` RENAME TO `{$wpdb->prefix}{$new_table}`" );
+				$renamed = $wpdb->query( "ALTER TABLE `{$wpdb->prefix}{$legacy_table}` RENAME TO `{$wpdb->prefix}{$new_table}`" );
+
+				// D2：显式检查结果。失败时复查一次实际表状态，
+				// 只有确认「旧表仍在且新表仍不存在」才判定为失败，避免误报。
+				if ( false === $renamed ) {
+					$still_old = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->prefix . $legacy_table ) );
+					$now_new   = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->prefix . $new_table ) );
+					if ( $still_old && ! $now_new ) {
+						$errors[] = sprintf(
+							'表重命名失败：%s%s → %s%s（%s）',
+							$wpdb->prefix,
+							$legacy_table,
+							$wpdb->prefix,
+							$new_table,
+							$wpdb->last_error ? $wpdb->last_error : '未知数据库错误'
+						);
+					}
+				}
 			}
 		}
 
@@ -120,6 +170,16 @@ class YIMAI_GSO_DB_Migration {
 		}
 		foreach ( array_unique( $legacy_hooks ) as $hook ) {
 			wp_clear_scheduled_hook( $hook );
+		}
+
+		// D2：仅在关键步骤全部成功时才记录版本号，否则保留旧值以便下次重试。
+		if ( ! empty( $errors ) ) {
+			error_log( '[一麦GSO 迁移] 迁移未完成，已保留版本号以便下次重试。失败项：' . implode( '；', $errors ) );
+			// 同时在后台暴露问题，避免静默失败
+			if ( is_admin() ) {
+				set_transient( 'yimai_gso_migration_error', implode( '；', $errors ), DAY_IN_SECONDS );
+			}
+			return;
 		}
 
 		update_option( self::VERSION_OPTION, self::DB_VERSION, false );
