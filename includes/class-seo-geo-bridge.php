@@ -42,9 +42,6 @@ class YIMAI_GSO_SEO_GEO_Bridge {
     }
 
     private function __construct() {
-        if ( ! true || ! true ) {
-            return;
-        }
 
         // 后台：检测 SEO 插件
         add_action( 'admin_init', array( $this, 'detect_seo_plugins' ) );

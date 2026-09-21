@@ -81,11 +81,6 @@ class YIMAI_GSO_Image_Alt_Generator {
             return;
         }
 
-        // 权限检查（SEO版功能）
-        if ( ! true || ! true ) {
-            return;
-        }
-
         $post_id = $post->ID;
 
         // 防重入：避免 wp_update_post 二次触发钩子

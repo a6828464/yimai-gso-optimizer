@@ -645,7 +645,7 @@ class YIMAI_GSO_AI_Generator {
         // 新增：校验返回结构，某些中转/代理会在 200 下返回空 choices 或错误对象
         if ( ! is_array( $body ) ) {
             $raw = wp_remote_retrieve_body( $response );
-            error_log( '[一麦GSO AI] API 返回非标准格式（HTTP 200）：' . mb_substr( $raw, 0, 500 ) );
+            yimai_gso_debug_log( '[一麦GSO AI] API 返回非标准格式（HTTP 200）：' . mb_substr( $raw, 0, 500 ) );
             return new WP_Error( 'invalid_api_response', 'API 返回非标准格式，请联系 API 提供商或检查代理配置。' );
         }
 
@@ -656,7 +656,7 @@ class YIMAI_GSO_AI_Generator {
 
         if ( empty( $body['choices'] ) || ! is_array( $body['choices'] ) ) {
             $raw = wp_remote_retrieve_body( $response );
-            error_log( '[一麦GSO AI] API 返回缺少 choices（HTTP 200）：' . mb_substr( $raw, 0, 500 ) );
+            yimai_gso_debug_log( '[一麦GSO AI] API 返回缺少 choices（HTTP 200）：' . mb_substr( $raw, 0, 500 ) );
             return new WP_Error( 'empty_api_choices', 'AI 未返回有效生成结果，请检查 API Key、模型名称或余额后重试。' );
         }
 
@@ -871,7 +871,8 @@ class YIMAI_GSO_AI_Generator {
 
             // ★ 调试日志：记录 AI 原始返回（排查标题生成失败的关键数据）
             $log_snippet = mb_substr( $content, 0, 800 );
-            error_log( '[一麦GSO-标题生成] AI原始返回(' . mb_strlen( $content ) . '字): ' . $log_snippet );
+            // T3：改为受控日志，避免每次调用都无条件写入 800 字符 AI 原始返回
+            yimai_gso_debug_log( '[一麦GSO-标题生成] AI原始返回(' . mb_strlen( $content ) . '字): ' . $log_snippet );
 
             if ( '' === trim( (string) $content ) ) {
                 $provider = $this->provider;

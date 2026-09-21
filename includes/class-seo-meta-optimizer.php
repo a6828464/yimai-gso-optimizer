@@ -65,11 +65,6 @@ class YIMAI_GSO_SEO_Meta_Optimizer {
             return;
         }
 
-        // 权限检查：需要 batch_seo 功能权限
-        if ( ! true || ! true ) {
-            return;
-        }
-
         if ( ! ( $post instanceof WP_Post ) ) {
             return;
         }

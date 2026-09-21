@@ -16,9 +16,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 // YIMAI_GSO_VERSION 防御性定义：防止部署异常或 opcache 导致常量未定义 Fatal Error
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.0' );
-
-
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.1' );
 
 class YIMAI_GSO_Alert_Engine {
 
@@ -524,9 +522,6 @@ class YIMAI_GSO_Alert_Engine {
      * 在 WordPress 后台显示严重预警通知
      */
     public function show_critical_notices() {
-        if ( ! true || ! true ) {
-            return;
-        }
 
         $count = self::get_active_critical_count();
         if ( $count <= 0 ) {

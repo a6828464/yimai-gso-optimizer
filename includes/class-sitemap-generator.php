@@ -532,7 +532,19 @@ class YIMAI_GSO_Sitemap_Generator {
         }
         
         // 安全检查：确保目录存在且是预期路径的子目录
-        if (!is_dir($sitemap_dir) || !str_starts_with(realpath($sitemap_dir), realpath($base_dir))) {
+        //
+        // F-1 修复：原使用 str_starts_with()，该函数是 **PHP 8.0+** 才提供，
+        // 而插件声明 Requires PHP 7.4+ —— 在 7.4 上会抛出
+        // "Call to undefined function str_starts_with()" 致命错误。
+        // 改用 strpos() === 0 的等价写法，兼容 PHP 7.4。
+        $real_sitemap = realpath( $sitemap_dir );
+        $real_base    = realpath( $base_dir );
+        if (
+            ! is_dir( $sitemap_dir )
+            || false === $real_sitemap
+            || false === $real_base
+            || 0 !== strpos( $real_sitemap, $real_base )
+        ) {
             return false;
         }
         

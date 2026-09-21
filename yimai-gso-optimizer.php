@@ -21,6 +21,34 @@ define( 'YIMAI_GSO_LOADED', true );
 defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.1' );
 
 /**
+ * 统一调试日志（T3 修复）
+ *
+ * 背景：插件内原有约 100 处 error_log() 调用，其中仅约三成受 WP_DEBUG 控制。
+ * 未受控的调用会**无条件**写入服务器错误日志 —— 例如
+ * class-ai-generator.php 每次调用都会把 800 字符的 AI 原始返回写入 debug.log，
+ * 造成日志无界增长，且可能把业务内容带进日志文件。
+ *
+ * 本函数统一收敛写入行为：
+ *  - 默认仅在 WP_DEBUG 与 WP_DEBUG_LOG 同时开启时写入（本地/测试环境行为不变）；
+ *  - 若需要长期诊断，可在 wp-config.php 中定义
+ *    define( 'YIMAI_GSO_FORCE_DEBUG_LOG', true );
+ *    强制开启，无需改动插件代码。
+ *
+ * @param string $message 日志内容（不含前缀）
+ * @return void
+ */
+function yimai_gso_debug_log( $message ) {
+    $enabled = ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG )
+        || ( defined( 'YIMAI_GSO_FORCE_DEBUG_LOG' ) && YIMAI_GSO_FORCE_DEBUG_LOG );
+
+    if ( ! $enabled ) {
+        return;
+    }
+
+    error_log( '[一麦GSO] ' . (string) $message );
+}
+
+/**
  * 全局预览检测函数 - 统一判断是否是预览请求
  * 用于在各模块中快速跳过预览请求，减少内存占用
  *

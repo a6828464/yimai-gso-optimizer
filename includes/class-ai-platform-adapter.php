@@ -47,10 +47,6 @@ class YIMAI_GSO_AI_Platform_Adapter {
     }
 
     private function __construct() {
-        // Feature Gate 检查
-        if ( ! true || ! true ) {
-            return;
-        }
 
         // 加载平台配置
         $this->refresh_platforms();

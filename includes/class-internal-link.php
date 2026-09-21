@@ -78,11 +78,6 @@ class YIMAI_GSO_Internal_Link {
             return;
         }
 
-        // 功能权限检查：只有SEO版才能使用智能内链
-        if ( ! true || ! true ) {
-            return;
-        }
-
         if ( ! ( $post instanceof WP_Post ) ) {
             return;
         }

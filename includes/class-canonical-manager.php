@@ -269,10 +269,6 @@ class YIMAI_GSO_Canonical_Manager {
     public static function ajax_save_custom() {
         check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
 
-        if ( ! true || ! true ) {
-            wp_send_json_error( array( 'message' => '当前配置不支持此操作。' ) );
-        }
-
         $post_id = absint( $_POST['post_id'] ?? 0 );
         $value   = '';
 

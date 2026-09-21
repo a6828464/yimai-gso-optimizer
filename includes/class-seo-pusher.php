@@ -110,14 +110,6 @@ class YIMAI_GSO_SEO_Pusher {
             return;
         }
 
-        // 功能权限检查：只有SEO版才能使用SEO推送
-        if ( ! true || ! true ) {
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[YIMAI GSO] 功能权限不足，文章 ID: ' . $post->ID );
-            }
-            return;
-        }
-
         // 同一请求内同一文章只入队一次
         if ( isset( $this->queued_in_request[ $post->ID ] ) ) {
             return;
@@ -793,7 +785,7 @@ class YIMAI_GSO_SEO_Pusher {
             }
             error_log( '[YIMAI GSO] 正在推送文章 ID: ' . $post_id );
             $results = $this->push_post( $post_id, 'auto' );
-            error_log( '[YIMAI GSO] 文章 ID: ' . $post_id . ' 推送结果: ' . wp_json_encode( $results ) );
+            yimai_gso_debug_log( '文章 ID: ' . $post_id . ' 推送结果: ' . wp_json_encode( $results ) );
         }
 
         // 队列还有剩余 → 30秒后继续处理
@@ -902,7 +894,7 @@ class YIMAI_GSO_SEO_Pusher {
             'created_at' => current_time( 'mysql' ),
         );
         
-        error_log( '[YIMAI GSO] 准备写入日志: ' . wp_json_encode( $log_data ) );
+        yimai_gso_debug_log( '准备写入日志: ' . wp_json_encode( $log_data ) );
         
         $result = $wpdb->insert( $table, $log_data );
         

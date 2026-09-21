@@ -51,10 +51,6 @@ class YIMAI_GSO_Content_Detector {
     }
 
     public static function is_enabled() {
-        // 检查功能权限：只有内容版和SEO版才能使用内容检测
-        if ( ! true || ! true ) {
-            return false;
-        }
         // 默认开启（安装后自动启用发布后自动检测与自动修正）
         return (bool) get_option( 'yimai_gso_detection_enabled', 1 );
     }
@@ -285,7 +281,6 @@ class YIMAI_GSO_Content_Detector {
 
         return $labels[ $status ] ?? $status;
     }
-
 
     private static function build_excerpt( $original_excerpt, $content ) {
         if ( '' === trim( (string) $original_excerpt ) ) {
