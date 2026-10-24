@@ -4,7 +4,7 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 // YIMAI_GSO_VERSION 防御性定义：防止部署异常或 opcache 导致常量未定义 Fatal Error
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.2' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.3' );
 
 
 class YIMAI_GSO_Admin {
@@ -154,10 +154,10 @@ class YIMAI_GSO_Admin {
         $asset_file = YIMAI_GSO_PLUGIN_DIR . ltrim( $relative_path, '/\\' );
 
         if ( file_exists( $asset_file ) ) {
-            return ( defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '2.4.2' ) . '.' . filemtime( $asset_file );
+            return ( defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '2.4.3' ) . '.' . filemtime( $asset_file );
         }
 
-        return defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '2.4.2';
+        return defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '2.4.3';
     }
 
     public function register_menus() {
@@ -2465,7 +2465,7 @@ class YIMAI_GSO_Admin {
         }
         if ( empty( $releases ) ) {
             $releases[] = array(
-                'version' => defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '2.4.2',
+                'version' => defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '2.4.3',
                 'items'   => array( '当前版本更新日志文件暂不可读，请检查插件包是否完整。' ),
             );
         }

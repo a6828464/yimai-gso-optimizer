@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.4.2
+ * Version: 2.4.3
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.2' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.4.3' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -669,8 +669,11 @@ class YIMAI_GSO_Plugin {
      * Open Graph 标签输出（微信/QQ/Facebook/LinkedIn 等社交平台分享用）
      */
     public function output_og_meta() {
-        // 仅文章页和首页输出
-        if ( is_singular( 'post' ) || is_page() ) {
+        // 修复：静态首页的 $post 是名为 "Home" 的页面，is_page() 为真会误取页面标题，
+        // 导致首页 og:title="Home"、og:type="article"。首页/博客页统一按站点输出。
+        $is_site_home = is_front_page() || is_home();
+
+        if ( ! $is_site_home && ( is_singular( 'post' ) || is_page() ) ) {
             $post_id = get_the_ID();
         } else {
             $post_id = 0;
@@ -679,7 +682,7 @@ class YIMAI_GSO_Plugin {
         $title = $post_id ? get_the_title( $post_id ) : get_bloginfo( 'name' );
         $url   = $post_id ? get_permalink( $post_id ) : home_url( '/' );
 
-        // 描述：优先从 SEO 字段读取
+        // 描述：优先从 SEO 字段读取（首页用 tagline 兜底而非文章摘要字段）
         $desc = '';
         if ( $post_id ) {
             $desc = get_post_meta( $post_id, 'yimai_gso_excerpt', true );

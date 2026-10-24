@@ -194,13 +194,32 @@ class YIMAI_GSO_Schema_Generator {
         }
 
         // Citation Schema — 检测到引用时追加（第3层新增）
+        // 修复：原先 echo 一个独立的 `@type: Article` + 仅 citation 的节点，
+        // 与上方主 Article 同页重复，富媒体检测会报「重复 Article」。
+        // 改为把 citation 并入主 Article 节点（标准属性），不再单独输出。
         if ( class_exists( 'YIMAI_GSO_Citation_Helper' ) ) {
             $citation_helper = YIMAI_GSO_Citation_Helper::get_instance();
             $citation_data   = $citation_helper->get_citations( $post_id );
             if ( ! empty( $citation_data['count'] ) && $citation_data['count'] > 0 ) {
-                $citation_schema = $citation_helper->generate_schema_json_ld( $citation_data );
-                if ( $citation_schema ) {
-                    echo $citation_schema . "\n";
+                $cite_items = array();
+                // get_citations() 返回 { count, sources:[{source,url,...}], ... }
+                foreach ( (array) ( $citation_data['sources'] ?? array() ) as $cite ) {
+                    if ( ! is_array( $cite ) ) continue;
+                    $name = trim( (string) ( $cite['source'] ?? $cite['name'] ?? '' ) );
+                    $url  = trim( (string) ( $cite['url'] ?? '' ) );
+                    if ( '' === $name && '' === $url ) continue;
+                    $item = array( '@type' => 'CreativeWork' );
+                    if ( '' !== $name ) $item['name'] = $name;
+                    if ( '' !== $url )  $item['url']  = $url;
+                    $cite_items[] = $item;
+                }
+                if ( ! empty( $cite_items ) ) {
+                    foreach ( $schemas as &$s ) {
+                        if ( isset( $s['@type'] ) && 'Article' === $s['@type'] && empty( $s['citation'] ) ) {
+                            $s['citation'] = $cite_items;
+                        }
+                    }
+                    unset( $s );
                 }
             }
         }

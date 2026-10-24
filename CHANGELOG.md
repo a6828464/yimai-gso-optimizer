@@ -1,5 +1,15 @@
 # 更新日志
 
+## 2.4.3
+
+SEO 输出收敛（与官网主题 v1.7.2 配合，消除「插件 × 主题」双份输出）：
+
+- 修复首页 OG 输出错误：静态首页的 `$post` 是名为 "Home" 的页面，原 `is_page()` 判断误取页面标题，导致首页 `og:title="Home"`、`og:type="article"`、`og:url` 指向错误页面。现 `is_front_page()/is_home()` 统一按站点输出（og:type=website、title=站点名、url=首页）
+- 修复同页重复 Article 族 Schema（富媒体检测报「重复 Article」并可能全部丢弃）：
+  - `class-schema-generator.php`：引用数据不再单独 echo 一个仅含 citation 的 Article 节点，改为把 citation 并入主 Article 节点（标准属性）
+  - `class-ai-platform-adapter.php`：Claude 的 `ScholarlyArticle`（博客非学术文献，属错误类型）与 Gemini 的 `Article#eeat`（与主 Article 重复）均收敛为 `WebPage` 节点，仅以 `@id`/`mainEntity` 回指主 Article，不再重复声明文章实体
+  - 顺带修复 `Article#eeat` 在 GEO 实体未配置 `same_as` 时输出 `"publisher": null` 的非法节点
+
 ## 2.4.2
 
 本次为安全与稳定性修复版本，重点解决「静默失败」类缺陷（不报错、但内容悄悄丢失或重复）。

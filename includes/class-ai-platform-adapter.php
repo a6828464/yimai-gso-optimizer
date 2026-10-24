@@ -334,11 +334,14 @@ class YIMAI_GSO_AI_Platform_Adapter {
             ),
         );
 
+        // 修复：博客文章并非学术文献，输出 ScholarlyArticle 会被富媒体检测判为错误类型；
+        // 且本块与 Schema_Generator 的主 Article 重复描述同一页面，造成同页 4 个 Article 族节点。
+        // 收敛为单个 WebPage 节点：仅承载引用列表，并以 mainEntity 回指主 Article 节点。
         return array(
             '@context'   => 'https://schema.org',
-            '@type'      => 'ScholarlyArticle',
-            '@id'        => get_permalink( $post_id ) . '#scholarly',
-            'headline'   => get_the_title( $post_id ),
+            '@type'      => 'WebPage',
+            '@id'        => get_permalink( $post_id ) . '#citations',
+            'mainEntity' => array( '@id' => get_permalink( $post_id ) . '#article' ),
             'citation'   => $citations,
         );
     }
@@ -396,11 +399,14 @@ class YIMAI_GSO_AI_Platform_Adapter {
             }
         }
 
-        return array(
+        // 修复：与主 Article（Schema_Generator）重复描述同一页面，且 same_as 未配置时
+        // publisher 为 null 会输出非法节点。收敛为 WebPage 节点承载 EEAT 信号，
+        // author 回指作者存档页的 Person 节点，不再重复声明 Article。
+        $schema = array(
             '@context'          => 'https://schema.org',
-            '@type'             => 'Article',
+            '@type'             => 'WebPage',
             '@id'               => get_permalink( $post_id ) . '#eeat',
-            'headline'          => get_the_title( $post_id ),
+            'about'             => array( '@id' => get_permalink( $post_id ) . '#article' ),
             'author'            => array(
                 '@type' => 'Person',
                 'name'  => get_the_author_meta( 'display_name', $author_id ),
@@ -408,12 +414,15 @@ class YIMAI_GSO_AI_Platform_Adapter {
             ),
             'datePublished'     => get_the_date( 'c', $post_id ),
             'dateModified'      => get_the_modified_date( 'c', $post_id ),
-            'publisher'         => ! empty( $eeat_data['same_as'] ) ? array(
+        );
+        if ( ! empty( $eeat_data['same_as'] ) ) {
+            $schema['publisher'] = array(
                 '@type'  => 'Organization',
                 'name'   => get_bloginfo( 'name' ),
                 'sameAs' => $eeat_data['same_as'],
-            ) : null,
-        );
+            );
+        }
+        return $schema;
     }
 
     // ==================== llms.txt 增强 ====================
