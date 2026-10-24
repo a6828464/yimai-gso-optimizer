@@ -6015,6 +6015,44 @@ class YIMAI_GSO_Admin {
                                 </div>
                             </div>
 
+                            <!-- MT Photos 配置（仅配图来源=mtphotos 时显示） -->
+                            <div class="yimai-gso-field-group" id="mtphotos-config-section" style="display:<?php echo $img_provider === 'mtphotos' ? 'block' : 'none'; ?>;">
+                                <h3 style="margin:8px 0 4px;">🖼️ MT Photos 素材库配置</h3>
+                                <div class="yimai-gso-field-group" style="margin-top:8px;">
+                                    <label>MT Photos 外网地址</label>
+                                    <input type="url" name="yimai_gso_mtphotos_host" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'mtphotos_host', 'https://photos.yimaiyoga.com' ) ); ?>"
+                                           placeholder="https://photos.yimaiyoga.com">
+                                    <small class="yimai-gso-field-hint">MT Photos 服务地址（外网可访问），结尾不要带 /</small>
+                                </div>
+                                <div class="yimai-gso-field-group">
+                                    <label>API Key（推荐）</label>
+                                    <div class="yimai-gso-input-with-action">
+                                        <input type="password" name="yimai_gso_mtphotos_api_key" class="large-text"
+                                               value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'mtphotos_api_key' ) ); ?>"
+                                               placeholder="MT Photos 网页端 → 右上角用户名 → API密钥">
+                                        <button type="button" class="button" id="test-mtphotos-api">测试连接</button>
+                                    </div>
+                                    <span id="test-mtphotos-result"></span>
+                                    <small class="yimai-gso-field-hint">优先使用 API Key；留空则用下方账号密码登录</small>
+                                </div>
+                                <div class="yimai-gso-field-group">
+                                    <label>登录账号（API Key 留空时使用）</label>
+                                    <input type="text" name="yimai_gso_mtphotos_username" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'mtphotos_username' ) ); ?>"
+                                           placeholder="MT Photos 登录用户名">
+                                </div>
+                                <div class="yimai-gso-field-group">
+                                    <label>登录密码（API Key 留空时使用）</label>
+                                    <input type="password" name="yimai_gso_mtphotos_password" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'mtphotos_password' ) ); ?>"
+                                           placeholder="MT Photos 登录密码（RSA 加密传输）">
+                                </div>
+                                <small class="yimai-gso-field-hint" style="display:block;margin-top:8px;color:#2271b1;">
+                                    📌 选图规则：自动从名称含「_有水印」的文件夹中按关键词匹配取图，排除「_无水印」目录；取的是 1000px 预览图（速度更快），如需原图可在 class-mtphotos-client.php 的 build_image_url 中加 type=ori 参数。
+                                </small>
+                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -6959,6 +6997,8 @@ class YIMAI_GSO_Admin {
             'ai_image_provider', 'ai_image_model', 'ai_image_size', 'ai_image_style',
             'ai_image_doubao_key', 'ai_image_zhipu_key', 'ai_image_wanxiang_key',
             'ai_image_custom_prompt',
+            // MT Photos 配图
+            'mtphotos_host', 'mtphotos_api_key', 'mtphotos_username', 'mtphotos_password',
             'publish_time_jitter',
             'frontend_excerpt_enabled', 'frontend_excerpt_label',
             'operation_mode',

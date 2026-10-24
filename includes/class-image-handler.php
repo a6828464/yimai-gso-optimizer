@@ -34,6 +34,10 @@ class YIMAI_GSO_Image_Handler {
                 case 'custom':
                     $this->api_key = YIMAI_GSO_Settings::get( 'custom_img_api_key', '' );
                     break;
+                case 'mtphotos':
+                    // MT Photos 走自建 client（api_key 或账号密码均可），无需在此预设 key
+                    $this->api_key = 'delegated';
+                    break;
                 case 'dalle':
                     $this->api_key = YIMAI_GSO_Settings::get( 'ai_api_key', '' );
                     break;
@@ -66,8 +70,10 @@ class YIMAI_GSO_Image_Handler {
                 error_log( $log_prefix . 'keyword 为空，使用默认值: ' . $keyword );
             }
         }
-        // 确保关键词为英文（图库搜索）
-        $keyword = $this->sanitize_keyword( $keyword );
+        // MT Photos 关键词需要保留中文（文件夹名是中文），其他外部图库保留英文 sanitize
+        if ( 'mtphotos' !== $this->provider ) {
+            $keyword = $this->sanitize_keyword( $keyword );
+        }
 
         $result = null;
         switch ( $this->provider ) {
@@ -76,6 +82,12 @@ class YIMAI_GSO_Image_Handler {
                     error_log( $log_prefix . '调用 fetch_from_local_library()' );
                 }
                 $result = $this->fetch_from_local_library( $keyword, $count );
+                break;
+            case 'mtphotos':
+                if ( $wp_debug ) {
+                    error_log( $log_prefix . '调用 fetch_from_mtphotos()' );
+                }
+                $result = $this->fetch_from_mtphotos( $keyword, $count );
                 break;
             case 'pexels':
                 if ( $wp_debug ) {
@@ -175,6 +187,17 @@ class YIMAI_GSO_Image_Handler {
         }
 
         return $images;
+    }
+
+    /**
+     * 从 MT Photos（NAS 素材库）选取带水印图片
+     */
+    private function fetch_from_mtphotos( $keyword, $count ) {
+        if ( ! class_exists( 'YIMAI_GSO_MTPhotos_Client' ) ) {
+            return new WP_Error( 'no_mtphotos', 'MT Photos 模块未加载' );
+        }
+        $client = new YIMAI_GSO_MTPhotos_Client();
+        return $client->pick_images( $keyword, $count );
     }
 
     /**
@@ -548,6 +571,15 @@ class YIMAI_GSO_Image_Handler {
      * 测试 API 连通性
      */
     public function test_connection() {
+        if ( 'mtphotos' === $this->provider ) {
+            if ( ! class_exists( 'YIMAI_GSO_MTPhotos_Client' ) ) {
+                return new WP_Error( 'no_mtphotos', 'MT Photos 模块未加载' );
+            }
+            $client = new YIMAI_GSO_MTPhotos_Client();
+            $result = $client->pick_images( '', 1 );
+            return is_wp_error( $result ) ? $result : true;
+        }
+
         if ( empty( $this->api_key ) ) {
             return new WP_Error( 'no_key', '请填写图片 API Key' );
         }

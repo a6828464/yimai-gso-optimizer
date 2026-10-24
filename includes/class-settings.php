@@ -680,6 +680,11 @@ EOT;
                 'need_key' => true,
                 'key_url'  => '',
             ),
+            'mtphotos' => array(
+                'name' => 'MT Photos（带水印素材库）',
+                'need_key' => false,
+                'key_url'  => '',
+            ),
             'custom'   => array(
                 'name' => '自定义图片API',
                 'need_key' => true,

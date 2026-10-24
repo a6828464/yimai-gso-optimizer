@@ -935,6 +935,8 @@ function esc(s) {
             if (val === 'ai')               { $('#ai-image-section').show(); $('#setting-ai-img-provider').trigger('change'); }
             // local 显示图片库筛选配置
             if (val === 'local')            { $('#local-img-config-section').show(); } else { $('#local-img-config-section').hide(); }
+            // mtphotos 显示 MT Photos 配置
+            if (val === 'mtphotos')         { $('#mtphotos-config-section').show(); $('#img-prompt-row').show(); } else { $('#mtphotos-config-section').hide(); }
         }).trigger('change');
 
         // ★ AI 生图服务商切换
@@ -1071,6 +1073,24 @@ function esc(s) {
                 url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
                 data: { action: 'yimai_gso_test_api', nonce: yimaiGsoData.nonce, type: 'image', api_key: apiKey, img_provider: provider },
+                success: function (res) {
+                    if (res.success) { $result.html(' <span style="color:green">✅ ' + escapeHtml(res.data.message) + '</span>'); }
+                    else { $result.html(' <span style="color:red">❌ ' + escapeHtml(res.data.message || '失败') + '</span>'); }
+                    $btn.prop('disabled', false).text('测试连接');
+                },
+                error: function () { $result.html(' <span style="color:red">❌ 请求失败</span>'); $btn.prop('disabled', false).text('测试连接'); }
+            });
+        });
+
+        // MT Photos 测试连接
+        $(document).on('click', '#test-mtphotos-api', function () {
+            var $btn = $(this);
+            var $result = $('#test-mtphotos-result');
+            $btn.prop('disabled', true).text('测试中...');
+            $.ajax({
+                url: yimaiGsoData.ajaxUrl,
+                type: 'POST',
+                data: { action: 'yimai_gso_test_api', nonce: yimaiGsoData.nonce, type: 'image', api_key: 'delegated', img_provider: 'mtphotos' },
                 success: function (res) {
                     if (res.success) { $result.html(' <span style="color:green">✅ ' + escapeHtml(res.data.message) + '</span>'); }
                     else { $result.html(' <span style="color:red">❌ ' + escapeHtml(res.data.message || '失败') + '</span>'); }
