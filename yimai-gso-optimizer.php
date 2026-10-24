@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.5.0
+ * Version: 2.5.1
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.5.0' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.5.1' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -1343,8 +1343,27 @@ class YIMAI_GSO_Plugin {
             $generator = new YIMAI_GSO_AI_Generator( $api_key, $api_url, $model, $provider );
             $result    = $generator->test_connection();
         } else {
-            $handler = new YIMAI_GSO_Image_Handler( $api_key, $img_provider );
-            $result  = $handler->test_connection();
+            // MT Photos：优先用表单当前值测试（不依赖先保存），空字段回落到已保存设置
+            if ( 'mtphotos' === $img_provider && class_exists( 'YIMAI_GSO_MTPhotos_Client' ) ) {
+                $posted_host = esc_url_raw( wp_unslash( $_POST['mtphotos_host'] ?? '' ) );
+                $posted_key  = sanitize_text_field( wp_unslash( $_POST['mtphotos_api_key'] ?? '' ) );
+                $posted_user = sanitize_text_field( wp_unslash( $_POST['mtphotos_username'] ?? '' ) );
+                $posted_pwd  = sanitize_text_field( wp_unslash( $_POST['mtphotos_password'] ?? '' ) );
+
+                if ( $posted_host ) { YIMAI_GSO_Settings::set( 'mtphotos_host', $posted_host ); }
+                if ( $posted_key )  { YIMAI_GSO_Settings::set( 'mtphotos_api_key', $posted_key ); }
+                if ( $posted_user ) { YIMAI_GSO_Settings::set( 'mtphotos_username', $posted_user ); }
+                // 密码掩码占位符（****xxx）不覆盖已保存值
+                if ( $posted_pwd && ! YIMAI_GSO_Settings::is_masked_value( $posted_pwd ) ) {
+                    YIMAI_GSO_Settings::set( 'mtphotos_password', $posted_pwd );
+                }
+
+                $client = new YIMAI_GSO_MTPhotos_Client();
+                $result = $client->pick_images( '', 1 );
+            } else {
+                $handler = new YIMAI_GSO_Image_Handler( $api_key, $img_provider );
+                $result  = $handler->test_connection();
+            }
         }
 
         if ( is_wp_error( $result ) ) {

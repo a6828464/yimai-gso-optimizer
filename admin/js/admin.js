@@ -1082,7 +1082,7 @@ function esc(s) {
             });
         });
 
-        // MT Photos 测试连接
+        // MT Photos 测试连接（直接把表单当前值发给服务端，无需先保存）
         $(document).on('click', '#test-mtphotos-api', function () {
             var $btn = $(this);
             var $result = $('#test-mtphotos-result');
@@ -1090,7 +1090,16 @@ function esc(s) {
             $.ajax({
                 url: yimaiGsoData.ajaxUrl,
                 type: 'POST',
-                data: { action: 'yimai_gso_test_api', nonce: yimaiGsoData.nonce, type: 'image', api_key: 'delegated', img_provider: 'mtphotos' },
+                data: {
+                    action: 'yimai_gso_test_api',
+                    nonce: yimaiGsoData.nonce,
+                    type: 'image',
+                    img_provider: 'mtphotos',
+                    mtphotos_host: $('input[name="yimai_gso_mtphotos_host"]').val() || '',
+                    mtphotos_api_key: $('input[name="yimai_gso_mtphotos_api_key"]').val() || '',
+                    mtphotos_username: $('input[name="yimai_gso_mtphotos_username"]').val() || '',
+                    mtphotos_password: $('input[name="yimai_gso_mtphotos_password"]').val() || ''
+                },
                 success: function (res) {
                     if (res.success) { $result.html(' <span style="color:green">✅ ' + escapeHtml(res.data.message) + '</span>'); }
                     else { $result.html(' <span style="color:red">❌ ' + escapeHtml(res.data.message || '失败') + '</span>'); }

@@ -147,6 +147,8 @@ class YIMAI_GSO_Settings {
             'ai_image_provider', 'ai_image_model', 'ai_image_size',
             'ai_image_doubao_key', 'ai_image_zhipu_key', 'ai_image_wanxiang_key',
             'ai_image_custom_prompt', 'ai_image_style',
+            // MT Photos 配图配置
+            'mtphotos_host', 'mtphotos_api_key', 'mtphotos_username', 'mtphotos_password',
             // 发布配置
             'default_category', 'default_status',
             // 生成配置
