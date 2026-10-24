@@ -121,6 +121,14 @@ class YIMAI_GSO_AI_Generator {
             // 安全：移除 AI 可能生成在正文中的 <img> 标签
             $safe_content = preg_replace( '/<img\b[^>]*\/?>/i', '', $fallback_content );
 
+            // 防护：兜底文本如果明显是提示词回显（含指令特征词），宁可失败也不要把提示词发成文章
+            if ( $this->looks_like_prompt_echo( $safe_content ) ) {
+                return new WP_Error(
+                    'prompt_echo',
+                    'AI 未返回有效 JSON 且疑似回显提示词，已拒绝生成。请检查模型是否可用或稍后重试。'
+                );
+            }
+
             // 回退时用干净的 article_title 做 title，绝不能用包含补充要求的 raw prompt
             $fallback_title = ! empty( $article_title ) ? $article_title : $prompt;
             // 如果回退 title 也含补充要求，截断清洗
@@ -177,6 +185,36 @@ class YIMAI_GSO_AI_Generator {
      * 本地关键词映射（中文关键词 → 英文搜索词）
      * 替代原来的 translate_keywords()，避免每次额外调用一次 AI API（省15-30秒）
      */
+    /**
+     * 判断文本是否疑似「提示词回显」——即 AI 把系统/用户提示词当成正文返回
+     * 命中任一强特征即视为提示词泄漏，兜底逻辑应当拒绝而不是发文
+     */
+    private function looks_like_prompt_echo( $text ) {
+        if ( ! is_string( $text ) || '' === trim( $text ) ) {
+            return false;
+        }
+        $needles = array(
+            '输出格式强制要求',
+            '你需要生成一个JSON对象',
+            '必须使用H2+H3结构',
+            'schema_type',
+            'image_prompts',
+            '品牌事实硬约束',
+            'canonical 实体',
+            '禁止在 JSON 前后添加任何说明文字',
+            '正文中严禁输出任何 <img> 标签',
+            'image_keywords',
+            'faq数组',
+            '答案前置',
+        );
+        foreach ( $needles as $n ) {
+            if ( false !== mb_strpos( $text, $n ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * 清洗标题中的 prompt 指令污染（补充要求、字数要求等回退时可能泄漏到标题中）
      */
@@ -1093,10 +1131,18 @@ class YIMAI_GSO_AI_Generator {
         if ( ! is_array( $article ) || empty( $article['title'] ) ) {
             // 解析失败，从 AI 响应中提取纯文本内容
             $fallback_content = $this->extract_plain_text_from_ai_response( $content );
-            
+
             // 安全：移除 AI 可能生成在正文中的 <img> 标签
             $safe_content = preg_replace( '/<img\b[^>]*\/?>/i', '', $fallback_content );
-            
+
+            // 防护：兜底文本如果明显是提示词回显，宁可失败也不要把提示词发成文章
+            if ( $this->looks_like_prompt_echo( $safe_content ) ) {
+                return new WP_Error(
+                    'prompt_echo',
+                    'AI 未返回有效 JSON 且疑似回显提示词，已拒绝生成。请检查模型是否可用或稍后重试。'
+                );
+            }
+
             $article = array(
                 'title'          => $custom_title ?: $keyword,
                 'excerpt'        => mb_substr( strip_tags( $safe_content ), 0, 100 ),
@@ -1558,6 +1604,14 @@ class YIMAI_GSO_AI_Generator {
             // 如果 fallback 也为空，返回明确错误
             if ( empty( trim( $fallback_content ) ) ) {
                 return new WP_Error( 'empty_content', 'AI 返回的正文内容为空，请更换改写力度或检查 API 设置后重试' );
+            }
+
+            // 防护：兜底文本如果明显是提示词回显，宁可失败也不要把提示词发成文章
+            if ( $this->looks_like_prompt_echo( $fallback_content ) ) {
+                return new WP_Error(
+                    'prompt_echo',
+                    'AI 未返回有效 JSON 且疑似回显提示词，已拒绝改写。请检查模型是否可用或稍后重试。'
+                );
             }
 
             // 构造 article 数组，走后续完整处理流程（图片重插、HTML格式化、控制字符清理、相似度检查）

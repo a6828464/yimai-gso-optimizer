@@ -1,5 +1,13 @@
 # 更新日志
 
+## 2.5.2
+
+修复草稿箱出现「提示词回显」乱码（正文是生成指令而不是文章）：
+
+- 根因：AI 模型未返回合法 JSON 时，兜底 `extract_plain_text_from_ai_response` 会把模型回显的提示词清理后当成正文，提示词里的「输出格式强制要求」「image_prompts」「答案前置」等指令文字直接进了草稿
+- 新增 `looks_like_prompt_echo()` 防护：兜底文本命中 12 个提示词特征词（输出格式强制要求 / schema_type / image_prompts / image_keywords / faq数组 / 答案前置 等）即拒绝发文，返回 `prompt_echo` 错误让前端重试
+- 三个生成入口（自动生成 / 单篇生成 / AI 改写）的兜底分支全部接入同一防护
+
 ## 2.5.1
 
 修复 MT Photos 配图「测试连接失败 / 文章无图」：
