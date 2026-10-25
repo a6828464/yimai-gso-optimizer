@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.5.2
+ * Version: 2.6.0
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.5.2' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.6.0' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -1575,7 +1575,11 @@ class YIMAI_GSO_Plugin {
             $img_keywords = $article['image_keywords'] ?? $article['keywords'] ?? $prompt;
             $handler = new YIMAI_GSO_Image_Handler();
             try {
-                $images = $handler->fetch_images( $img_keywords, $image_count );
+                $images = $handler->fetch_images( $img_keywords, $image_count, array(
+                    'title'   => $article['title'] ?? $prompt,
+                    'keyword' => $article['keywords'] ?? $prompt,
+                    'excerpt' => $article['excerpt'] ?? '',
+                ) );
             } catch ( Throwable $exception ) {
                 // 配图服务异常不应丢弃已经生成的文章，记录后继续发布。
                 error_log( '[一麦GSO] 批量配图异常：' . $exception->getMessage() );

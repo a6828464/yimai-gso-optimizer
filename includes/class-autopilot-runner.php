@@ -701,7 +701,8 @@ class YIMAI_GSO_Autopilot_Runner {
 
     private function attach_images_to_content( $content, $keyword, $image_count, $context = array() ) {
         $handler = new YIMAI_GSO_Image_Handler();
-        $images  = $handler->fetch_images( $keyword, $image_count );
+        // $context（title/keyword/excerpt）透传给 MT Photos 的 AI 关联度审核
+        $images  = $handler->fetch_images( $keyword, $image_count, $context );
         if ( is_wp_error( $images ) || empty( $images ) ) {
             return $content;
         }

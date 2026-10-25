@@ -6048,6 +6048,33 @@ class YIMAI_GSO_Admin {
                                            value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'mtphotos_password' ) ); ?>"
                                            placeholder="MT Photos 登录密码（RSA 加密传输）">
                                 </div>
+                                <div class="yimai-gso-field-group" style="margin-top:12px;padding:12px;border:1px solid #334155;border-radius:8px;">
+                                    <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                        <input type="checkbox" name="yimai_gso_mtphotos_review_enabled" value="1"
+                                               <?php checked( (int) YIMAI_GSO_Settings::get( 'mtphotos_review_enabled', 1 ) === 1 ); ?>>
+                                        <span>🛡️ 配图前 AI 关联度审核</span>
+                                    </label>
+                                    <small class="yimai-gso-field-hint" style="display:block;margin-bottom:10px;">
+                                        取图后由文章 AI 模型判定每张图片与文章内容的关联度，不相关或不适合公开的图片自动弃用（判定依据为素材库文件夹名与文件名；使用「AI 设置」中配置的模型）
+                                    </small>
+                                    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                                        <div>
+                                            <label style="font-size:12px;color:#94a3b8;">严格程度</label>
+                                            <select name="yimai_gso_mtphotos_review_strictness">
+                                                <option value="loose" <?php selected( YIMAI_GSO_Settings::get( 'mtphotos_review_strictness', 'standard' ), 'loose' ); ?>>宽松（关联分≥3）</option>
+                                                <option value="standard" <?php selected( YIMAI_GSO_Settings::get( 'mtphotos_review_strictness', 'standard' ), 'standard' ); ?>>标准（关联分≥5）(Recommended)</option>
+                                                <option value="strict" <?php selected( YIMAI_GSO_Settings::get( 'mtphotos_review_strictness', 'standard' ), 'strict' ); ?>>严格（关联分≥7）</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style="font-size:12px;color:#94a3b8;">AI 服务异常时</label>
+                                            <select name="yimai_gso_mtphotos_review_failover">
+                                                <option value="use" <?php selected( YIMAI_GSO_Settings::get( 'mtphotos_review_failover', 'use' ), 'use' ); ?>>照常用图（推荐）</option>
+                                                <option value="reject" <?php selected( YIMAI_GSO_Settings::get( 'mtphotos_review_failover', 'reject' ), 'reject' ); ?>>宁可无图</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
                                 <small class="yimai-gso-field-hint" style="display:block;margin-top:8px;color:#2271b1;">
                                     📌 选图规则：自动从名称含「_有水印」的文件夹中按关键词匹配取图，排除「_无水印」目录；取的是 1000px 预览图（速度更快），如需原图可在 class-mtphotos-client.php 的 build_image_url 中加 type=ori 参数。
                                 </small>
@@ -6999,6 +7026,7 @@ class YIMAI_GSO_Admin {
             'ai_image_custom_prompt',
             // MT Photos 配图
             'mtphotos_host', 'mtphotos_api_key', 'mtphotos_username', 'mtphotos_password',
+            'mtphotos_review_strictness', 'mtphotos_review_failover',
             'publish_time_jitter',
             'frontend_excerpt_enabled', 'frontend_excerpt_label',
             'operation_mode',
@@ -7034,6 +7062,9 @@ class YIMAI_GSO_Admin {
                 if ( $marker_present && ! isset( $_POST['yimai_gso_auto_image_alt_enabled'] ) && ! isset( $_POST['auto_image_alt_enabled'] ) ) {
                     update_option( 'yimai_gso_auto_image_alt_enabled', 0 );
                 }
+            } elseif ( 'mtphotos_review_enabled' === $field ) {
+                // checkbox 未勾选时不提交 → 直接置 0（MT Photos 审核开关）
+                update_option( 'yimai_gso_mtphotos_review_enabled', isset( $_POST['yimai_gso_mtphotos_review_enabled'] ) ? 1 : 0 );
             } elseif ( 'frontend_excerpt_enabled' === $field ) {
                 if ( ! isset( $_POST[ 'yimai_gso_frontend_excerpt_enabled' ] ) && ! isset( $_POST[ 'frontend_excerpt_enabled' ] ) ) {
                     update_option( 'yimai_gso_frontend_excerpt_enabled', 0 );

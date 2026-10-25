@@ -1225,8 +1225,12 @@ class YIMAI_GSO_AI_Generator {
                     $image_count = count( $images );
                 }
             } else {
-                // 传统图库模式：用关键词搜索图片
-                $images = $image_handler->fetch_images( $image_keyword, $image_count_setting );
+                // 传统图库模式：用关键词搜索图片（上下文供 MT Photos AI 关联度审核）
+                $images = $image_handler->fetch_images( $image_keyword, $image_count_setting, array(
+                    'title'   => $article['title'] ?? '',
+                    'keyword' => $image_keyword,
+                    'excerpt' => $article['excerpt'] ?? '',
+                ) );
 
                 if ( ! is_wp_error( $images ) && ! empty( $images ) ) {
                     // 在每个 H2 后面逐张插入配图（一张 H2 对应一张图，轮流使用）

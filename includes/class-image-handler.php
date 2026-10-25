@@ -56,7 +56,7 @@ class YIMAI_GSO_Image_Handler {
     /**
      * 获取图片列表（返回图片URL数组）
      */
-    public function fetch_images( $keyword, $count = 3 ) {
+    public function fetch_images( $keyword, $count = 3, $context = array() ) {
         $log_prefix = '[YIMAI_GSO_IMG] ' . date( 'H:i:s' ) . ' ';
         $wp_debug = defined( 'WP_DEBUG' ) && WP_DEBUG;
 
@@ -87,7 +87,7 @@ class YIMAI_GSO_Image_Handler {
                 if ( $wp_debug ) {
                     error_log( $log_prefix . '调用 fetch_from_mtphotos()' );
                 }
-                $result = $this->fetch_from_mtphotos( $keyword, $count );
+                $result = $this->fetch_from_mtphotos( $keyword, $count, $context );
                 break;
             case 'pexels':
                 if ( $wp_debug ) {
@@ -191,13 +191,17 @@ class YIMAI_GSO_Image_Handler {
 
     /**
      * 从 MT Photos（NAS 素材库）选取带水印图片
+     *
+     * @param string $keyword 配图关键词
+     * @param int    $count   数量
+     * @param array  $context 文章上下文（title/keyword/excerpt），用于 AI 关联度审核
      */
-    private function fetch_from_mtphotos( $keyword, $count ) {
+    private function fetch_from_mtphotos( $keyword, $count, $context = array() ) {
         if ( ! class_exists( 'YIMAI_GSO_MTPhotos_Client' ) ) {
             return new WP_Error( 'no_mtphotos', 'MT Photos 模块未加载' );
         }
         $client = new YIMAI_GSO_MTPhotos_Client();
-        return $client->pick_images( $keyword, $count );
+        return $client->pick_images( $keyword, $count, $context );
     }
 
     /**

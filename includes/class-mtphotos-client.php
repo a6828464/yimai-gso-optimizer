@@ -20,6 +20,11 @@ class YIMAI_GSO_MTPhotos_Client {
     const TRANSIENT_KEY = 'yimai_gso_mtphotos_auth';
     const IMAGE_TYPES   = array( 'JPG', 'JPEG', 'PNG', 'WEBP', 'BMP', 'GIF', 'AVIF', 'HEIC', 'HEIF' );
 
+    /** AI 审核开启时多取的候选数量（备胎，防 AI 拒掉后图不够） */
+    const REVIEW_BUFFER = 3;
+    /** AI 审核开启时最多翻的文件夹数（平时 5 个） */
+    const REVIEW_MAX_FOLDERS = 8;
+
     private $host;
     private $api_key;
     private $username;
@@ -341,9 +346,12 @@ class YIMAI_GSO_MTPhotos_Client {
     /**
      * 选图主入口：按关键词匹配带水印文件夹 → 从中随机取 count 张不重复图片
      *
+     * @param string $keyword 配图关键词（中文/英文均可）
+     * @param int    $count   需要的图片数量
+     * @param array  $context 文章上下文（title/keyword/excerpt），用于 AI 关联度审核；为空数组时跳过审核
      * @return array|WP_Error 与 fetch_from_pexels 一致的 {url, thumb, alt, source} 结构
      */
-    public function pick_images( $keyword, $count ) {
+    public function pick_images( $keyword, $count, $context = array() ) {
         $log_prefix = '[YIMAI_GSO_IMG] ' . date( 'H:i:s' ) . ' ';
         $count      = max( 1, intval( $count ) );
 
@@ -351,6 +359,9 @@ class YIMAI_GSO_MTPhotos_Client {
         if ( is_wp_error( $auth_code ) ) {
             return $auth_code;
         }
+
+        // AI 关联度审核：仅在开关开启且提供了文章上下文时生效（测试连接不传上下文，自动跳过）
+        $review = $this->review_config( $context );
 
         $folders = $this->search_watermarked_folders( $keyword );
         if ( empty( $folders ) ) {
@@ -363,16 +374,18 @@ class YIMAI_GSO_MTPhotos_Client {
 
         $picked      = array();
         $picked_ids  = array();
-        $max_folders = min( 5, count( $folders ) ); // 最多翻 5 个文件夹，控制请求数
+        // AI 审核开启时多拿备胎：被拒后仍有图可用；同时多翻几个文件夹找候选
+        $want        = $review['enabled'] ? $count + self::REVIEW_BUFFER : $count;
+        $max_folders = min( $review['enabled'] ? self::REVIEW_MAX_FOLDERS : 5, count( $folders ) ); // 最多翻 5 个文件夹，控制请求数
 
-        for ( $i = 0; $i < $max_folders && count( $picked ) < $count; $i++ ) {
+        for ( $i = 0; $i < $max_folders && count( $picked ) < $want; $i++ ) {
             $files = $this->folder_image_files( $folders[ $i ]['id'] );
             if ( is_wp_error( $files ) || empty( $files ) ) {
                 continue;
             }
             shuffle( $files );
             foreach ( $files as $f ) {
-                if ( count( $picked ) >= $count ) {
+                if ( count( $picked ) >= $want ) {
                     break;
                 }
                 if ( isset( $picked_ids[ $f['id'] ] ) ) {
@@ -381,6 +394,8 @@ class YIMAI_GSO_MTPhotos_Client {
                 $picked_ids[ $f['id'] ] = true;
                 $url = $this->build_image_url( $f['id'], $f['md5'], $auth_code );
                 $picked[] = array(
+                    'id'           => $f['id'],
+                    'folder'       => $folders[ $i ]['name'],
                     'url'          => $url,
                     'thumb'        => $this->host . '/gateway/h220/' . rawurlencode( $f['md5'] ) . '?auth_code=' . rawurlencode( $auth_code ),
                     'photographer' => '',
@@ -395,6 +410,202 @@ class YIMAI_GSO_MTPhotos_Client {
         }
 
         error_log( $log_prefix . 'MTPhotos: 命中文件夹 ' . count( $folders ) . ' 个，选取 ' . count( $picked ) . ' 张（' . $folders[0]['name'] . ' 等）' );
-        return $picked;
+
+        // ---- AI 关联度审核门：图片进正文前判定与文章的关联度 ----
+        if ( $review['enabled'] ) {
+            $picked = $this->apply_ai_review( $picked, $count, $review, $log_prefix );
+            if ( is_wp_error( $picked ) ) {
+                return $picked;
+            }
+        }
+
+        // 审核用的内部字段（id/folder）不出仓
+        $out = array();
+        foreach ( array_slice( $picked, 0, $count ) as $img ) {
+            unset( $img['id'], $img['folder'] );
+            $out[] = $img;
+        }
+        return $out;
+    }
+
+    /**
+     * 读取 AI 审核配置；未开启或缺少文章上下文时返回 enabled=false
+     *
+     * @param array $context 文章上下文（title/keyword/excerpt）
+     * @return array { enabled:bool, threshold:int, failover:string }
+     */
+    private function review_config( $context ) {
+        $enabled = (int) YIMAI_GSO_Settings::get( 'mtphotos_review_enabled', 1 ) === 1;
+        if ( ! $enabled ) {
+            return array( 'enabled' => false, 'threshold' => 0, 'failover' => 'use' );
+        }
+
+        // 没有文章上下文（如「测试连接」）就没有可判定对象，直接放行
+        $title   = trim( (string) ( $context['title'] ?? '' ) );
+        $keyword = trim( (string) ( $context['keyword'] ?? '' ) );
+        if ( '' === $title && '' === $keyword ) {
+            return array( 'enabled' => false, 'threshold' => 0, 'failover' => 'use' );
+        }
+
+        // 严格程度 → 关联分阈值（0-10）：宽松 3 / 标准 5 / 严格 7
+        $level = (string) YIMAI_GSO_Settings::get( 'mtphotos_review_strictness', 'standard' );
+        $threshold = in_array( $level, array( 'loose', 'strict' ), true )
+            ? ( 'loose' === $level ? 3 : 7 )
+            : 5;
+
+        // AI 服务异常时的策略：use=照常用图 / reject=宁可无图
+        $failover = (string) YIMAI_GSO_Settings::get( 'mtphotos_review_failover', 'use' );
+        if ( 'reject' !== $failover ) {
+            $failover = 'use';
+        }
+
+        return array(
+            'enabled'   => true,
+            'threshold' => $threshold,
+            'failover'  => $failover,
+            'title'     => $title,
+            'keyword'   => $keyword,
+            'excerpt'   => trim( (string) ( $context['excerpt'] ?? '' ) ),
+        );
+    }
+
+    /**
+     * AI 关联度审核：调用文章生成所用的 AI 模型，批量判定每张候选图与文章的关联度
+     *
+     * 判定依据是素材库的文件夹名 + 文件名（按拍摄场景/课程主题命名，是图片内容强信号）。
+     * 关联分 ≥ 阈值且不涉敏感的图放行；其余弃用。全被拒时按策略返回错误或放行原始候选。
+     *
+     * @param array  $candidates 候选图片（含 folder 字段）
+     * @param int    $count      最终需要的数量
+     * @param array  $review     review_config() 的返回值
+     * @param string $log_prefix 日志前缀
+     * @return array|WP_Error 过滤后的图片列表（不含 id/folder 内部字段）
+     */
+    private function apply_ai_review( $candidates, $count, $review, $log_prefix ) {
+        if ( ! class_exists( 'YIMAI_GSO_AI_Generator' ) ) {
+            if ( 'reject' === $review['failover'] ) {
+                return new WP_Error( 'mtphotos_review_unavailable', 'MT Photos 图片审核模块未加载，当前策略为宁可无图' );
+            }
+            return $candidates; // AI 模块缺失且策略为照常用图 → 放行
+        }
+
+        $generator = new YIMAI_GSO_AI_Generator();
+        if ( '' === (string) YIMAI_GSO_Settings::get( 'ai_api_key', '' ) ) {
+            if ( 'reject' === $review['failover'] ) {
+                return new WP_Error( 'mtphotos_review_unavailable', '未配置 AI API Key，无法执行 MT Photos 图片审核，当前策略为宁可无图' );
+            }
+            error_log( $log_prefix . 'MTPhotos审核: 未配置 AI API Key，按策略跳过审核直接用图' );
+            return $candidates;
+        }
+
+        $limit = count( $candidates );
+        $lines = array();
+        foreach ( $candidates as $i => $img ) {
+            $lines[] = sprintf( '%d. 文件夹=%s｜文件名=%s', $i + 1, $img['folder'], $img['alt'] );
+        }
+
+        $sys_prompt = "你是一位瑜伽品牌的文章配图审核员。\n" .
+            "下面给出文章信息和若干候选配图（以素材库文件夹名和文件名作为图片内容线索）。\n" .
+            "请逐张判定：\n" .
+            "relevance：图片内容与文章主题的关联度，0-10 分（0=完全无关，10=高度相关）\n" .
+            "suitable：图片是否适合随这篇文章公开（是/否）。下列任一情况判「否」：与文章主题完全无关、含不雅/敏感/不适合品牌公开的内容、明显是私人生活照/证件/聊天截图等非宣传素材\n" .
+            "严格只返回 JSON 数组，格式：[{\"idx\":1,\"relevance\":8,\"suitable\":true},{\"idx\":2,\"relevance\":1,\"suitable\":false}]";
+
+        $user_message = "文章标题：{$review['title']}\n" .
+            "核心主题/关键词：{$review['keyword']}\n" .
+            ( '' !== $review['excerpt'] ? "文章摘要：{$review['excerpt']}\n" : '' ) .
+            "\n候选配图：\n" . implode( "\n", $lines ) . "\n\n" .
+            "共 {$limit} 张，请对每张都给出判定。";
+
+        $response = $generator->call_api( array(
+            array( 'role' => 'system', 'content' => $sys_prompt ),
+            array( 'role' => 'user', 'content' => $user_message ),
+        ), 1200, array( 'temperature' => 0.1 ) );
+
+        if ( is_wp_error( $response ) ) {
+            if ( 'reject' === $review['failover'] ) {
+                return new WP_Error( 'mtphotos_review_failed', 'MT Photos 图片审核失败：' . $response->get_error_message() );
+            }
+            error_log( $log_prefix . 'MTPhotos审核: AI 调用失败，按策略跳过审核直接用图 - ' . $response->get_error_message() );
+            return $candidates;
+        }
+
+        $content = (string) ( $response['choices'][0]['message']['content'] ?? '' );
+        $content = preg_replace( '/^```json\s*/m', '', $content );
+        $content = preg_replace( '/^```\s*/m', '', $content );
+        $content = trim( $content );
+
+        $items = json_decode( $content, true );
+        if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $items ) ) {
+            if ( preg_match( '/\[[\s\S]*\]/', $content, $match ) ) {
+                $items = json_decode( $match[0], true );
+            }
+        }
+        if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $items ) || empty( $items ) ) {
+            if ( 'reject' === $review['failover'] ) {
+                return new WP_Error( 'mtphotos_review_invalid', 'MT Photos 图片审核返回的结果无法解析，当前策略为宁可无图' );
+            }
+            error_log( $log_prefix . 'MTPhotos审核: AI 返回非 JSON，按策略跳过审核直接用图' );
+            return $candidates;
+        }
+
+        // idx → {relevance, suitable}
+        $verdicts = array();
+        foreach ( $items as $item ) {
+            if ( ! is_array( $item ) || ! isset( $item['idx'] ) ) {
+                continue;
+            }
+            $idx = (int) $item['idx'];
+            if ( $idx < 1 || $idx > $limit ) {
+                continue;
+            }
+            $verdicts[ $idx ] = array(
+                'relevance' => max( 0, min( 10, (int) ( $item['relevance'] ?? 0 ) ) ),
+                'suitable'  => ! isset( $item['suitable'] ) || false !== filter_var( $item['suitable'], FILTER_VALIDATE_BOOLEAN ),
+            );
+        }
+
+        if ( empty( $verdicts ) ) {
+            if ( 'reject' === $review['failover'] ) {
+                return new WP_Error( 'mtphotos_review_invalid', 'MT Photos 图片审核未返回任何有效判定，当前策略为宁可无图' );
+            }
+            error_log( $log_prefix . 'MTPhotos审核: AI 未返回有效判定，按策略跳过审核直接用图' );
+            return $candidates;
+        }
+
+        $passed = array();
+        $rejected = array();
+        foreach ( $candidates as $i => $img ) {
+            $v = $verdicts[ $i + 1 ] ?? null;
+            if ( null === $v ) {
+                // AI 漏判的图按未过审处理（宁缺勿滥），但策略为照常用图时保留
+                if ( 'use' === $review['failover'] ) {
+                    $passed[] = $img;
+                } else {
+                    $rejected[] = $img['folder'] . '/' . $img['alt'];
+                }
+                continue;
+            }
+            if ( $v['suitable'] && $v['relevance'] >= $review['threshold'] ) {
+                $passed[] = $img;
+            } else {
+                $rejected[] = sprintf( '%s/%s(relevance=%d%s)', $img['folder'], $img['alt'], $v['relevance'], $v['suitable'] ? '' : ',不适合' );
+            }
+        }
+
+        if ( ! empty( $rejected ) ) {
+            error_log( $log_prefix . 'MTPhotos审核: 拒绝 ' . count( $rejected ) . ' 张 - ' . implode( '；', array_slice( $rejected, 0, 5 ) ) );
+        }
+
+        if ( empty( $passed ) ) {
+            if ( 'reject' === $review['failover'] ) {
+                return new WP_Error( 'mtphotos_review_all_rejected', 'MT Photos 候选图片全部未通过 AI 关联度审核（阈值 ' . $review['threshold'] . '/10），当前策略为宁可无图' );
+            }
+            error_log( $log_prefix . 'MTPhotos审核: 全部候选被拒，按策略放行原候选' );
+            return $candidates;
+        }
+
+        error_log( $log_prefix . 'MTPhotos审核: ' . count( $passed ) . '/' . count( $candidates ) . ' 张通过审核（阈值 ' . $review['threshold'] . '/10）' );
+        return $passed;
     }
 }
