@@ -50,7 +50,16 @@ class YIMAI_GSO_Knowledge_Center {
 
     /** Rendered inside the unified GSO settings screen in . */
     public function render_embedded_panel() {
-        $this->render_page();
+        // 渲染兜底：任何异常都不允许把整个后台页面刷成白屏，改为显示可读错误 + 写日志。
+        try {
+            $this->render_page();
+        } catch ( \Throwable $e ) {
+            error_log( '[YIMAI-KB] panel render failed: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() );
+            echo '<div class="notice notice-error" style="margin:16px 0"><p><strong>品牌资料面板渲染失败：</strong>'
+                . esc_html( $e->getMessage() )
+                . '（' . esc_html( basename( $e->getFile() ) ) . ':' . (int) $e->getLine() . '）</p>'
+                . '<p>错误已写入 PHP 错误日志。若更新后才出现，请重新上传插件包覆盖安装一次。</p></div>';
+        }
     }
 
     private static function documents_table() {
@@ -64,6 +73,18 @@ class YIMAI_GSO_Knowledge_Center {
     }
 
     public static function create_tables() {
+        // 只在首次安装或表结构版本变化时执行 dbDelta，
+        // 避免每次打开资料页都跑一遍 SHOW/DESCRIBE（慢库上会拖成页面卡死/白屏）。
+        if ( '1.0.0' === get_option( 'yimai_gso_knowledge_schema_version', '' ) ) {
+            global $wpdb_check;
+            $wpdb_check = $GLOBALS['wpdb'] ?? null;
+            if ( $wpdb_check ) {
+                $table_exists = $wpdb_check->get_var( $wpdb_check->prepare( 'SHOW TABLES LIKE %s', $wpdb_check->esc_like( $wpdb_check->prefix . 'yimai_gso_knowledge_documents' ) ) );
+                if ( $table_exists ) {
+                    return;
+                }
+            }
+        }
         global $wpdb;
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
@@ -118,7 +139,16 @@ class YIMAI_GSO_Knowledge_Center {
         global $wpdb;
         $documents = self::documents_table();
         $stats     = $wpdb->get_results( "SELECT visibility, status, COUNT(*) AS total FROM {$documents} GROUP BY visibility, status", ARRAY_A );
-        $rows      = $wpdb->get_results( "SELECT * FROM {$documents} ORDER BY updated_at DESC, id DESC LIMIT 100", ARRAY_A );
+        // 只取列表展示所需字段：不拉 content（longtext，单条最大 2MB）。
+        // 原先 SELECT * 会把 100 条正文全部读进内存，资料多/正文大时直接打爆 memory_limit → 整页白屏。
+        // 正文仅在「查看」弹窗的 AJAX 里按 id 单条读取。
+        $rows      = $wpdb->get_results(
+            "SELECT id, source_name, file_name, title, summary, visibility, risk_level, status, tags, updated_at
+               FROM {$documents}
+              ORDER BY updated_at DESC, id DESC
+              LIMIT 100",
+            ARRAY_A
+        );
         $message   = isset( $_GET['yimai_message'] ) ? sanitize_text_field( wp_unslash( $_GET['yimai_message'] ) ) : '';
         $error     = isset( $_GET['yimai_error'] ) ? sanitize_text_field( wp_unslash( $_GET['yimai_error'] ) ) : '';
         $counts    = array( 'public' => 0, 'internal' => 0, 'restricted' => 0, 'blocked' => 0, 'pending' => 0 );
@@ -136,6 +166,27 @@ class YIMAI_GSO_Knowledge_Center {
         <div class="wrap yimai-knowledge-wrap">
             <h1>品牌资料</h1>
             <p>导入与检索一麦瑜伽的品牌资料。系统会先执行隐私硬规则，再使用已配置的 AI 识别主题、公开范围和内容风险。</p>
+            <?php
+            // 自检信息：排查「资料是否真的进了检索」「AI 识别为何没跑」时直接看这里。
+            $kb_doc_total   = absint( $wpdb->get_var( 'SELECT COUNT(*) FROM ' . self::documents_table() ) );
+            $kb_chunk_total = absint( $wpdb->get_var( 'SELECT COUNT(*) FROM ' . self::chunks_table() ) );
+            $kb_indexable   = absint( $wpdb->get_var( "SELECT COUNT(*) FROM " . self::documents_table() . " WHERE status = 'ready' AND visibility IN ('public','internal')" ) );
+            $kb_ai_ready    = (bool) YIMAI_GSO_Settings::get( 'ai_api_key', '' );
+            $kb_last_err    = get_transient( 'yimai_gso_kb_last_ai_error' );
+            ?>
+            <details class="yimai-kb-selfcheck">
+                <summary>🩺 检索自检（自动发布取资料时依赖以下数据）</summary>
+                <ul>
+                    <li>插件版本：<code><?php echo esc_html( YIMAI_GSO_VERSION ); ?></code></li>
+                    <li>资料条数：<strong><?php echo esc_html( (string) $kb_doc_total ); ?></strong> 条；可参与写作检索（公开+内部参考且状态 ready）：<strong><?php echo esc_html( (string) $kb_indexable ); ?></strong> 条</li>
+                    <li>检索分块：<strong><?php echo esc_html( (string) $kb_chunk_total ); ?></strong> 块<?php echo $kb_chunk_total < 1 ? '（0 块 = 生成文章时取不到品牌资料，请检查资料范围是否被判为受限/拦截）' : ''; ?></li>
+                    <li>AI 识别：<?php echo $kb_ai_ready ? '已配置 API Key' : '<span style="color:#b32d2e">未配置 API Key（AI 识别不会执行，只保留本地规则分类）</span>'; ?></li>
+                    <?php if ( $kb_last_err ) : ?>
+                        <li>最近一次 AI 识别失败原因：<span style="color:#b32d2e"><?php echo esc_html( (string) $kb_last_err ); ?></span></li>
+                    <?php endif; ?>
+                    <li>自动发布取资料的方式：以文章标题+提示词做关键词匹配，命中「公开/内部参考」资料的分块后注入生成提示词；未命中时只用 GEO 实体信息。</li>
+                </ul>
+            </details>
 
             <?php if ( $message ) : ?>
                 <div class="notice notice-success is-dismissible"><p><?php echo esc_html( $message ); ?></p></div>
@@ -555,9 +606,14 @@ class YIMAI_GSO_Knowledge_Center {
         foreach ( $rows as $row ) {
             $analysis = $this->classify_document( $row['source_name'], $row['content'] );
             if ( 'rules+ai' !== $analysis['method'] ) {
+                // 记录失败原因，供后台自检展示（AI 未配置 / 余额不足 / 网关报错等）
+                if ( ! empty( $analysis['ai_error'] ) ) {
+                    set_transient( 'yimai_gso_kb_last_ai_error', $analysis['ai_error'], DAY_IN_SECONDS );
+                }
                 wp_schedule_single_event( time() + HOUR_IN_SECONDS, self::AI_CLASSIFY_HOOK );
                 return;
             }
+            delete_transient( 'yimai_gso_kb_last_ai_error' );
 
             $content = 'blocked' === $analysis['visibility'] ? '' : (string) $row['content'];
             // 只有「规则层」确证的真实个人数据才清空正文；AI 复核结果不再单方面清空，
@@ -699,6 +755,7 @@ class YIMAI_GSO_Knowledge_Center {
                 'risk_level' => $hard['risk_level'],
                 'tags'       => $hard['tags'],
                 'method'     => 'rules',
+                'ai_error'   => $ai->get_error_message(),
             );
         }
 
@@ -874,6 +931,60 @@ class YIMAI_GSO_Knowledge_Center {
         }
     }
 
+    /**
+     * 由查询串构建检索词。
+     *
+     * 背景：中文标题（如「一麦瑜伽减脂塑形课怎么上？课程安排与效果答疑」）按标点切分后
+     * 仍是一长串，LIKE 匹配几乎必然落空 → 品牌资料注入不到生成提示词。
+     * 因此对较长的中文片段追加 4 字滑窗（步长 2），让「减脂塑形」「课程安排」这类
+     * 实际会出现的关键词能被命中。
+     *
+     * @param string $query 原始查询（标题+提示词）
+     * @return string[] 检索词，最多 10 个
+     */
+    private static function build_search_terms( $query ) {
+        // 去掉疑问/连接类虚词，避免把「怎么/什么/哪家」等噪声带进匹配
+        $query = preg_replace(
+            '/是什么|是不是|有没有|为什么|怎么|如何|什么|哪些|哪家|哪里|哪个|是否|可以|需要|以及|的话|吗|呢|吧|与|和|的|之|是/u',
+            ' ',
+            (string) $query
+        );
+        $segments = preg_split( '/[\s,，。！？、:：;；·\-—_\/|【】\[\]（）()「」『』"“”\'‘’]+/u', (string) $query, -1, PREG_SPLIT_NO_EMPTY );
+        $terms    = array();
+
+        foreach ( (array) $segments as $segment ) {
+            $segment = trim( sanitize_text_field( $segment ) );
+            if ( '' === $segment ) {
+                continue;
+            }
+            $len = self::string_len( $segment );
+            if ( $len <= 4 ) {
+                $terms[] = $segment;   // 短词（如「内观流」「产后修复」）直接命中
+                continue;
+            }
+            if ( $len <= 8 ) {
+                // 中等长度：3 字滑窗（步长 1），保证「内观流」这类专有名词能被切出来
+                for ( $i = 0; $i + 3 <= $len; $i++ ) {
+                    $terms[] = self::string_substr( $segment, $i, 3 );
+                }
+                continue;
+            }
+            // 长片段（标题句）：4 字滑窗（步长 2），覆盖「减脂塑形」「课程安排」等核心词
+            for ( $i = 0; $i + 4 <= $len; $i += 2 ) {
+                $terms[] = self::string_substr( $segment, $i, 4 );
+                if ( count( $terms ) >= 24 ) {
+                    break 2;
+                }
+            }
+        }
+
+        // 过滤单字噪声（「上」「选」「好」这类不构成检索价值）
+        $terms = array_values( array_unique( array_filter( $terms, function ( $t ) {
+            return self::string_len( $t ) >= 2;
+        } ) ) );
+        return array_slice( $terms, 0, 10 );
+    }
+
     public static function get_context( $query, $limit = self::CONTEXT_LIMIT, $max_chars = self::CONTEXT_CHARS ) {
         global $wpdb;
         $query = trim( wp_strip_all_tags( (string) $query ) );
@@ -883,8 +994,7 @@ class YIMAI_GSO_Knowledge_Center {
 
         $documents = self::documents_table();
         $chunks    = self::chunks_table();
-        $terms     = preg_split( '/[\s,，。！？、:：;；]+/u', $query, -1, PREG_SPLIT_NO_EMPTY );
-        $terms     = array_slice( array_values( array_unique( array_filter( array_map( 'sanitize_text_field', $terms ) ) ) ), 0, 8 );
+        $terms     = self::build_search_terms( $query );
         if ( empty( $terms ) ) {
             $terms = array( self::string_substr( $query, 0, 40 ) );
         }
