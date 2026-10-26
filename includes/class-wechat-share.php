@@ -1075,14 +1075,18 @@ class YIMAI_GSO_Wechat_Share {
             // 逐个接口回报真实结果：某个 API 没权限时会单独 fail，不报这里就看不出来。
             // 不用 Object.assign——老安卓微信 WebView 里可能没有。
             var failures = [];
-            function run(name, args) {
+            var lastOk = {};
+            function run(name, args, quiet) {
                 if (typeof window.wx[name] !== 'function') {
-                    failures.push(name + ':unsupported');
+                    if (!quiet) { failures.push(name + ':unsupported'); }
                     return;
                 }
                 var payload = { title: args.title, link: args.link, imgUrl: args.imgUrl };
                 if (args.desc) { payload.desc = args.desc; }
-                payload.fail = function (r) { failures.push(name + ':' + ((r && r.errMsg) || 'fail')); };
+                payload.fail = function (r) {
+                    if (!quiet) { failures.push(name + ':' + ((r && r.errMsg) || 'fail')); }
+                };
+                payload.success = function () { lastOk[name] = 1; };
                 window.wx[name](payload);
             }
             run('updateAppMessageShareData', appMsg);
@@ -1090,12 +1094,14 @@ class YIMAI_GSO_Wechat_Share {
             run('updateTimelineShareData', timeline);
             run('onMenuShareTimeline', timeline);
 
-            // 页面停留期间重设一次：微信在部分机型上会在「···」面板打开时重新拉取，
-            // 首屏设置太早会被覆盖，这也是「ready 了却没生效」的常见原因
-            setTimeout(function () {
-                run('updateAppMessageShareData', appMsg);
-                run('updateTimelineShareData', timeline);
-            }, 1200);
+            // 重复下发：微信在部分机型上会在「···」面板打开时才取分享信息，
+            // 首屏设太早会被覆盖。分两拍补发，report 里带上成功计数便于验证。
+            var reapply = function () {
+                run('updateAppMessageShareData', appMsg, true);
+                run('updateTimelineShareData', timeline, true);
+            };
+            setTimeout(reapply, 1200);
+            setTimeout(reapply, 3000);
 
             if (failures.length) {
                 log('部分分享接口失败', failures);
@@ -1104,7 +1110,7 @@ class YIMAI_GSO_Wechat_Share {
             } else {
                 log('分享卡片已就绪', appMsg);
                 badge('分享卡片已就绪 ✓', '#15803d');
-                settle('ready', 'ok');
+                settle('ready', 'ok·' + Object.keys(lastOk).length);
             }
         });
 
