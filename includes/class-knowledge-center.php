@@ -34,6 +34,7 @@ class YIMAI_GSO_Knowledge_Center {
         add_action( self::AI_CLASSIFY_HOOK, array( $this, 'process_ai_classification_queue' ) );
         add_action( 'wp_ajax_yimai_gso_kb_get_document', array( $this, 'ajax_get_document' ) );
         add_action( 'wp_ajax_yimai_gso_kb_run_classification', array( $this, 'ajax_run_classification' ) );
+        add_action( 'wp_ajax_yimai_gso_kb_reclassify_all', array( $this, 'ajax_reclassify_all' ) );
     }
 
     public function register_menu() {
@@ -148,9 +149,15 @@ class YIMAI_GSO_Knowledge_Center {
                 $labels = array( 'public' => '公开资料', 'internal' => '内部参考', 'restricted' => '受限资料', 'blocked' => '已拦截', 'pending' => '待处理' );
                 foreach ( $labels as $key => $label ) :
                 ?>
-                    <div><strong><?php echo esc_html( (string) $counts[ $key ] ); ?></strong><span><?php echo esc_html( $label ); ?></span></div>
+                    <div class="yimai-kb-stat" data-filter="<?php echo esc_attr( $key ); ?>" role="button" tabindex="0" title="点击筛选<?php echo esc_attr( $label ); ?>">
+                        <strong><?php echo esc_html( (string) $counts[ $key ] ); ?></strong><span><?php echo esc_html( $label ); ?></span>
+                    </div>
                 <?php endforeach; ?>
             </div>
+            <p class="yimai-kb-filter-bar" id="yimai-kb-filter-bar" style="display:none">
+                当前筛选：<strong id="yimai-kb-filter-label"></strong>
+                <button type="button" class="button button-small" id="yimai-kb-filter-clear" style="margin-left:8px">显示全部</button>
+            </p>
 
             <div class="yimai-kb-import">
                 <h2>导入资料</h2>
@@ -172,6 +179,7 @@ class YIMAI_GSO_Knowledge_Center {
                 <button type="button" class="button" id="yimai-kb-run-classification"<?php disabled( $pending_ai < 1 ); ?>>
                     ⚡ AI 复核待识别资料<?php echo $pending_ai > 0 ? '（' . esc_html( (string) $pending_ai ) . ' 条）' : ''; ?>
                 </button>
+                <button type="button" class="button" id="yimai-kb-reclassify-all" title="按当前判定口径把全部资料重新识别一遍（修正历史误判）">↻ 全部重新识别</button>
                 <span id="yimai-kb-classify-msg" style="margin-left:8px;"></span>
             </p>
             <table class="widefat striped yimai-kb-table">
@@ -180,7 +188,7 @@ class YIMAI_GSO_Knowledge_Center {
                 <?php if ( empty( $rows ) ) : ?>
                     <tr><td colspan="7">尚未导入资料。</td></tr>
                 <?php else : foreach ( $rows as $row ) : ?>
-                    <tr>
+                    <tr data-vis="<?php echo esc_attr( $row['visibility'] ); ?>" data-status="<?php echo esc_attr( $row['status'] ); ?>">
                         <td><strong><?php echo esc_html( $row['title'] ?: $row['file_name'] ); ?></strong><br><code><?php echo esc_html( $row['source_name'] ); ?></code></td>
                         <td><?php echo esc_html( wp_trim_words( (string) $row['summary'], 28 ) ); ?></td>
                         <td>
@@ -188,7 +196,7 @@ class YIMAI_GSO_Knowledge_Center {
                                 <input type="hidden" name="action" value="<?php echo esc_attr( self::UPDATE_ACTION ); ?>">
                                 <input type="hidden" name="document_id" value="<?php echo esc_attr( (string) $row['id'] ); ?>">
                                 <?php wp_nonce_field( self::UPDATE_ACTION . '_' . $row['id'] ); ?>
-                                <select name="visibility" onchange="this.form.submit()" <?php disabled( 'blocked', $row['visibility'] ); ?>>
+                                <select name="visibility" onchange="this.form.submit()">
                                     <?php foreach ( array( 'public' => '公开', 'internal' => '内部参考', 'restricted' => '受限', 'blocked' => '拦截' ) as $value => $label ) : ?>
                                         <option value="<?php echo esc_attr( $value ); ?>" <?php selected( $row['visibility'], $value ); ?>><?php echo esc_html( $label ); ?></option>
                                     <?php endforeach; ?>
@@ -221,7 +229,9 @@ class YIMAI_GSO_Knowledge_Center {
             </div>
         </div>
         <style>
-            .yimai-knowledge-wrap{max-width:1320px}.yimai-kb-stats{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:12px;margin:20px 0}.yimai-kb-stats>div{background:#fff;border:1px solid #dcdcde;border-left:4px solid #2271b1;padding:16px}.yimai-kb-stats strong{display:block;font-size:26px;line-height:1.1}.yimai-kb-stats span{display:block;margin-top:6px;color:#50575e}.yimai-kb-import{background:#fff;border:1px solid #dcdcde;padding:18px;margin:16px 0 24px}.yimai-kb-import h2{margin-top:0}.yimai-kb-import input[type=file]{min-width:420px}.yimai-kb-table td{vertical-align:top}.yimai-kb-table code{font-size:11px;word-break:break-all}.yimai-kb-tools{margin:8px 0}
+            .yimai-knowledge-wrap{max-width:1320px}.yimai-kb-stats{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:12px;margin:20px 0}.yimai-kb-stats>div{background:#fff;border:1px solid #dcdcde;border-left:4px solid #2271b1;padding:16px}.yimai-kb-stats strong{display:block;font-size:26px;line-height:1.1}.yimai-kb-stats span{display:block;margin-top:6px;color:#50575e}
+            .yimai-kb-stat{cursor:pointer;transition:box-shadow .15s,border-color .15s;user-select:none}.yimai-kb-stat:hover{box-shadow:0 1px 6px rgba(0,0,0,.12);border-color:#2271b1}.yimai-kb-stat.is-active{border-left-color:#d63638;box-shadow:0 0 0 2px rgba(214,54,56,.25)}
+            .yimai-kb-filter-bar{margin:4px 0 10px;padding:6px 12px;background:#f0f6fc;border-left:4px solid #2271b1}.yimai-kb-import{background:#fff;border:1px solid #dcdcde;padding:18px;margin:16px 0 24px}.yimai-kb-import h2{margin-top:0}.yimai-kb-import input[type=file]{min-width:420px}.yimai-kb-table td{vertical-align:top}.yimai-kb-table code{font-size:11px;word-break:break-all}.yimai-kb-tools{margin:8px 0}
             #yimai-kb-modal{position:fixed;inset:0;z-index:100050}.yimai-kb-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55)}.yimai-kb-modal-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(860px,92vw);max-height:84vh;overflow:auto;background:#fff;border-radius:6px;padding:20px 24px;box-shadow:0 8px 40px rgba(0,0,0,.25)}.yimai-kb-modal-close{position:absolute;top:8px;right:8px}
             .yimai-kb-meta{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px}.yimai-kb-meta span{background:#f0f0f1;border:1px solid #dcdcde;border-radius:3px;padding:2px 10px;font-size:12px}.yimai-kb-summary{background:#f6f7f7;border-left:4px solid #2271b1;padding:10px 14px;margin:0 0 14px}.yimai-kb-content{white-space:pre-wrap;word-break:break-word;background:#fff;border:1px solid #dcdcde;border-radius:4px;padding:12px;max-height:44vh;overflow:auto;font-size:12.5px;line-height:1.7}
             @media(max-width:782px){.yimai-kb-stats{grid-template-columns:repeat(2,1fr)}.yimai-kb-import input[type=file]{min-width:0;width:100%}}
@@ -252,6 +262,48 @@ class YIMAI_GSO_Knowledge_Center {
                 }).fail(function(){ $('#yimai-kb-modal-body').html('<p style="color:#b32d2e">请求失败，请重试。</p>'); });
             });
             function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+            // ── 卡片筛选 ──
+            var kbLabels = {public:'公开资料', internal:'内部参考', restricted:'受限资料', blocked:'已拦截', pending:'待处理'};
+            function kbApplyFilter(key){
+                if(!key){ $('.yimai-kb-table tbody tr[data-vis]').show(); $('#yimai-kb-filter-bar').hide(); $('.yimai-kb-stat').removeClass('is-active'); return; }
+                var n = 0;
+                $('.yimai-kb-table tbody tr[data-vis]').each(function(){
+                    var ok = (key === 'pending') ? ($(this).data('status') === 'pending') : ($(this).data('vis') === key);
+                    $(this).toggle(ok); if(ok) n++;
+                });
+                $('.yimai-kb-stat').removeClass('is-active').filter('[data-filter="'+key+'"]').addClass('is-active');
+                $('#yimai-kb-filter-label').text((kbLabels[key]||key) + '（' + n + ' 条）');
+                $('#yimai-kb-filter-bar').show();
+            }
+            $('.yimai-kb-stat').on('click keydown', function(e){
+                if(e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                var key = $(this).data('filter');
+                if($(this).hasClass('is-active')) kbApplyFilter(''); else kbApplyFilter(key);
+            });
+            $('#yimai-kb-filter-clear').on('click', function(){ kbApplyFilter(''); });
+
+            // ── 清理地址栏的临时提示参数（避免刷新后重复显示「已识别并写入 N 条资料」）──
+            try {
+                var u = new URL(window.location.href);
+                if(u.searchParams.has('yimai_message') || u.searchParams.has('yimai_error')){
+                    u.searchParams.delete('yimai_message');
+                    u.searchParams.delete('yimai_error');
+                    window.history.replaceState(null, '', u.toString());
+                }
+            } catch(err){}
+
+            // ── 全部重新识别 ──
+            $('#yimai-kb-reclassify-all').on('click', function(){
+                if(!window.confirm('将把全部有正文的资料重置为「待 AI 识别」，并按当前判定口径重新跑一遍。\n（历史被拦截且正文已清空的条目不受影响，需重新上传原件恢复。）\n继续吗？')) return;
+                var $btn = $(this).prop('disabled', true).text('重置中…');
+                $.post(yimaiGsoData.ajaxUrl, { action:'yimai_gso_kb_reclassify_all', nonce: yimaiGsoData.nonce }, function(res){
+                    $btn.prop('disabled', false).text('↻ 全部重新识别');
+                    if(res.success){ $('#yimai-kb-classify-msg').css('color','#1d2327').text(res.data.message); setTimeout(function(){location.reload();}, 1500); }
+                    else { $('#yimai-kb-classify-msg').css('color','#b32d2e').text(res.data&&res.data.message||'执行失败'); }
+                }).fail(function(){ $btn.prop('disabled', false).text('↻ 全部重新识别'); $('#yimai-kb-classify-msg').css('color','#b32d2e').text('请求失败，请重试。'); });
+            });
+
             // ── 手动 AI 复核 ──
             $('#yimai-kb-run-classification').on('click', function(){
                 var $btn = $(this).prop('disabled', true).text('AI 识别中…');
@@ -508,6 +560,11 @@ class YIMAI_GSO_Knowledge_Center {
             }
 
             $content = 'blocked' === $analysis['visibility'] ? '' : (string) $row['content'];
+            // 只有「规则层」确证的真实个人数据才清空正文；AI 复核结果不再单方面清空，
+            // 避免误判导致资料正文不可恢复（管理员可复核后调整范围）。
+            if ( 'blocked' === $analysis['visibility'] && false === strpos( (string) $analysis['summary'], '降级为受限' ) ) {
+                $content = '';
+            }
             $status  = 'blocked' === $analysis['visibility'] ? 'blocked' : 'ready';
             $wpdb->update(
                 $table,
@@ -650,9 +707,20 @@ class YIMAI_GSO_Knowledge_Center {
         $risks      = array( 'low' => 0, 'medium' => 1, 'high' => 2 );
         $risk       = $risks[ $hard['risk_level'] ] >= $risks[ $ai['risk_level'] ] ? $hard['risk_level'] : $ai['risk_level'];
 
+        // 安全网：AI 不得单独把「规则判为公开/内部」的文档升级为 blocked。
+        // 规则层未命中真实个人数据特征时，AI 的 blocked 判定一律降级为 restricted
+        // （不建检索索引、不参与文章生成，但正文保留、管理员可复核恢复）。
+        // 这样既守住隐私底线，又避免营销资料被误判后进入「正文清空且不可恢复」的死路。
+        if ( 'blocked' === $visibility && 'blocked' !== $hard['visibility'] ) {
+            $visibility    = 'restricted';
+            $tags_note     = '（AI 判定疑似隐私，已降级为受限：正文保留，管理员可复核后调整范围）';
+        } else {
+            $tags_note = '';
+        }
+
         return array(
             'title'      => $ai['title'] ?: $hard['title'],
-            'summary'    => $ai['summary'] ?: $hard['summary'],
+            'summary'    => ( $ai['summary'] ?: $hard['summary'] ) . $tags_note,
             'visibility' => $visibility,
             'risk_level' => $risk,
             'tags'       => array_values( array_unique( array_merge( $hard['tags'], $ai['tags'] ) ) ),
@@ -720,15 +788,26 @@ class YIMAI_GSO_Knowledge_Center {
         }
 
         $sample = self::string_substr( $text, 0, 7000 );
-        $prompt = "你是一麦瑜伽官网知识管理员。请判断资料是否适合用于官网文章。只返回 JSON，不要 Markdown。\n" .
-            "visibility 只能是 public、internal、restricted、blocked；risk_level 只能是 low、medium、high。\n" .
-            "会员身份、联系方式、体测、病史、员工账号必须 blocked；价格合同和内部经营信息至少 restricted；医疗健康内容 risk_level=high。\n" .
+        $prompt = "你是一麦瑜伽官网的品牌知识管理员。判断这份资料能否用于撰写官网公开文章。只返回 JSON，不要 Markdown。\n" .
+            "visibility 只能是 public、internal、restricted、blocked；risk_level 只能是 low、medium、high。\n\n" .
+            "【判定标准——严格按此执行，不要自行加严】\n" .
+            "public：官网本来就会公开的内容。包括门店地址与门店电话、营业信息、课程介绍、课程适合人群、师资公开简介与资质（官网师资页同款）、常见问题、服务承诺、行业知识科普、品牌故事与数据。\n" .
+            "internal：可用于写作但不逐字公开的内部参考。包括价格与套餐结构（无具体会员个人数据）、内部运营口径、尚未上官网的教练资料。\n" .
+            "restricted：需要谨慎的内部经营信息。包括成本、毛利、薪酬结构、考核指标、合同模板条款、未公开的商务报价。\n" .
+            "blocked：仅限真实个人隐私数据——带具体值的会员姓名+手机号、体测数值档案、病史记录、身份证号、银行卡、员工账号密码、未成交客户名单。\n\n" .
+            "【重要区分】\n" .
+            "- 门店对外电话（如 0574-xxx、199xxxxxxxx 官方咨询号）属于公开经营信息，不是个人隐私，判 public。\n" .
+            "- 教练姓名与公开认证资质属于品牌公开内容（官网师资页已展示），判 public 或 internal，不得判 blocked。\n" .
+            "- 价格数字本身不等于 blocked；无个人数据的价格结构最多判 internal。\n" .
+            "- 提到孕期、产后、康复、疼痛等健康话题，只把 risk_level 标为 high，visibility 仍按内容属性判 public/internal。\n" .
+            "- 只有出现真实个人数据记录（谁的电话、谁的体测、谁的病史）才 blocked。\n\n" .
+            "summary 用一句中文说明判定理由（30 字内）。tags 给 1-5 个主题词。\n" .
             "返回格式：{\"title\":\"\",\"summary\":\"\",\"visibility\":\"internal\",\"risk_level\":\"medium\",\"tags\":[\"\"]}\n\n" .
             "文件：{$source_name}\n内容：\n{$sample}";
 
         $response = ( new YIMAI_GSO_AI_Generator() )->call_api(
             array(
-                array( 'role' => 'system', 'content' => '你负责知识资料隐私分级。宁可提高限制等级，不得泄露个人信息。' ),
+                array( 'role' => 'system', 'content' => '你是品牌官网知识库的内容分级员。官网公开的经营信息（地址、门店电话、课程、师资、FAQ）不是隐私；只有真实个人数据记录才算 blocked。判定要准确，既不要泄露隐私，也不要误伤公开内容。' ),
                 array( 'role' => 'user', 'content' => $prompt ),
             ),
             900,
@@ -929,8 +1008,13 @@ class YIMAI_GSO_Knowledge_Center {
         global $wpdb;
         $table = self::documents_table();
         $row   = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $document_id ), ARRAY_A );
-        if ( $row && 'blocked' !== $row['visibility'] ) {
-            $wpdb->update( $table, array( 'visibility' => $visibility, 'updated_at' => current_time( 'mysql' ) ), array( 'id' => $document_id ) );
+        if ( $row ) {
+            $update = array( 'visibility' => $visibility, 'updated_at' => current_time( 'mysql' ) );
+            // 由「拦截」改回可用范围时同步恢复状态（AI 误判可人工解除；正文已清空的条目仍无内容可检索）
+            if ( 'blocked' === $row['visibility'] && 'blocked' !== $visibility ) {
+                $update['status'] = '' !== (string) $row['content'] ? 'ready' : 'empty';
+            }
+            $wpdb->update( $table, $update, array( 'id' => $document_id ) );
             $analysis = array( 'visibility' => $visibility, 'tags' => array_filter( array_map( 'trim', explode( ',', (string) $row['tags'] ) ) ) );
             $this->replace_chunks( $document_id, (string) $row['content'], $analysis );
         }
@@ -992,6 +1076,40 @@ class YIMAI_GSO_Knowledge_Center {
             'updated_at'  => (string) $row['updated_at'],
             'file_name'   => (string) $row['file_name'],
             'mime_type'   => (string) $row['mime_type'],
+        ) );
+    }
+
+    /**
+     * AJAX：把所有已识别资料重置为「待 AI 复核」并按当前规则重新识别。
+     * 用途：AI 判定口径调整后（如 2.9.2 修正误判），把历史资料按新规则重跑一遍。
+     */
+    public function ajax_reclassify_all() {
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => '权限不足。' ) );
+        }
+        if ( ! YIMAI_GSO_Settings::get( 'ai_api_key', '' ) ) {
+            wp_send_json_error( array( 'message' => 'AI 未配置：请先在「设置 → AI配置」填写 API Key。' ) );
+        }
+
+        global $wpdb;
+        $table = self::documents_table();
+        // 仅重置有正文的资料（正文已清空的历史拦截条目需重新上传原文件才能恢复）
+        $reset = $wpdb->query(
+            "UPDATE {$table}
+                SET metadata = '{\"classification\":\"rules\"}',
+                    status   = 'ready'
+              WHERE status != 'pending' AND content != ''"
+        );
+
+        if ( ! wp_next_scheduled( self::AI_CLASSIFY_HOOK ) ) {
+            wp_schedule_single_event( time() + 5, self::AI_CLASSIFY_HOOK );
+        }
+
+        $remaining = absint( $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'ready' AND visibility != 'blocked' AND metadata LIKE '%\"classification\":\"rules\"%'" ) );
+        wp_send_json_success( array(
+            'message'   => sprintf( '已重置 %d 条资料为待识别；点「⚡ AI 复核」按新规则逐批识别（每批 5 条，剩余 %d 条）。', absint( $reset ), $remaining ),
+            'remaining' => $remaining,
         ) );
     }
 
