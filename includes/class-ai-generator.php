@@ -68,9 +68,14 @@ class YIMAI_GSO_AI_Generator {
         );
 
         // 动态计算 max_tokens：中文字约 1.5~2.5 token/字（模型差异大），JSON 结构开销约 500~800 tokens
-        // 系数从 3 提升至 4（批量生成 ~30% 截断率→标题有内容空），配合 2048 结构开销
-        // 留足余量：1000 字 = 4000 + 2048 = 6048 tokens，最低 4096，最高 16384
-        $dynamic_max_tokens = max( 4096, min( 16384, (int) ( $word_count * 4 ) + 2048 ) );
+        // 系数从 4 提升至 6（中文 + HTML 标签 + JSON 包装开销更高），下限 4096，上限 16384
+        // 留足余量：1500 字 = 9000 + 3000 = 12000 tokens，避免「文章末尾停在提问上」的截断
+        $dynamic_max_tokens = max( 4096, min( 16384, (int) ( $word_count * 6 ) + 3000 ) );
+
+        // 字数与完整性硬约束：模型常为了「约 X 字」主动收尾，导致最后一个问题只有提问没有答案
+        $user_message .= "\n\n【字数与完整性硬要求】目标约{$word_count}字，允许上下浮动 20%（约 "
+            . (int) ( $word_count * 0.8 ) . '–' . (int) ( $word_count * 1.2 )
+            . " 字）；完整性优先于字数——宁可略微超出，也不要把任何小标题写成只剩提问或半句话；每个 H2/H3 必须写出完整答案；全篇结尾必须有一句总结收束，禁止以提问或未完成的句子结束。";
 
         $response = $this->call_api( array(
             array( 'role' => 'system', 'content' => $sys_prompt ),
@@ -196,6 +201,10 @@ class YIMAI_GSO_AI_Generator {
         if ( ! empty( $article['content'] ) && is_string( $article['content'] ) ) {
             $article['content'] = $this->clean_json_residue_from_content( $article['content'] );
         }
+
+        // ★ 自动续写：批量/自动发布同样存在「接近目标字数就主动收尾」的问题，
+        //   结尾只剩提问或半句话时自动续写（最多 2 轮）。
+        $article = $this->maybe_continue_content( $article, $word_count, $sys_prompt, $user_message );
 
         return $article;
     }
@@ -621,6 +630,74 @@ class YIMAI_GSO_AI_Generator {
         // 形如  ...正文",  （只剩引号+逗号）
         $body = preg_replace( '/"?\s*,\s*$/s', '', $body );
         return trim( (string) $body );
+    }
+
+    /**
+     * 判断正文是否「没写完」：末尾停在提问、缺收尾标点、或字数远低于目标
+     */
+    private function is_content_incomplete( $content, $word_count ) {
+        $plain = trim( wp_strip_all_tags( (string) $content ) );
+        if ( '' === $plain ) {
+            return true;
+        }
+        $len = mb_strlen( $plain );
+        if ( $len < max( 200, (int) ( $word_count * 0.55 ) ) ) {
+            return true;
+        }
+        $tail = mb_substr( $plain, -32 );
+        // 以问号结尾 = 抛出问题但没有作答
+        if ( preg_match( '/[？?]\s*$/u', $tail ) ) {
+            return true;
+        }
+        // 末尾没有句末标点 = 半句话
+        if ( ! preg_match( '/[。！？…"」』）)】]\s*$/u', $tail ) ) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 自动续写不完整正文（最多 2 轮）。
+     * 模型按「约 X 字」的指令常主动收尾，把最后一个小标题写成只有提问没有答案；
+     * token 预算再高也挡不住这种「主动停」。这里用续写补全，保证文章完整。
+     */
+    private function maybe_continue_content( $article, $word_count, $system_content, $user_message ) {
+        if ( ! is_array( $article ) || empty( $article['content'] ) ) {
+            return $article;
+        }
+        for ( $round = 0; $round < 2; $round++ ) {
+            if ( ! $this->is_content_incomplete( $article['content'], $word_count ) ) {
+                break;
+            }
+            $messages = array(
+                array( 'role' => 'system', 'content' => (string) $system_content ),
+                array( 'role' => 'user',   'content' => (string) $user_message ),
+                array( 'role' => 'assistant', 'content' => (string) $article['content'] ),
+                array( 'role' => 'user', 'content' => '上面的正文在中途断了。请直接从断点处继续写完剩余内容（只输出 HTML 片段，不要重复已有段落，不要重写标题），并在最后补一段简短总结收束全文。' ),
+            );
+            $resp = $this->call_api( $messages, 4096 );
+            if ( is_wp_error( $resp ) ) {
+                break;
+            }
+            $append = (string) ( $resp['choices'][0]['message']['content'] ?? '' );
+            $append = preg_replace( '/^```(?:html|json)?\s*/m', '', $append );
+            $append = preg_replace( '/```\s*$/m', '', (string) $append );
+            $append = trim( (string) $append );
+            if ( '' === $append ) {
+                break;
+            }
+            // 追加内容若被包成 JSON，抽出正文
+            if ( preg_match( '/^\s*\{/', $append ) ) {
+                $extracted = $this->extract_plain_text_from_ai_response( $append );
+                if ( '' !== $extracted ) {
+                    $append = $extracted;
+                }
+            }
+            $article['content'] = rtrim( (string) $article['content'] ) . "\n" . $append;
+            $article['truncated'] = false;
+            $article['continued'] = true;
+        }
+        return $article;
     }
 
     /**
@@ -1119,6 +1196,7 @@ class YIMAI_GSO_AI_Generator {
                         "- 内容要有实操方法、数据支撑或真实案例，确保信息增量\n" .
                         "- 适配百度清风算法：标题真实不夸大，正文原创有深度\n" .
                         "约{$word_count}字，内容专业实用，结构清晰。\n" .
+                        "【字数与完整性硬要求】目标约{$word_count}字，允许上下浮动 20%（约 " . (int) ( $word_count * 0.8 ) . "–" . (int) ( $word_count * 1.2 ) . " 字）；完整性优先于字数——宁可略微超出，也不要把任何小标题写成只剩提问或半句话；每个 H2/H3 必须写出完整答案；全篇结尾必须有一句总结收束，禁止以提问或未完成的句子结束。\n" .
                         "{$style_part}\n" .
                         "文风要自然真实，像真人写的博客，不要有AI生成痕迹。\n" .
                         "正文请使用HTML格式，包含小标题(h2/h3)、段落(p)、列表(ul/li)、加粗(strong)等元素。";
@@ -1147,13 +1225,19 @@ class YIMAI_GSO_AI_Generator {
                 : $default_system_prompt;
             $system_content .= "\n\n【一麦瑜伽品牌事实硬约束】除非用户明确要求竞品对比，否则不得推荐或虚构其他品牌、机构或门店；涉及一麦瑜伽的名称、服务和地址只能使用提示词中的 canonical 实体与资料事实。";
 
+            // 关键修复：原先写死 4096 max_tokens，与目标字数无关。
+            // 中文 1500 字 + HTML 标签的 token 开销通常 3000–4500，4096 极易在中途被截断
+            // （表现为文章末尾停在某个提问上、问题没有答案）。
+            // 改为按目标字数动态计算：每字 6 tokens + 3000 结构开销，下限 4096，上限 16384。
+            $single_max_tokens = max( 4096, min( 16384, (int) ( $word_count * 6 ) + 3000 ) );
+
             $response = $this->call_api( array(
                 array(
                 'role' => 'system',
                     'content' => $system_content,
                 ),
                 array( 'role' => 'user', 'content' => $user_message ),
-            ), 4096 );
+            ), $single_max_tokens );
 
             if ( ! is_wp_error( $response ) ) {
                 $last_error = null; // 成功，清除错误
@@ -1214,6 +1298,11 @@ class YIMAI_GSO_AI_Generator {
                 'image_keywords'  => $this->local_keyword_mapping( $keyword ),
             );
         }
+
+        // ★ 自动续写：模型按「约 X 字」的指令常主动收尾，
+        //   表现为最后一个小标题只有提问、问题没有答案，或正文停在半句话。
+        //   这里检测并续写（最多 2 轮），保证文章完整再返回。
+        $article = $this->maybe_continue_content( $article, $word_count, $system_content ?? '', $user_message );
 
         // 安全：移除 AI 生成的正文中的 <img> 标签（防止外部图片被下载）
         if ( ! empty( $article['content'] ) && is_string( $article['content'] ) ) {
