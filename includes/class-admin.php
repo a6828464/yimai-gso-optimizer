@@ -5100,7 +5100,8 @@ class YIMAI_GSO_Admin {
                             <div class="yimai-gso-404-stat-glow"></div>
                             <div class="yimai-gso-404-stat-icon">🎨</div>
                             <div class="yimai-gso-404-stat-body">
-                                <div class="yimai-gso-404-stat-value" id="yimai-gso-404-custom-status">未启用</div>
+                                <?php $yimai404_enabled = YIMAI_GSO_Settings::get( 'optimize_404_custom_enabled', 0 ); ?>
+                                <div class="yimai-gso-404-stat-value" id="yimai-gso-404-custom-status" <?php echo $yimai404_enabled ? 'style="color:#7c3aed"' : ''; ?>><?php echo $yimai404_enabled ? '已启用' : '未启用'; ?></div>
                                 <div class="yimai-gso-404-stat-label">自定义404页面</div>
                                 <div class="yimai-gso-404-stat-delta neutral" id="yimai-gso-404-delta-custom" style="display:none"></div>
                             </div>
@@ -5269,31 +5270,82 @@ class YIMAI_GSO_Admin {
                             ✅ 自定义404页面已启用。当访客访问不存在的页面时，将显示您自定义的友好页面，而非主题默认的404模板。
                         </div>
 
+                        <?php
+                        // 自定义 404 页面：当前保存的样式与代码，供表单回填
+                        $yimai404_layout   = (string) YIMAI_GSO_Settings::get( 'optimize_404_layout', 'theme' );
+                        $yimai404_mode     = (string) YIMAI_GSO_Settings::get( 'optimize_404_color_mode', 'auto' );
+                        $yimai404_accent   = (string) YIMAI_GSO_Settings::get( 'optimize_404_accent', '' );
+                        $yimai404_custom   = (string) YIMAI_GSO_Settings::get( 'optimize_404_custom_page', '' );
+                        $yimai404_preview  = add_query_arg( 'yimai_gso_404_preview', '1', home_url( '/' ) );
+                        ?>
                         <div class="yimai-gso-404-custom-layout">
-                            <!-- 左侧：操作面板 -->
+                            <!-- 左侧：样式 + 代码编辑 -->
                             <div class="yimai-gso-404-panel">
                                 <div class="yimai-gso-404-panel-header">
                                     <h3>🎨 自定义 404 页面</h3>
-                                    <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-primary" id="yimai-gso-404-gen-btn">🔄 生成 404 页面</button>
+                                    <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-primary" id="yimai-gso-404-gen-btn">🔄 重新生成模板</button>
                                 </div>
                                 <div class="yimai-gso-404-panel-body">
-                                    <p style="font-size:13px;color:#64748b;margin-bottom:20px">
-                                        自动生成一个包含搜索框、最新文章列表和分类导航的用户友好404页面。<strong>启用后将完全替换主题的404模板</strong>，并智能推荐与请求URL相关的文章。
+                                    <p class="yimai-gso-404-hint">
+                                        模板会自动跟随站点主题：<strong>跟随站点主题</strong>模式下套用主题的页头页脚与字体，深浅色主题都不会有割裂感。
+                                        下方代码框可以直接编辑，<strong>保存后前台 404 立即生效</strong>。
                                     </p>
 
-                                    <div class="yimai-gso-404-gen-result" id="yimai-gso-404-gen-result" style="display:none">
-                                        <div style="margin-bottom:12px;display:flex;gap:8px">
-                                            <button type="button" class="yimai-gso-404-btn" id="yimai-gso-404-copy-btn">📋 复制HTML代码</button>
-                                            <a id="yimai-gso-404-preview-link" href="#" target="_blank" class="yimai-gso-404-btn">🔗 预览效果</a>
+                                    <div class="yimai-gso-404-style-grid">
+                                        <label class="yimai-gso-404-field">
+                                            <span class="yimai-gso-404-field-label">页面骨架</span>
+                                            <select id="yimai-gso-404-layout" class="yimai-gso-404-select">
+                                                <option value="theme" <?php selected( $yimai404_layout, 'theme' ); ?>>跟随站点主题（推荐）</option>
+                                                <option value="standalone" <?php selected( $yimai404_layout, 'standalone' ); ?>>独立页面（不加载主题）</option>
+                                            </select>
+                                        </label>
+
+                                        <label class="yimai-gso-404-field">
+                                            <span class="yimai-gso-404-field-label">配色模式</span>
+                                            <select id="yimai-gso-404-color-mode" class="yimai-gso-404-select">
+                                                <option value="auto" <?php selected( $yimai404_mode, 'auto' ); ?>>自适应（跟随系统深浅色）</option>
+                                                <option value="light" <?php selected( $yimai404_mode, 'light' ); ?>>浅色</option>
+                                                <option value="dark" <?php selected( $yimai404_mode, 'dark' ); ?>>深色</option>
+                                            </select>
+                                        </label>
+
+                                        <div class="yimai-gso-404-field yimai-gso-404-field-wide">
+                                            <span class="yimai-gso-404-field-label">主色</span>
+                                            <div class="yimai-gso-404-accent-row">
+                                                <input type="color" id="yimai-gso-404-accent" value="<?php echo esc_attr( '' !== $yimai404_accent ? $yimai404_accent : '#6366f1' ); ?>" <?php disabled( '', $yimai404_accent ); ?>>
+                                                <label class="yimai-gso-404-check">
+                                                    <input type="checkbox" id="yimai-gso-404-accent-auto" <?php checked( '', $yimai404_accent ); ?>>
+                                                    自动跟随站点主题色
+                                                </label>
+                                                <span class="yimai-gso-404-accent-note" id="yimai-gso-404-accent-note"></span>
+                                            </div>
                                         </div>
-                                        <textarea id="yimai-gso-404-html" readonly style="width:100%;height:200px;font-family:monospace;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;resize:vertical"></textarea>
+                                    </div>
+
+                                    <div class="yimai-gso-404-html-toolbar">
+                                        <div class="yimai-gso-404-html-actions">
+                                            <button type="button" class="yimai-gso-404-btn yimai-gso-404-btn-primary" id="yimai-gso-404-save-btn">💾 保存并启用</button>
+                                            <button type="button" class="yimai-gso-404-btn" id="yimai-gso-404-reset-btn">↺ 恢复默认模板</button>
+                                            <button type="button" class="yimai-gso-404-btn" id="yimai-gso-404-copy-btn">📋 复制代码</button>
+                                            <a id="yimai-gso-404-preview-link" href="<?php echo esc_url( $yimai404_preview ); ?>" target="_blank" rel="noopener" class="yimai-gso-404-btn">🔗 真实页面预览</a>
+                                        </div>
+                                        <span class="yimai-gso-404-save-msg" id="yimai-gso-404-save-msg"></span>
+                                    </div>
+
+                                    <textarea id="yimai-gso-404-html" class="yimai-gso-404-editor" spellcheck="false" placeholder="点击「重新生成模板」载入默认设计，然后可以直接编辑 HTML / CSS…"><?php echo esc_textarea( $yimai404_custom ); ?></textarea>
+                                    <div class="yimai-gso-404-editor-meta">
+                                        <span id="yimai-gso-404-html-count"><?php echo esc_html( number_format( strlen( $yimai404_custom ) ) ); ?> 字符</span>
+                                        <span>脚本与 iframe 会在保存时被过滤；<code class="yimai-gso-404-token">&lt;!--yimai-404:recent-posts--&gt;</code> 等占位符保持文章/分类列表实时更新</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- 右侧：404 页面预览 -->
+                            <!-- 右侧：真实页面预览 -->
                             <div>
-                                <div class="yimai-gso-404-preview-label">📱 实时预览</div>
+                                <div class="yimai-gso-404-preview-label">
+                                    📱 实时预览
+                                    <span class="yimai-gso-404-preview-badge" id="yimai-gso-404-preview-mode">跟随主题</span>
+                                </div>
                                 <div class="yimai-gso-404-preview-card">
                                     <div class="yimai-gso-404-preview-toolbar">
                                         <span class="yimai-gso-404-preview-dot r"></span>
@@ -5301,33 +5353,9 @@ class YIMAI_GSO_Admin {
                                         <span class="yimai-gso-404-preview-dot g"></span>
                                         <span class="yimai-gso-404-preview-url"><?php echo esc_html( home_url( '/this-page-does-not-exist' ) ); ?></span>
                                     </div>
-                                    <div class="yimai-gso-404-preview-content">
-                                        <div class="yimai-gso-404-preview-404">404</div>
-                                        <div class="yimai-gso-404-preview-subtitle">页面未找到</div>
-                                        <div class="yimai-gso-404-preview-desc">您访问的页面可能已被移动、删除或从未存在</div>
-                                        <div class="yimai-gso-404-preview-search">
-                                            <input type="text" placeholder="搜索站内内容..." disabled>
-                                            <button disabled>搜索</button>
-                                        </div>
-                                        <div class="yimai-gso-404-preview-links">
-                                            <a href="#">← 返回首页</a>
-                                            <a href="#">📧 联系我们</a>
-                                        </div>
-                                        <div class="yimai-gso-404-preview-suggestions">
-                                            <div class="yimai-gso-404-preview-suggest-title">您可能正在找</div>
-                                            <div class="yimai-gso-404-preview-suggest-item">
-                                                <span>热门文章推荐</span>
-                                                <span class="yimai-gso-404-preview-suggest-score">92%</span>
-                                            </div>
-                                            <div class="yimai-gso-404-preview-suggest-item">
-                                                <span>相关分类内容</span>
-                                                <span class="yimai-gso-404-preview-suggest-score">85%</span>
-                                            </div>
-                                            <div class="yimai-gso-404-preview-suggest-item">
-                                                <span>最新发布文章</span>
-                                                <span class="yimai-gso-404-preview-suggest-score">78%</span>
-                                            </div>
-                                        </div>
+                                    <div class="yimai-gso-404-preview-stage">
+                                        <iframe id="yimai-gso-404-preview-frame" class="yimai-gso-404-preview-frame" title="404 页面实时预览" sandbox="allow-popups allow-top-navigation-by-user-activation"></iframe>
+                                        <div class="yimai-gso-404-preview-empty" id="yimai-gso-404-preview-empty">生成模板后，这里会显示真实渲染效果</div>
                                     </div>
                                 </div>
                             </div>

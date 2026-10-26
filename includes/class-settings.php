@@ -11,12 +11,13 @@ class YIMAI_GSO_Settings {
     /** 单请求内 option 值缓存，避免重复调用 get_option() */
     private static $option_cache = array();
 
-    /** 需要加密存储的敏感配置键名（只有 AI API Key） */
+    /** 需要加密存储的敏感配置键名（AI API Key + 微信分享 AppSecret） */
     const ENCRYPTED_KEYS = array(
         'ai_api_key',
         'ai_image_doubao_key',
         'ai_image_zhipu_key',
         'ai_image_wanxiang_key',
+        'wechat_app_secret',
     );
 
     /** 前端掩码前缀 */
@@ -119,6 +120,8 @@ class YIMAI_GSO_Settings {
         add_filter( 'pre_update_option_yimai_gso_ai_image_doubao_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
         add_filter( 'pre_update_option_yimai_gso_ai_image_zhipu_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
         add_filter( 'pre_update_option_yimai_gso_ai_image_wanxiang_key', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
+        // 微信分享卡片：公众号 AppSecret 同样加密存库（get() 侧已在 ENCRYPTED_KEYS 内透明解密）
+        add_filter( 'pre_update_option_yimai_gso_wechat_app_secret', array( __CLASS__, 'filter_encrypt_on_save' ), 10, 2 );
     }
 
     /**

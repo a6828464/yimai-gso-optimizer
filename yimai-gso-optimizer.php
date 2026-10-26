@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.9.8
+ * Version: 2.9.10
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.9.8' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.9.10' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -140,6 +140,7 @@ require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-l5-dashboard.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-ai-platform-registry.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-ai-platform-adapter.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-seo-geo-bridge.php';
+require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-wechat-share.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-admin.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-updater.php';
 YIMAI_GSO_Updater::init();
@@ -388,6 +389,8 @@ class YIMAI_GSO_Plugin {
         // L6 高级联动
         YIMAI_GSO_AI_Platform_Adapter::get_instance();
         YIMAI_GSO_SEO_GEO_Bridge::get_instance();
+        // 微信分享卡片：JS-SDK 签名 + 抓取元信息加固（前台 wp_head/wp_footer + REST）
+        YIMAI_GSO_Wechat_Share::get_instance();
         if ( function_exists( 'yimai_gso_log_memory' ) ) {
             yimai_gso_log_memory( 'after GEO_Entity' );
         }
@@ -697,8 +700,18 @@ class YIMAI_GSO_Plugin {
             $post_id = 0;
         }
 
-        $title = $post_id ? get_the_title( $post_id ) : get_bloginfo( 'name' );
-        $url   = $post_id ? get_permalink( $post_id ) : home_url( '/' );
+        // ★ 2.9.9：首页 og:title 原样输出站点名「一麦瑜伽」，微信/朋友圈卡片标题单薄。
+        //   改为优先读「微信分享卡片 → 首页分享标题」，未配置时仍回落站点名（行为不变）。
+        //   归档/分类/搜索页没有单页标题，继续用站点名（与改动前一致）。
+        if ( $post_id ) {
+            $title = get_the_title( $post_id );
+        } elseif ( $is_site_home ) {
+            $home_share_title = trim( (string) YIMAI_GSO_Settings::get( 'wechat_share_home_title', '' ) );
+            $title = ( '' !== $home_share_title ) ? $home_share_title : get_bloginfo( 'name' );
+        } else {
+            $title = get_bloginfo( 'name' );
+        }
+        $url = $post_id ? get_permalink( $post_id ) : home_url( '/' );
 
         // 描述：优先从 SEO 字段读取（首页用 tagline 兜底而非文章摘要字段）
         $desc = '';
@@ -714,42 +727,20 @@ class YIMAI_GSO_Plugin {
         }
         $desc = mb_substr( wp_strip_all_tags( $desc ), 0, 200 );
 
-        // 缩略图
-        $image = '';
-        if ( $post_id && has_post_thumbnail( $post_id ) ) {
-            $image = get_the_post_thumbnail_url( $post_id, 'full' );
-        }
-        // ★ 修复（审计 #7）：SVG 不能作 og:image——微信/Facebook/QQ 分享抓取器
-        //   不支持 SVG，分享卡片会无缩略图。custom_logo（主题 logo）是 SVG 时跳过，
-        //   回退站点图标（PNG）；最终兜底取媒体库中最近的一张 PNG/JPG 图片。
-        if ( empty( $image ) ) {
-            $logo_id = get_theme_mod( 'custom_logo' );
-            if ( $logo_id ) {
-                $logo_url = wp_get_attachment_image_url( $logo_id, 'full' );
-                if ( $logo_url && ! preg_match( '/\.svg(\?|$)/i', $logo_url ) ) {
-                    $image = $logo_url;
-                }
-            }
-        }
-        if ( empty( $image ) && function_exists( 'get_site_icon_url' ) ) {
-            $site_icon = get_site_icon_url( 512 );
-            if ( $site_icon && ! preg_match( '/\.svg(\?|$)/i', $site_icon ) ) {
-                $image = $site_icon;
-            }
-        }
-        if ( empty( $image ) ) {
-            $fallback = get_posts( array(
-                'post_type'      => 'attachment',
-                'post_mime_type' => array( 'image/jpeg', 'image/png', 'image/webp' ),
-                'posts_per_page' => 1,
-                'fields'         => 'ids',
-                'orderby'        => 'date',
-                'order'          => 'DESC',
-            ) );
-            if ( ! empty( $fallback ) ) {
-                $image = wp_get_attachment_image_url( $fallback[0], 'full' );
-            }
-        }
+        // 缩略图：统一走分享封面解析器（特色图 → 后台指定封面 → Logo → 站点图标 → 媒体库）
+        // ★ 修复（2.9.9）：原实现只处理了 SVG，还漏三件事——
+        //   ① WebP 在部分安卓微信分享卡片里不显示；② 图片文件名含中文时微信抓取器取不到图
+        //   （首页 og:image 正是「一麦纯logo-绿.png」）；③ 微信/QQ/微博老抓取器只认
+        //   <link rel="image_src">，从未输出过。解析器统一做 SVG/WebP 降级、HTTPS 升级与
+        //   非 ASCII 字符百分号编码，并被微信 JS-SDK 分享缩略图复用（两处保持一致）。
+        $share_img = class_exists( 'YIMAI_GSO_Wechat_Share' )
+            ? YIMAI_GSO_Wechat_Share::resolve_share_image( $post_id, $url )
+            : array( 'url' => '', 'width' => 0, 'height' => 0, 'type' => '' );
+
+        $image        = ! empty( $share_img['url'] ) ? $share_img['url'] : '';
+        $image_width  = ! empty( $share_img['width'] ) ? (int) $share_img['width'] : 0;
+        $image_height = ! empty( $share_img['height'] ) ? (int) $share_img['height'] : 0;
+        $image_type   = ! empty( $share_img['type'] ) ? (string) $share_img['type'] : '';
 
         $og  = '<meta property="og:type" content="' . ( $post_id ? 'article' : 'website' ) . '" />' . "\n";
         $og .= '<meta property="og:site_name" content="' . esc_attr( get_bloginfo( 'name' ) ) . '" />' . "\n";
@@ -760,6 +751,18 @@ class YIMAI_GSO_Plugin {
         $og .= '<meta property="og:url" content="' . esc_url( $url ) . '" />' . "\n";
         if ( ! empty( $image ) ) {
             $og .= '<meta property="og:image" content="' . esc_url( $image ) . '" />' . "\n";
+            $og .= '<meta property="og:image:secure_url" content="' . esc_url( $image ) . '" />' . "\n";
+            if ( $image_width > 0 ) {
+                $og .= '<meta property="og:image:width" content="' . $image_width . '" />' . "\n";
+            }
+            if ( $image_height > 0 ) {
+                $og .= '<meta property="og:image:height" content="' . $image_height . '" />' . "\n";
+            }
+            if ( '' !== $image_type ) {
+                $og .= '<meta property="og:image:type" content="' . esc_attr( $image_type ) . '" />' . "\n";
+            }
+            // 微信 / QQ / 微博的老抓取器不解析 og:image，只认 link rel=image_src
+            $og .= '<link rel="image_src" href="' . esc_url( $image ) . '" />' . "\n";
         }
         $og .= '<meta property="og:locale" content="zh_CN" />' . "\n";
 
@@ -784,10 +787,12 @@ class YIMAI_GSO_Plugin {
         if ( empty( $desc ) ) $desc = get_the_excerpt( $post_id );
         $desc = mb_substr( wp_strip_all_tags( $desc ), 0, 200 );
 
-        $image = '';
-        if ( has_post_thumbnail( $post_id ) ) {
-            $image = get_the_post_thumbnail_url( $post_id, 'full' );
-        }
+        // ★ 2.9.9：与 og:image 共用同一解析器——原先只取特色图，没有特色图的页面
+        //   twitter:image 直接缺失，且不拦 SVG / 未编码中文文件名。
+        $tw_img  = class_exists( 'YIMAI_GSO_Wechat_Share' )
+            ? YIMAI_GSO_Wechat_Share::resolve_share_image( $post_id, get_permalink( $post_id ) )
+            : array( 'url' => '' );
+        $image   = ! empty( $tw_img['url'] ) ? $tw_img['url'] : '';
 
         $tw  = '<meta name="twitter:card" content="summary_large_image" />' . "\n";
         $tw .= '<meta name="twitter:title" content="' . esc_attr( $title ) . '" />' . "\n";

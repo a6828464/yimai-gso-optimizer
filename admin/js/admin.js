@@ -6323,6 +6323,7 @@ function esc(s) {
                 $('.yimai-gso-404-sub-panel').hide();
                 $('.yimai-gso-404-sub-panel[data-subpanel="' + sub + '"]').show();
                 if (sub === 'redirects') self.loadRedirects();
+                if (sub === 'custom-page') self.loadPage();
             });
 
             // ── 死链检测：来源切换 ──
@@ -6363,10 +6364,61 @@ function esc(s) {
             // ── 生成404页面 ──
             $('#yimai-gso-404-gen-btn').on('click', function() { self.generatePage(); });
 
+            // ── 自定义404：保存 / 恢复 / 编辑 / 实时预览 ──
+            $('#yimai-gso-404-save-btn').on('click', function() { self.savePage(); });
+            $('#yimai-gso-404-reset-btn').on('click', function() { self.resetPage(); });
+            $('#yimai-gso-404-html').on('input', function() {
+                self.pageDirty = true;
+                self.pageEdited = true;
+                self.updateCharCount();
+                self.schedulePreview();
+            });
+            // Tab 键插入 4 个空格，编辑缩进时不会跳出输入框
+            $('#yimai-gso-404-html').on('keydown', function(e) {
+                if (e.keyCode !== 9) return;
+                e.preventDefault();
+                var el = this, start = el.selectionStart, end = el.selectionEnd;
+                el.value = el.value.substring(0, start) + '    ' + el.value.substring(end);
+                el.selectionStart = el.selectionEnd = start + 4;
+                $(el).trigger('input');
+            });
+            $('#yimai-gso-404-accent-auto').on('change', function() {
+                self.syncAccentControls();
+                if (!self.pageDirty) {
+                    self.generatePage(true);
+                } else {
+                    self.setPageMsg('主色来源已变更，点「重新生成模板」套用', 'loading');
+                }
+            });
+            $('#yimai-gso-404-accent').on('input', function() { self.updateAccentNote($(this).val()); });
+            $('#yimai-gso-404-layout, #yimai-gso-404-color-mode').on('change', function() {
+                self.updatePreviewMode();
+                if (self.pageDirty) {
+                    self.setPageMsg('样式已变更，点「重新生成模板」套用', 'loading');
+                } else {
+                    self.generatePage(true);
+                }
+            });
+
             // ── 自定义404页面复制 ──
             $('#yimai-gso-404-copy-btn').on('click', function() {
-                var $ta = $('#yimai-gso-404-html'); $ta.select(); document.execCommand('copy');
-                $(this).text('已复制!'); setTimeout(function() { $('#yimai-gso-404-copy-btn').text('复制 HTML 代码'); }, 2000);
+                var btn = this;
+                var text = $('#yimai-gso-404-html').val();
+                var done = function() {
+                    $(btn).text('✅ 已复制');
+                    setTimeout(function() { $(btn).html('📋 复制代码'); }, 2000);
+                };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(done, function() {
+                        $('#yimai-gso-404-html').select();
+                        document.execCommand('copy');
+                        done();
+                    });
+                } else {
+                    $('#yimai-gso-404-html').select();
+                    document.execCommand('copy');
+                    done();
+                }
             });
 
             // ── 设置保存 ──
@@ -6770,26 +6822,266 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
             });
         },
 
-        generatePage: function() {
+        // ─────────── 自定义 404 页面：生成 / 读取 / 保存 / 重置 ───────────
+
+        pageLoaded: false,
+        pageDirty: false,
+        pageEdited: false,
+        previewTimer: null,
+        dynamicParts: {},
+
+        // 与服务端一致的动态区块占位符：保存后前台仍会实时填充
+        tokenMap: {
+            path: '<!--yimai-404:path-->',
+            suggestions: '<!--yimai-404:suggestions-->',
+            recent: '<!--yimai-404:recent-posts-->',
+            categories: '<!--yimai-404:categories-->'
+        },
+
+        resolveTokens: function(html) {
             var self = this;
+            var out = html || '';
+            for (var key in self.tokenMap) {
+                if (!Object.prototype.hasOwnProperty.call(self.tokenMap, key)) continue;
+                out = out.split(self.tokenMap[key]).join(self.dynamicParts[key] || '');
+            }
+            return out;
+        },
+
+        getPageOptions: function() {
+            var accentAuto = $('#yimai-gso-404-accent-auto').is(':checked');
+            return {
+                layout: $('#yimai-gso-404-layout').val() || 'theme',
+                color_mode: $('#yimai-gso-404-color-mode').val() || 'auto',
+                accent: accentAuto ? '' : ($('#yimai-gso-404-accent').val() || '')
+            };
+        },
+
+        syncAccentControls: function() {
+            var auto = $('#yimai-gso-404-accent-auto').is(':checked');
+            $('#yimai-gso-404-accent').prop('disabled', auto);
+        },
+
+        updateAccentNote: function(hex) {
+            var $note = $('#yimai-gso-404-accent-note').empty();
+            if (!hex) return;
+            $('<span class="yimai-gso-404-accent-dot"></span>').css('background', hex).appendTo($note);
+            $note.append(document.createTextNode(' 自定义主色 ' + hex));
+        },
+
+        updatePreviewMode: function() {
+            var layout = $('#yimai-gso-404-layout').val();
+            var mode = $('#yimai-gso-404-color-mode').val();
+            var label = layout === 'standalone' ? '独立页面' : '跟随主题';
+            if (mode === 'dark') label += ' · 深色';
+            if (mode === 'light') label += ' · 浅色';
+            if (mode === 'auto') label += ' · 自适应';
+            $('#yimai-gso-404-preview-mode').text(label);
+        },
+
+        updateCharCount: function() {
+            var len = $('#yimai-gso-404-html').val().length;
+            $('#yimai-gso-404-html-count').text(len.toLocaleString() + ' 字符');
+        },
+
+        /**
+         * 后台 iframe 预览文档：由片段 + 一层中性外壳拼成，
+         * 预览不加载站点主题，只保证配色/排版与真实页面一致。
+         */
+        buildPreviewDoc: function(fragment) {
+            var mode = $('#yimai-gso-404-color-mode').val() || 'auto';
+            var bodyClass = 'yimai-gso-404-preview-body';
+            if (mode === 'dark') bodyClass += ' is-dark';
+            if (mode === 'light') bodyClass += ' is-light';
+            return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
+                + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+                + '<style>'
+                + 'html,body{margin:0;padding:0}'
+                + 'body.yimai-gso-404-preview-body{min-height:100vh;background:#f7f8fc;color:#0f172a;'
+                + 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;'
+                + '-webkit-font-smoothing:antialiased}'
+                + 'body.yimai-gso-404-preview-body.is-dark{background:#0a0e17;color:#e9edf6}'
+                + 'body.yimai-gso-404-preview-body.is-light{background:#f7f8fc;color:#0f172a}'
+                + '@media (prefers-color-scheme:dark){body.yimai-gso-404-preview-body:not(.is-light){background:#0a0e17;color:#e9edf6}}'
+                + '</style></head><body class="' + bodyClass + '">' + (fragment || '') + '</body></html>';
+        },
+
+        renderPreview: function(fragment) {
+            var frame = document.getElementById('yimai-gso-404-preview-frame');
+            if (!frame) return;
+            frame.srcdoc = this.buildPreviewDoc(this.resolveTokens(fragment));
+            $('#yimai-gso-404-preview-empty').hide();
+        },
+
+        schedulePreview: function() {
+            var self = this;
+            if (self.previewTimer) clearTimeout(self.previewTimer);
+            self.previewTimer = setTimeout(function() {
+                self.renderPreview($('#yimai-gso-404-html').val());
+            }, 300);
+        },
+
+        setPageMsg: function(text, kind) {
+            var $msg = $('#yimai-gso-404-save-msg');
+            $msg.removeClass('is-error is-loading').text(text || '');
+            if (kind === 'error') $msg.addClass('is-error');
+            if (kind === 'loading') $msg.addClass('is-loading');
+            if (!text) {
+                $msg.hide();
+                return;
+            }
+            $msg.show();
+            if (kind === 'ok') {
+                setTimeout(function() { $msg.fadeOut(200); }, 2800);
+            }
+        },
+
+        /**
+         * 把接口返回的页面数据写回表单
+         * @param {Object} d 接口数据
+         * @param {Boolean} markDirty 是否标记为「未保存」
+         */
+        applyPageResult: function(d, markDirty) {
+            var self = this;
+            if (!d) return;
+
+            if (d.dynamic) self.dynamicParts = d.dynamic;
+
+            // 先同步下拉与主色，再渲染预览，避免预览用到旧的配色模式
+            if (d.layout) $('#yimai-gso-404-layout').val(d.layout);
+            if (d.color_mode) $('#yimai-gso-404-color-mode').val(d.color_mode);
+            if (d.accent) $('#yimai-gso-404-accent').val(d.accent);
+
+            var auto = d.accent_source !== 'custom';
+            $('#yimai-gso-404-accent-auto').prop('checked', auto);
+            self.syncAccentControls();
+
+            var $note = $('#yimai-gso-404-accent-note').empty();
+            if (d.accent) {
+                $('<span class="yimai-gso-404-accent-dot"></span>').css('background', d.accent).appendTo($note);
+                $note.append(document.createTextNode(' ' + (d.accent_label || '') + ' ' + d.accent));
+            }
+
+            if (d.preview_url) $('#yimai-gso-404-preview-link').attr('href', d.preview_url);
+            self.updatePreviewMode();
+
+            if (d.html) {
+                $('#yimai-gso-404-html').val(d.html);
+                self.updateCharCount();
+                self.renderPreview(d.html);
+            }
+
+            self.pageDirty = !!markDirty;
+            self.pageEdited = false;
+        },
+
+        loadPage: function() {
+            var self = this;
+            if (self.pageLoaded) return;
+            self.pageLoaded = true;
+
+            $.ajax({
+                url: ajaxurl, type: 'POST', dataType: 'json',
+                data: { action: 'yimai_gso_404_get_page', nonce: self.getNonce() },
+                success: function(res) {
+                    if (!res.success) {
+                        self.pageLoaded = false;
+                        return;
+                    }
+                    var d = res.data || {};
+                    self.applyPageResult(d, false);
+                    self.updateCustomPageStatus(d.custom_enabled === 1, '');
+                    if (!d.html) {
+                        // 从未保存过：自动铺一份默认模板，开箱即可编辑
+                        self.generatePage(true);
+                        self.setPageMsg('已载入默认模板，点「保存并启用」后前台生效', 'loading');
+                    }
+                },
+                error: function() { self.pageLoaded = false; }
+            });
+        },
+
+        generatePage: function(silent) {
+            var self = this;
+            if (!silent && self.pageEdited && !confirm('重新生成会覆盖代码框里未保存的修改，确定继续？')) {
+                return;
+            }
             var $btn = $('#yimai-gso-404-gen-btn').prop('disabled', true).text('⏳ 生成中...');
             $.ajax({
                 url: ajaxurl, type: 'POST', dataType: 'json',
-                data: { action: 'yimai_gso_404_generate_page', nonce: self.getNonce() },
+                data: $.extend({ action: 'yimai_gso_404_generate_page', nonce: self.getNonce() }, self.getPageOptions()),
                 success: function(res) {
                     if (res.success) {
-                        var d = res.data;
-                        $('#yimai-gso-404-html').val(d.html);
-                        $('#yimai-gso-404-preview-link').attr('href', d.preview_url || '#');
-                        $('#yimai-gso-404-gen-result').slideDown(200);
-                        $('#yimai-gso-404-custom-alert').show();
-                        self.updateCustomPageStatus(true, '刚刚生成');
+                        self.applyPageResult(res.data, true);
+                        if (!silent) {
+                            self.setPageMsg('模板已更新，记得点「保存并启用」', 'ok');
+                        }
                     } else {
-                        alert(res.data && res.data.message ? res.data.message : '生成失败');
+                        self.setPageMsg((res.data && res.data.message) ? res.data.message : '生成失败', 'error');
                     }
                 },
-                error: function() { alert('网络请求失败'); },
-                complete: function() { $btn.prop('disabled', false).text('🔄 生成 404 页面'); }
+                error: function() { self.setPageMsg('网络请求失败', 'error'); },
+                complete: function() { $btn.prop('disabled', false).text('🔄 重新生成模板'); }
+            });
+        },
+
+        savePage: function() {
+            var self = this;
+            var html = $('#yimai-gso-404-html').val();
+            if (!$.trim(html)) {
+                self.setPageMsg('代码框是空的，请先生成模板', 'error');
+                return;
+            }
+
+            var $btn = $('#yimai-gso-404-save-btn').prop('disabled', true).text('⏳ 保存中...');
+            self.setPageMsg('正在保存…', 'loading');
+
+            $.ajax({
+                url: ajaxurl, type: 'POST', dataType: 'json',
+                data: $.extend({ action: 'yimai_gso_404_save_page', nonce: self.getNonce(), html: html }, self.getPageOptions()),
+                success: function(res) {
+                    if (res.success) {
+                        self.pageDirty = false;
+                        self.pageEdited = false;
+                        if (res.data.dynamic) self.dynamicParts = res.data.dynamic;
+                        // 服务端可能过滤掉脚本等不安全内容，把最终落库版本回填到代码框
+                        if (res.data.html && res.data.html !== html) {
+                            $('#yimai-gso-404-html').val(res.data.html);
+                            self.updateCharCount();
+                            self.renderPreview(res.data.html);
+                        }
+                        self.setPageMsg('✅ ' + res.data.message, 'ok');
+                        $('#yimai-gso-404-custom-alert').show();
+                        self.updateCustomPageStatus(true, '刚刚保存');
+                        if (res.data.preview_url) $('#yimai-gso-404-preview-link').attr('href', res.data.preview_url);
+                    } else {
+                        self.setPageMsg('⚠ ' + ((res.data && res.data.message) ? res.data.message : '保存失败'), 'error');
+                    }
+                },
+                error: function() { self.setPageMsg('⚠ 网络请求失败', 'error'); },
+                complete: function() { $btn.prop('disabled', false).html('💾 保存并启用'); }
+            });
+        },
+
+        resetPage: function() {
+            if (!confirm('恢复默认模板会覆盖代码框内容与已保存的自定义页面，确定继续？')) return;
+
+            var self = this;
+            var $btn = $('#yimai-gso-404-reset-btn').prop('disabled', true).text('↺ 恢复中...');
+
+            $.ajax({
+                url: ajaxurl, type: 'POST', dataType: 'json',
+                data: { action: 'yimai_gso_404_reset_page', nonce: self.getNonce() },
+                success: function(res) {
+                    if (res.success) {
+                        self.applyPageResult(res.data, false);
+                        self.setPageMsg('✅ ' + res.data.message, 'ok');
+                    } else {
+                        self.setPageMsg('⚠ ' + ((res.data && res.data.message) ? res.data.message : '恢复失败'), 'error');
+                    }
+                },
+                error: function() { self.setPageMsg('⚠ 网络请求失败', 'error'); },
+                complete: function() { $btn.prop('disabled', false).html('↺ 恢复默认模板'); }
             });
         },
 

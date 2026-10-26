@@ -8424,9 +8424,10 @@ body.wp-admin .yimai-gso-wrap .notice.notice-error strong {
 /* --- 自定义404布局 --- */
 .yimai-gso-404-custom-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
     gap: 20px;
     margin-bottom: 20px;
+    align-items: start;
 }
 
 /* --- 404预览卡片 --- */
@@ -8561,6 +8562,178 @@ body.wp-admin .yimai-gso-wrap .notice.notice-error strong {
     font-size: 11px;
     color: #a6e3a1;
     font-weight: 600;
+}
+
+/* --- 自定义404：样式选项 / 代码编辑器 / 真实预览 --- */
+.yimai-gso-404-hint {
+    margin: 0 0 16px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--yimai-gso-text-muted);
+}
+.yimai-gso-404-hint strong { color: var(--yimai-gso-text); font-weight: 600; }
+
+.yimai-gso-404-style-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.yimai-gso-404-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.yimai-gso-404-field-wide { grid-column: 1 / -1; }
+.yimai-gso-404-field-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--yimai-gso-gray-light);
+}
+.yimai-gso-404-select {
+    width: 100%;
+    height: 34px;
+    padding: 0 30px 0 10px;
+    font-size: 12.5px;
+    color: var(--yimai-gso-text);
+    background-color: var(--yimai-gso-card);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%2394a3b8' stroke-width='1.6'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+.yimai-gso-404-select:focus {
+    outline: none;
+    border-color: var(--yimai-gso-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+}
+
+.yimai-gso-404-accent-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#yimai-gso-404-accent {
+    width: 46px;
+    height: 34px;
+    padding: 2px;
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: 8px;
+    background: var(--yimai-gso-card);
+    cursor: pointer;
+}
+#yimai-gso-404-accent:disabled { opacity: .45; cursor: not-allowed; }
+.yimai-gso-404-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--yimai-gso-text-muted);
+    cursor: pointer;
+}
+.yimai-gso-404-check input { margin: 0; }
+.yimai-gso-404-accent-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: var(--yimai-gso-gray-light);
+}
+.yimai-gso-404-accent-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, .12);
+}
+
+.yimai-gso-404-html-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.yimai-gso-404-html-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.yimai-gso-404-save-msg { display: none; font-size: 12px; font-weight: 500; color: var(--yimai-gso-success); }
+.yimai-gso-404-save-msg.is-error { color: var(--yimai-gso-danger); }
+.yimai-gso-404-save-msg.is-loading { color: var(--yimai-gso-gray-light); }
+
+.yimai-gso-404-editor {
+    width: 100%;
+    min-height: 360px;
+    padding: 14px 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 1.65;
+    color: #0f172a;
+    background: #f8fafc;
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: 10px;
+    resize: vertical;
+    tab-size: 4;
+    white-space: pre;
+    overflow: auto;
+}
+.yimai-gso-404-editor:focus {
+    outline: none;
+    background: #fff;
+    border-color: var(--yimai-gso-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, .14);
+}
+.yimai-gso-404-editor-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--yimai-gso-gray-light);
+}
+.yimai-gso-404-editor-meta code.yimai-gso-404-token {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #eef2ff;
+    color: var(--yimai-gso-primary-dark);
+    font-size: 10.5px;
+    white-space: nowrap;
+}
+
+.yimai-gso-404-preview-label { display: flex; align-items: center; }
+.yimai-gso-404-preview-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+    background: #eef2ff;
+    color: var(--yimai-gso-primary-dark);
+}
+.yimai-gso-404-preview-stage {
+    position: relative;
+    height: 680px;
+    background: #1e1e2e;
+}
+.yimai-gso-404-preview-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #f7f8fc;
+}
+.yimai-gso-404-preview-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    font-size: 12px;
+    color: #a6adc8;
+    background: #1e1e2e;
 }
 
 /* --- 设置卡片 --- */

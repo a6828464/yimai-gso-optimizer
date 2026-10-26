@@ -15,6 +15,9 @@ class YIMAI_GSO_404_Optimizer {
         add_action( 'wp_ajax_yimai_gso_404_scan', array( __CLASS__, 'ajax_scan_dead_links' ) );
         add_action( 'wp_ajax_yimai_gso_404_get_detail', array( __CLASS__, 'ajax_get_link_detail' ) );
         add_action( 'wp_ajax_yimai_gso_404_generate_page', array( __CLASS__, 'ajax_generate_404_page' ) );
+        add_action( 'wp_ajax_yimai_gso_404_get_page', array( __CLASS__, 'ajax_get_page' ) );
+        add_action( 'wp_ajax_yimai_gso_404_save_page', array( __CLASS__, 'ajax_save_page' ) );
+        add_action( 'wp_ajax_yimai_gso_404_reset_page', array( __CLASS__, 'ajax_reset_page' ) );
         add_action( 'wp_ajax_yimai_gso_404_save_settings', array( __CLASS__, 'ajax_save_settings' ) );
 
         //  新增 AJAX
@@ -30,6 +33,9 @@ class YIMAI_GSO_404_Optimizer {
 
         // 自定义404页面生效
         add_action( 'template_include', array( __CLASS__, 'maybe_serve_custom_404' ), 999 );
+
+        // 后台「预览效果」入口：?yimai_gso_404_preview=1（仅管理员，优先级高于 canonical 重定向）
+        add_action( 'template_redirect', array( __CLASS__, 'maybe_render_preview' ), 1 );
 
         // ★ 关键修复：把 WordPress 内部 301 重定向钩子注册到前台请求
         //   （原先只在 AJAX 请求内通过 ensure_wp_redirect_rules() 用 static 变量注册，
@@ -889,170 +895,957 @@ class YIMAI_GSO_404_Optimizer {
     }
 
     /**
-     * 渲染自定义 404 页面
+     * 预览入口：?yimai_gso_404_preview=1（仅管理员）
+     *
+     * 与前台真实 404 走同一套渲染逻辑，方便在「跟随主题」模式下核对页头页脚是否协调；
+     * 不需要先启用自定义 404，后台点「预览效果」即可查看。
      */
-    private static function render_404_page() {
-        $site_name = get_bloginfo( 'name' );
-        $home_url  = home_url( '/' );
-        $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+    public static function maybe_render_preview() {
+        if ( empty( $_GET['yimai_gso_404_preview'] ) ) {
+            return;
+        }
+        if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+        nocache_headers();
+        status_header( 200 );
+        self::render_404_page( true );
+        exit;
+    }
 
-        // 获取最新文章
-        $recent_posts = get_posts( array(
-            'numberposts' => 8,
-            'post_status' => 'publish',
-            'post_type'   => 'post',
-            'orderby'     => 'date',
-            'order'       => 'DESC',
+    /**
+     * 渲染自定义 404 页面
+     *
+     * 两种骨架：
+     *  - theme      ：套用当前主题的 get_header()/get_footer()，继承主题字体、导航与配色，避免「割裂感」；
+     *  - standalone ：输出独立完整 HTML 文档，自带浅色/深色自适应，适合不希望 404 出现主题导航的站点。
+     *
+     * @param bool $is_preview 是否后台预览（预览时隐藏请求路径）
+     */
+    private static function render_404_page( $is_preview = false ) {
+        $ctx    = self::build_404_context( array( 'is_preview' => $is_preview ) );
+        $custom = trim( (string) YIMAI_GSO_Settings::get( 'optimize_404_custom_page', '' ) );
+
+        // 向后兼容：旧版保存的是一整篇 HTML 文档时原样输出（脚本在保存阶段已被过滤）
+        if ( '' !== $custom && preg_match( '/<html[\s>]/i', $custom ) ) {
+            echo $custom; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            return;
+        }
+
+        $fragment = '' !== $custom ? $custom : self::template_fragment( $ctx, true );
+        $fragment = self::normalize_fragment_root( self::resolve_fragment_tokens( $fragment, $ctx ), $ctx );
+
+        // 主题没有 header.php / footer.php（区块主题常见）时 get_header() 会是空白，
+        // 页面会变成没有站点样式的裸内容 —— 这种情况自动退回独立页面骨架。
+        if ( 'standalone' === $ctx['layout'] || ! self::theme_skeleton_available() ) {
+            if ( 'standalone' !== $ctx['layout'] ) {
+                $ctx['layout'] = 'standalone';
+                $fragment      = self::normalize_fragment_root( $fragment, $ctx );
+            }
+            $fragment = apply_filters( 'yimai_gso_404_fragment', $fragment, $ctx );
+            echo self::standalone_document( $fragment, $ctx ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+            return;
+        }
+
+        $fragment = apply_filters( 'yimai_gso_404_fragment', $fragment, $ctx );
+
+        // 跟随主题：404 内容落在主题骨架内，页头页脚/字体/配色全部沿用主题
+        get_header();
+        echo '<div class="yimai-404-theme-shell">' . $fragment . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        get_footer();
+    }
+
+    /**
+     * 当前主题是否提供 header.php / footer.php（区块主题通常没有）
+     */
+    private static function theme_skeleton_available() {
+        if ( ! function_exists( 'locate_template' ) ) {
+            return false;
+        }
+        return (bool) locate_template( 'header.php' ) && (bool) locate_template( 'footer.php' );
+    }
+
+    /**
+     * 组装 404 页面渲染上下文（文章、分类、智能推荐、配色）
+     *
+     * @param array $args 可覆盖 layout / color_mode / accent / is_preview
+     * @return array
+     */
+    private static function build_404_context( $args = array() ) {
+        $args = wp_parse_args( $args, array(
+            'layout'     => (string) YIMAI_GSO_Settings::get( 'optimize_404_layout', 'theme' ),
+            'color_mode' => (string) YIMAI_GSO_Settings::get( 'optimize_404_color_mode', 'auto' ),
+            'accent'     => (string) YIMAI_GSO_Settings::get( 'optimize_404_accent', '' ),
+            'is_preview' => false,
         ) );
 
-        $recent_html = '';
-        foreach ( $recent_posts as $rp ) {
-            $recent_html .= sprintf(
-                '<li><a href="%s">%s</a> <span style="color:#94a3b8;font-size:12px">%s</span></li>',
-                esc_url( get_permalink( $rp->ID ) ),
-                esc_html( $rp->post_title ),
-                get_the_date( 'Y-m-d', $rp )
-            );
+        $layout = in_array( $args['layout'], array( 'theme', 'standalone' ), true ) ? $args['layout'] : 'theme';
+        $mode   = in_array( $args['color_mode'], array( 'auto', 'light', 'dark' ), true ) ? $args['color_mode'] : 'auto';
+        $accent = self::resolve_accent( $args['accent'] );
+
+        $home_url  = home_url( '/' );
+        $posts_url = get_permalink( (int) get_option( 'page_for_posts' ) );
+        if ( ! $posts_url ) {
+            $posts_url = $home_url;
         }
 
-        // 分类列表
-        $categories = get_categories( array( 'hide_empty' => true, 'number' => 15 ) );
-        $cat_html = '';
-        foreach ( $categories as $cat ) {
-            $cat_html .= sprintf(
-                '<a href="%s" style="display:inline-block;margin:3px 6px 3px 0;padding:3px 10px;background:#f1f5f9;border-radius:4px;text-decoration:none;color:#475569;font-size:13px">%s (%d)</a>',
-                esc_url( get_category_link( $cat->term_id ) ),
-                esc_html( $cat->name ),
-                absint( $cat->count )
-            );
-        }
-
-        // 根据请求路径推荐相关文章
-        $suggested_html = '';
-        if ( ! empty( $request_uri ) && '/' !== $request_uri ) {
-            $suggestions = self::find_redirect_suggestions( $request_uri, 4 );
-            if ( ! empty( $suggestions ) ) {
-                $items = '';
-                foreach ( $suggestions as $s ) {
-                    $score_badge = $s['score'] > 0
-                        ? '<span style="color:#10b981;font-size:11px;font-weight:600">匹配度 ' . $s['score'] . '%</span>'
-                        : '';
-                    $items .= sprintf(
-                        '<div style="padding:8px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
-                            <a href="%s" style="color:#1e40af;font-weight:500;text-decoration:none">%s</a>%s
-                        </div>',
-                        esc_url( $s['url'] ),
-                        esc_html( $s['title'] ),
-                        $score_badge
-                    );
-                }
-                $suggested_html = '<div style="margin-bottom:24px;padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px">
-                    <h4 style="margin:0 0 10px;color:#166534">您可能想找：</h4>' . $items . '</div>';
+        $request_path = '';
+        if ( ! empty( $_SERVER['REQUEST_URI'] ) ) {
+            $parsed = wp_parse_url( wp_unslash( $_SERVER['REQUEST_URI'] ), PHP_URL_PATH );
+            if ( is_string( $parsed ) ) {
+                $request_path = $parsed;
+            }
+            if ( mb_strlen( $request_path ) > 80 ) {
+                $request_path = mb_substr( $request_path, 0, 77 ) . '...';
             }
         }
 
-        // 获取自定义HTML（如果有）
-        $custom_html = YIMAI_GSO_Settings::get( 'optimize_404_custom_page', '' );
-        $body_html = ! empty( $custom_html ) ? $custom_html : sprintf(
-            '<div style="max-width:720px;margin:60px auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">
-                <div style="text-align:center;margin-bottom:32px">
-                    <h1 style="font-size:64px;margin:0;color:#1d2327;font-weight:300">404</h1>
-                    <p style="font-size:18px;color:#64748b;margin:12px 0 0">抱歉，您访问的页面不存在</p>
-                    <p style="color:#94a3b8;margin:6px 0 0;font-size:14px">页面可能已被移动、删除或从未存在</p>
-                </div>
-                <div style="margin-bottom:24px">
-                    <form role="search" method="get" action="%s" style="display:flex;max-width:480px;margin:0 auto">
-                        <input type="search" name="s" placeholder="搜索您想找的内容..." style="flex:1;padding:10px 16px;border:1px solid #cbd5e1;border-radius:6px 0 0 6px;font-size:15px;outline:none">
-                        <button type="submit" style="padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:0 6px 6px 0;cursor:pointer;font-size:15px;font-weight:500">搜索</button>
-                    </form>
-                </div>
-                <div style="text-align:center;margin-bottom:24px">
-                    <a href="%s" style="display:inline-block;padding:8px 20px;background:#f1f5f9;color:#475569;border-radius:6px;text-decoration:none;font-size:14px;border:1px solid #e2e8f0">&#8592; 返回首页</a>
-                </div>
-                %s
-                <div style="display:flex;gap:24px;flex-wrap:wrap">
-                    <div style="flex:1;min-width:260px">
-                        <h3 style="margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid #2563eb;font-size:15px">最新文章</h3>
-                        <ul style="margin:0;padding:0;list-style:none">%s</ul>
-                    </div>
-                    <div style="flex:1;min-width:260px">
-                        <h3 style="margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid #2563eb;font-size:15px">分类浏览</h3>
-                        <div>%s</div>
-                    </div>
-                </div>
-            </div>',
-            esc_url( $home_url ),
-            esc_url( $home_url ),
-            $suggested_html,
-            $recent_html,
-            $cat_html
-        );
+        $recent = array();
+        $recent_posts = get_posts( array(
+            'numberposts'   => 6,
+            'post_status'   => 'publish',
+            'post_type'     => 'post',
+            'orderby'       => 'date',
+            'order'         => 'DESC',
+            'no_found_rows' => true,
+        ) );
+        foreach ( $recent_posts as $rp ) {
+            $recent[] = array(
+                'title' => get_the_title( $rp ),
+                'url'   => get_permalink( $rp->ID ),
+                'date'  => get_the_date( 'Y-m-d', $rp ),
+            );
+        }
 
-        echo '<!DOCTYPE html><html lang="zh-CN"><head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>404 - 页面未找到 | ' . esc_html( $site_name ) . '</title>
-            <meta name="robots" content="noindex,follow">
-        </head><body style="margin:0;background:#f8fafc">' . $body_html . '</body></html>';
+        $categories = array();
+        foreach ( get_categories( array( 'hide_empty' => true, 'number' => 12 ) ) as $cat ) {
+            $cat_url = get_category_link( $cat->term_id );
+            if ( ! $cat_url || is_wp_error( $cat_url ) ) {
+                continue;
+            }
+            $categories[] = array(
+                'name'  => $cat->name,
+                'url'   => $cat_url,
+                'count' => absint( $cat->count ),
+            );
+        }
+
+        $suggestions = array();
+        if ( '' !== $request_path && '/' !== $request_path && empty( $args['is_preview'] ) ) {
+            $suggestions = self::find_redirect_suggestions( $request_path, 4 );
+        }
+
+        return array(
+            'layout'        => $layout,
+            'color_mode'    => $mode,
+            'is_preview'    => ! empty( $args['is_preview'] ),
+            'accent'        => $accent['hex'],
+            'accent_2'      => $accent['light'],
+            'accent_rgb'    => $accent['rgb'],
+            'on_accent'     => $accent['on'],
+            'accent_source' => $accent['source'],
+            'accent_label'  => $accent['label'],
+            'site_name'     => get_bloginfo( 'name' ),
+            'home_url'      => $home_url,
+            'posts_url'     => $posts_url,
+            'request_path'  => $request_path,
+            'recent'        => $recent,
+            'categories'    => $categories,
+            'suggestions'   => $suggestions,
+        );
     }
 
-    // ─────────── 生成自定义404页面HTML（供管理后台预览） ───────────
+    /**
+     * 动态区块占位符
+     *
+     * 保存为「自定义 404 页面」后，这些占位符仍会在前台按本次请求实时填充，
+     * 避免最新文章/分类列表冻结在保存那一刻。
+     *
+     * @return array<string,string>
+     */
+    private static function fragment_tokens() {
+        return array(
+            'path'        => '<!--yimai-404:path-->',
+            'suggestions' => '<!--yimai-404:suggestions-->',
+            'recent'      => '<!--yimai-404:recent-posts-->',
+            'categories'  => '<!--yimai-404:categories-->',
+        );
+    }
 
+    /**
+     * 计算动态区块的真实内容
+     *
+     * @return array<string,string>
+     */
+    private static function fragment_dynamic_parts( $ctx ) {
+        $path_html = '';
+        if ( '' !== $ctx['request_path'] && '/' !== $ctx['request_path'] && ! $ctx['is_preview'] ) {
+            $path_html = '<p class="yimai-404__path">请求地址 <code>' . esc_html( $ctx['request_path'] ) . '</code></p>';
+        }
+
+        $suggest_html = '';
+        if ( ! empty( $ctx['suggestions'] ) ) {
+            $items = '';
+            foreach ( $ctx['suggestions'] as $s ) {
+                $score = isset( $s['score'] ) ? absint( $s['score'] ) : 0;
+                $items .= '<li><a href="' . esc_url( $s['url'] ) . '">' . esc_html( $s['title'] ) . '</a>'
+                    . ( $score > 0 ? '<span class="yimai-404__score">' . $score . '%</span>' : '' ) . '</li>';
+            }
+            $suggest_html = '<div class="yimai-404__suggest">'
+                . '<div class="yimai-404__suggest-head"><span>您可能想找</span><span>按请求路径智能匹配</span></div>'
+                . '<ul>' . $items . '</ul>'
+                . '</div>';
+        }
+
+        $recent_html = '';
+        foreach ( $ctx['recent'] as $rp ) {
+            $recent_html .= '<li><a href="' . esc_url( $rp['url'] ) . '">' . esc_html( $rp['title'] ) . '</a>'
+                . '<time datetime="' . esc_attr( $rp['date'] ) . '">' . esc_html( $rp['date'] ) . '</time></li>';
+        }
+        if ( '' === $recent_html ) {
+            $recent_html = '<li class="yimai-404__empty">站点还没有已发布的文章</li>';
+        }
+
+        $cat_html = '';
+        foreach ( $ctx['categories'] as $cat ) {
+            $cat_html .= '<a class="yimai-404__chip" href="' . esc_url( $cat['url'] ) . '">'
+                . esc_html( $cat['name'] ) . '<b>' . absint( $cat['count'] ) . '</b></a>';
+        }
+        if ( '' === $cat_html ) {
+            $cat_html = '<span class="yimai-404__empty">站点还没有分类</span>';
+        }
+
+        return array(
+            'path'        => $path_html,
+            'suggestions' => $suggest_html,
+            'recent'      => $recent_html,
+            'categories'  => $cat_html,
+        );
+    }
+
+    /**
+     * 把片段里的占位符替换为实时内容（没有占位符的旧自定义页面原样返回）
+     */
+    private static function resolve_fragment_tokens( $fragment, $ctx ) {
+        $parts = self::fragment_dynamic_parts( $ctx );
+        foreach ( self::fragment_tokens() as $key => $token ) {
+            $fragment = str_replace( $token, isset( $parts[ $key ] ) ? $parts[ $key ] : '', $fragment );
+        }
+        return $fragment;
+    }
+
+    /**
+     * 把片段根节点的 class 同步为当前「页面骨架 / 配色模式」
+     *
+     * 模板的骨架与深浅色完全由根节点 class 驱动，所以后台改选项后不必重新生成代码，
+     * 保存和渲染时会自动校正；手写的其它标记不受影响。
+     */
+    private static function normalize_fragment_root( $fragment, $ctx ) {
+        $classes = 'yimai-404 yimai-404--' . $ctx['layout'];
+        if ( 'standalone' === $ctx['layout'] ) {
+            $classes .= ' yimai-404--' . $ctx['color_mode'];
+        }
+        $result = preg_replace(
+            '/class="yimai-404 yimai-404--(?:theme|standalone)(?: yimai-404--(?:auto|light|dark))?"/',
+            'class="' . $classes . '"',
+            $fragment,
+            1
+        );
+        return is_string( $result ) ? $result : $fragment;
+    }
+
+    /**
+     * 生成可直接编辑的 404 片段（style + 结构），后台文本框保存的就是它
+     *
+     * @param array $ctx         渲染上下文
+     * @param bool  $with_tokens true = 保留动态占位符（编辑器/入库），false = 直接填充（前台渲染）
+     */
+    private static function template_fragment( $ctx, $with_tokens = false ) {
+        $fragment = self::template_css( $ctx ) . self::template_markup( $ctx );
+        return $with_tokens ? $fragment : self::resolve_fragment_tokens( $fragment, $ctx );
+    }
+
+    /**
+     * 404 页面结构
+     */
+    private static function template_markup( $ctx ) {
+        $classes = 'yimai-404 yimai-404--' . $ctx['layout'];
+        if ( 'standalone' === $ctx['layout'] ) {
+            $classes .= ' yimai-404--' . $ctx['color_mode'];
+        }
+
+        $tokens      = self::fragment_tokens();
+        $search_icon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.8-3.8"></path></svg>';
+
+        return sprintf(
+            '<div class="%1$s" data-layout="%2$s">
+    <div class="yimai-404__inner">
+        <p class="yimai-404__eyebrow">页面未找到</p>
+        <div class="yimai-404__code" aria-hidden="true">404</div>
+        <h1 class="yimai-404__title">这个页面走丢了</h1>
+        <p class="yimai-404__desc">您访问的地址可能已被移动、删除，或者从未存在过。换个入口，或直接搜索您想要的内容。</p>
+        %3$s
+        <form class="yimai-404__search" role="search" method="get" action="%4$s">
+            <label class="yimai-404__sr" for="yimai-404-search">搜索本站内容</label>
+            <input id="yimai-404-search" type="search" name="s" placeholder="想找什么？输入关键词搜索" autocomplete="off">
+            <button type="submit">%5$s<span>搜索</span></button>
+        </form>
+        <div class="yimai-404__actions">
+            <a class="yimai-404__btn yimai-404__btn--primary" href="%6$s">返回首页</a>
+            <a class="yimai-404__btn" href="%7$s">浏览全部文章</a>
+        </div>
+        %8$s
+        <div class="yimai-404__grid">
+            <section class="yimai-404__card">
+                <h2>最新文章</h2>
+                <ul class="yimai-404__list">%9$s</ul>
+            </section>
+            <section class="yimai-404__card">
+                <h2>按分类浏览</h2>
+                <div class="yimai-404__chips">%10$s</div>
+                <p class="yimai-404__card-note">没找到想要的内容？用上方搜索框直接搜关键词。</p>
+            </section>
+        </div>
+        <p class="yimai-404__footer">%11$s · 若您是从站内链接来到这里，欢迎反馈给我们</p>
+    </div>
+</div>',
+            esc_attr( $classes ),
+            esc_attr( $ctx['layout'] ),
+            $tokens['path'],
+            esc_url( $ctx['home_url'] ),
+            $search_icon,
+            esc_url( $ctx['home_url'] ),
+            esc_url( $ctx['posts_url'] ),
+            $tokens['suggestions'],
+            $tokens['recent'],
+            $tokens['categories'],
+            esc_html( $ctx['site_name'] )
+        );
+    }
+
+    /**
+     * 404 页面样式
+     *
+     * 设计要点：
+     *  - 主色来自设置（默认自动识别主题调色板），按钮文字按主色亮度自动取黑/白；
+     *  - 「跟随主题」模式使用半透明中性色（rgba(127,127,127,…)）与 color:inherit，
+     *    在任何浅色/深色主题下都能自然融合，不做背景覆盖；
+     *  - 「独立页面」模式自带浅色/深色变量，auto 时跟随系统 prefers-color-scheme。
+     */
+    private static function template_css( $ctx ) {
+        $variables = sprintf(
+            '.yimai-404{--y404-accent:%1$s;--y404-accent-2:%2$s;--y404-accent-rgb:%3$s;--y404-on-accent:%4$s}',
+            esc_attr( $ctx['accent'] ),
+            esc_attr( $ctx['accent_2'] ),
+            esc_attr( implode( ',', $ctx['accent_rgb'] ) ),
+            esc_attr( $ctx['on_accent'] )
+        );
+
+        $css = <<<'CSS'
+.yimai-404,.yimai-404 *,.yimai-404 *::before,.yimai-404 *::after{box-sizing:border-box}
+.yimai-404{
+    --y404-radius:16px;
+    --y404-surface:rgba(127,127,127,.07);
+    --y404-surface-2:rgba(127,127,127,.13);
+    --y404-line:rgba(127,127,127,.22);
+    --y404-line-strong:rgba(127,127,127,.4);
+    position:relative;
+    padding:clamp(2.5rem,6vw,5rem) 1.25rem;
+    font-family:inherit;
+    color:inherit;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+}
+.yimai-404__inner{position:relative;max-width:940px;margin:0 auto;text-align:center}
+.yimai-404__eyebrow{
+    display:inline-flex;align-items:center;gap:10px;margin:0 0 18px;
+    font-size:11px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;opacity:.6;color:inherit;
+}
+.yimai-404__eyebrow::before,.yimai-404__eyebrow::after{content:"";display:block;width:24px;height:1px;background:currentColor;opacity:.45}
+.yimai-404__code{
+    margin:0 0 .1em;
+    font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:clamp(84px,17vw,168px);font-weight:800;line-height:.82;letter-spacing:-.055em;
+    background-image:linear-gradient(135deg,var(--y404-accent) 0%,var(--y404-accent-2) 100%);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;color:transparent;
+}
+@supports not ((-webkit-background-clip:text) or (background-clip:text)){
+    .yimai-404__code{color:var(--y404-accent);-webkit-text-fill-color:currentColor}
+}
+.yimai-404__title{margin:0 0 .55em;font-size:clamp(21px,2.6vw,28px);font-weight:700;line-height:1.35;letter-spacing:-.01em;color:inherit}
+.yimai-404__desc{margin:0 auto 1.3em;max-width:34em;font-size:15px;line-height:1.75;opacity:.7;color:inherit}
+.yimai-404__path{margin:0 auto 1.6em;font-size:12.5px;opacity:.55}
+.yimai-404__path code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;
+    margin-left:6px;padding:2px 8px;border-radius:6px;
+    background:var(--y404-surface);border:1px solid var(--y404-line);word-break:break-all;
+}
+.yimai-404__search{
+    display:flex;align-items:center;gap:8px;max-width:560px;margin:0 auto 20px;padding:6px;
+    border:1px solid var(--y404-line);border-radius:999px;background:var(--y404-surface);
+    transition:border-color .2s ease,box-shadow .2s ease;
+}
+.yimai-404__search:focus-within{border-color:var(--y404-accent);box-shadow:0 0 0 4px rgba(var(--y404-accent-rgb),.16)}
+.yimai-404__search input{
+    flex:1 1 auto;min-width:0;padding:10px 16px;border:0;border-radius:999px;
+    background:transparent;color:inherit;font-family:inherit;font-size:16px;line-height:1.4;outline:none;
+    -webkit-appearance:none;appearance:none;box-shadow:none;
+}
+.yimai-404__search input::placeholder{color:currentColor;opacity:.42}
+.yimai-404__search input::-webkit-search-cancel-button{-webkit-appearance:none}
+.yimai-404__search button{
+    display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;padding:11px 22px;
+    border:0;border-radius:999px;cursor:pointer;white-space:nowrap;
+    background:linear-gradient(135deg,var(--y404-accent),var(--y404-accent-2));
+    color:var(--y404-on-accent);font-family:inherit;font-size:14px;font-weight:600;
+    text-transform:none;letter-spacing:normal;box-shadow:none;
+    transition:transform .16s ease,filter .16s ease;
+}
+.yimai-404__search button:hover{transform:translateY(-1px);filter:brightness(1.06)}
+.yimai-404__search button:active{transform:translateY(0)}
+.yimai-404__search button:focus-visible,.yimai-404__btn:focus-visible,.yimai-404__chip:focus-visible,
+.yimai-404__list a:focus-visible,.yimai-404__suggest a:focus-visible{outline:2px solid var(--y404-accent);outline-offset:3px}
+.yimai-404__actions{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-bottom:clamp(30px,4.5vw,48px)}
+.yimai-404__btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 26px;
+    border:1px solid var(--y404-line-strong);border-radius:999px;background:transparent;
+    color:inherit;font-size:14px;font-weight:600;line-height:1.3;text-decoration:none;
+    transition:transform .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease,filter .16s ease;
+}
+.yimai-404__btn:hover{border-color:var(--y404-accent);color:var(--y404-accent);background:rgba(var(--y404-accent-rgb),.07)}
+.yimai-404__btn--primary{
+    border-color:transparent;color:var(--y404-on-accent);
+    background:linear-gradient(135deg,var(--y404-accent),var(--y404-accent-2));
+    box-shadow:0 8px 22px rgba(var(--y404-accent-rgb),.28);
+}
+.yimai-404__btn--primary:hover{
+    color:var(--y404-on-accent);transform:translateY(-1px);filter:brightness(1.06);
+    background:linear-gradient(135deg,var(--y404-accent),var(--y404-accent-2));
+    box-shadow:0 12px 26px rgba(var(--y404-accent-rgb),.34);
+}
+.yimai-404__suggest{
+    max-width:660px;margin:0 auto clamp(30px,4.5vw,44px);padding:16px 20px;text-align:left;
+    border:1px solid var(--y404-line);border-left:3px solid var(--y404-accent);
+    border-radius:14px;background:var(--y404-surface);
+}
+.yimai-404__suggest-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:13px;font-weight:700}
+.yimai-404__suggest-head span:last-child{font-size:11px;font-weight:500;letter-spacing:.04em;opacity:.5}
+.yimai-404__suggest ul{list-style:none;margin:0;padding:0}
+.yimai-404__suggest li{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px dashed var(--y404-line)}
+.yimai-404__suggest li:first-child{border-top:0;padding-top:2px}
+.yimai-404__suggest a{color:inherit;font-size:14px;font-weight:500;text-decoration:none;overflow:hidden;text-overflow:ellipsis}
+.yimai-404__suggest a:hover{color:var(--y404-accent)}
+.yimai-404__score{flex:0 0 auto;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(var(--y404-accent-rgb),.12);color:var(--y404-accent)}
+.yimai-404__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;align-items:start;margin-bottom:clamp(30px,4.5vw,44px);text-align:left}
+.yimai-404__card{padding:22px 24px;border:1px solid var(--y404-line);border-radius:var(--y404-radius);background:var(--y404-surface)}
+.yimai-404__card h2{display:flex;align-items:center;gap:9px;margin:0 0 14px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.82;color:inherit}
+.yimai-404__card h2::before{content:"";width:3px;height:13px;border-radius:2px;background:var(--y404-accent)}
+.yimai-404__list{list-style:none;margin:0;padding:0}
+.yimai-404__list li{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--y404-line);font-size:14px}
+.yimai-404__list li:first-child{border-top:0;padding-top:0}
+.yimai-404__list a{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;color:inherit;font-weight:500;line-height:1.5;text-decoration:none}
+.yimai-404__list a:hover{color:var(--y404-accent)}
+.yimai-404__list time{flex:0 0 auto;font-size:11px;opacity:.5;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.yimai-404__chips{display:flex;flex-wrap:wrap;gap:8px}
+.yimai-404__chip{
+    display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border:1px solid var(--y404-line);
+    border-radius:999px;background:transparent;color:inherit;font-size:12.5px;text-decoration:none;
+    transition:border-color .15s ease,color .15s ease,background .15s ease;
+}
+.yimai-404__chip b{font-size:10.5px;font-weight:700;opacity:.55}
+.yimai-404__chip:hover{border-color:var(--y404-accent);color:var(--y404-accent);background:rgba(var(--y404-accent-rgb),.08)}
+.yimai-404__chip:hover b{opacity:.9}
+.yimai-404__card-note{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--y404-line);font-size:12px;line-height:1.6;opacity:.5}
+.yimai-404__empty{display:block;padding:4px 0;font-size:12.5px;opacity:.5}
+.yimai-404__footer{margin:0;font-size:12px;line-height:1.7;opacity:.45}
+.yimai-404__sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.yimai-404--theme{background:transparent}
+.yimai-404--standalone{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.yimai-404--standalone .yimai-404__inner{width:100%}
+.yimai-404--standalone.yimai-404--light{
+    --y404-surface:#fff;--y404-surface-2:#f1f5f9;--y404-line:#e4e9f2;--y404-line-strong:#cbd5e1;
+    color:#0f172a;
+    background:radial-gradient(58% 42% at 12% 0%,rgba(var(--y404-accent-rgb),.16),transparent 70%),
+               radial-gradient(52% 40% at 92% 8%,rgba(var(--y404-accent-rgb),.1),transparent 72%),#f7f8fc;
+}
+.yimai-404--standalone.yimai-404--light .yimai-404__card{box-shadow:0 12px 34px rgba(15,23,42,.06)}
+.yimai-404--standalone.yimai-404--dark{
+    --y404-surface:rgba(255,255,255,.055);--y404-surface-2:rgba(255,255,255,.1);
+    --y404-line:rgba(255,255,255,.14);--y404-line-strong:rgba(255,255,255,.26);
+    color:#e9edf6;
+    background:radial-gradient(58% 42% at 12% 0%,rgba(var(--y404-accent-rgb),.28),transparent 70%),
+               radial-gradient(52% 40% at 92% 8%,rgba(var(--y404-accent-rgb),.18),transparent 72%),#0a0e17;
+}
+.yimai-404--standalone.yimai-404--dark .yimai-404__card{box-shadow:0 12px 34px rgba(0,0,0,.32)}
+@media (prefers-color-scheme:dark){
+    .yimai-404--standalone.yimai-404--auto{
+        --y404-surface:rgba(255,255,255,.055);--y404-surface-2:rgba(255,255,255,.1);
+        --y404-line:rgba(255,255,255,.14);--y404-line-strong:rgba(255,255,255,.26);
+        color:#e9edf6;
+        background:radial-gradient(58% 42% at 12% 0%,rgba(var(--y404-accent-rgb),.28),transparent 70%),
+                   radial-gradient(52% 40% at 92% 8%,rgba(var(--y404-accent-rgb),.18),transparent 72%),#0a0e17;
+    }
+    .yimai-404--standalone.yimai-404--auto .yimai-404__card{box-shadow:0 12px 34px rgba(0,0,0,.32)}
+}
+@media (max-width:600px){
+    .yimai-404{padding-left:.9rem;padding-right:.9rem}
+    .yimai-404__search button{padding:11px 16px}
+    .yimai-404__search button span{display:none}
+    .yimai-404__card{padding:18px}
+    .yimai-404__btn{width:100%}
+    .yimai-404__actions{gap:10px}
+}
+@media (prefers-reduced-motion:reduce){
+    .yimai-404 *,.yimai-404 *::before,.yimai-404 *::after{transition:none!important;animation:none!important}
+}
+CSS;
+
+        return '<style id="yimai-404-style">' . $variables . $css . '</style>';
+    }
+
+    /**
+     * 独立页面模式的完整 HTML 文档
+     */
+    private static function standalone_document( $fragment, $ctx ) {
+        $body_class = 'yimai-404-body';
+        if ( 'dark' === $ctx['color_mode'] ) {
+            $body_class .= ' yimai-404-body--dark';
+        } elseif ( 'light' === $ctx['color_mode'] ) {
+            $body_class .= ' yimai-404-body--light';
+        }
+
+        return '<!DOCTYPE html>
+<html lang="' . esc_attr( get_bloginfo( 'language' ) ) . '">
+<head>
+<meta charset="' . esc_attr( get_bloginfo( 'charset' ) ) . '">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,follow">
+<title>404 · 页面走丢了 | ' . esc_html( $ctx['site_name'] ) . '</title>
+' . self::shell_css() . '
+</head>
+<body class="' . esc_attr( $body_class ) . '">
+' . $fragment . '
+</body>
+</html>';
+    }
+
+    /**
+     * 独立页面的文档级基础样式（只负责 body 背景与字体，页面细节由片段自带）
+     */
+    private static function shell_css() {
+        $css = <<<'CSS'
+html{-webkit-text-size-adjust:100%}
+html,body{margin:0;padding:0}
+body.yimai-404-body{
+    min-height:100vh;background:#f7f8fc;color:#0f172a;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+}
+body.yimai-404-body--dark{background:#0a0e17;color:#e9edf6}
+body.yimai-404-body--light{background:#f7f8fc;color:#0f172a}
+@media (prefers-color-scheme:dark){
+    body.yimai-404-body:not(.yimai-404-body--light){background:#0a0e17;color:#e9edf6}
+}
+CSS;
+        return '<style id="yimai-404-shell-style">' . $css . '</style>';
+    }
+
+    // ─────────── 配色：主色解析与主题取色 ───────────
+
+    /**
+     * 解析最终主色
+     *
+     * @param string $setting 设置值：空 = 自动跟随主题，或 #rrggbb
+     * @return array{hex:string,rgb:int[],light:string,on:string,source:string,label:string}
+     */
+    private static function resolve_accent( $setting ) {
+        $setting = trim( (string) $setting );
+        $hex     = '';
+        $source  = 'default';
+
+        if ( '' !== $setting && 'theme' !== $setting ) {
+            $hex = self::normalize_hex_color( $setting );
+            if ( '' !== $hex ) {
+                $source = 'custom';
+            }
+        }
+
+        if ( '' === $hex ) {
+            $detected = self::detect_theme_accent();
+            if ( '' !== $detected ) {
+                $hex    = $detected;
+                $source = 'theme';
+            }
+        }
+
+        if ( '' === $hex ) {
+            $hex = '#6366f1';
+        }
+
+        // 允许主题/子主题进一步覆盖
+        $hex = self::normalize_hex_color( (string) apply_filters( 'yimai_gso_404_accent_color', $hex, $source ) );
+        if ( '' === $hex ) {
+            $hex    = '#6366f1';
+            $source = 'default';
+        }
+
+        $labels = array(
+            'custom'  => '自定义主色',
+            'theme'   => '站点主题色',
+            'default' => '插件默认主色',
+        );
+
+        return array(
+            'hex'    => $hex,
+            'rgb'    => self::hex_to_rgb( $hex ),
+            'light'  => self::mix_hex( $hex, '#ffffff', 0.26 ),
+            'on'     => self::pick_contrast_color( $hex ),
+            'source' => $source,
+            'label'  => $labels[ $source ],
+        );
+    }
+
+    /**
+     * 从当前主题推断主色
+     *
+     * 优先读区块主题的全局调色板（theme / default 两个来源），再读常见 theme_mod，
+     * 按饱和度与语义标签打分，跳过背景/正文一类的灰阶色。
+     *
+     * @return string 十六进制色值，未识别时返回空串
+     */
+    private static function detect_theme_accent() {
+        $candidates = array();
+
+        if ( function_exists( 'wp_get_global_settings' ) ) {
+            foreach ( array( 'theme', 'default' ) as $origin ) {
+                $palette = wp_get_global_settings( array( 'color', 'palette', $origin ) );
+                if ( ! is_array( $palette ) ) {
+                    continue;
+                }
+                foreach ( $palette as $entry ) {
+                    if ( ! is_array( $entry ) || empty( $entry['color'] ) ) {
+                        continue;
+                    }
+                    $candidates[] = array(
+                        'hex'  => (string) $entry['color'],
+                        'hint' => ( isset( $entry['slug'] ) ? (string) $entry['slug'] : '' ) . ' ' . ( isset( $entry['name'] ) ? (string) $entry['name'] : '' ),
+                    );
+                }
+            }
+        }
+
+        foreach ( array( 'accent_color', 'primary_color', 'link_color', 'highlight_color', 'button_background_color', 'theme_color', 'color_primary', 'brand_color' ) as $mod ) {
+            $value = get_theme_mod( $mod );
+            if ( is_string( $value ) && '' !== $value ) {
+                $candidates[] = array( 'hex' => $value, 'hint' => $mod );
+            }
+        }
+
+        $best       = '';
+        $best_score = 12; // 阈值：饱和度太低的灰阶色不采用
+        foreach ( $candidates as $candidate ) {
+            $hex = self::normalize_hex_color( $candidate['hex'] );
+            if ( '' === $hex ) {
+                continue;
+            }
+            $score = self::score_accent_candidate( $hex, $candidate['hint'] );
+            if ( $score > $best_score ) {
+                $best_score = $score;
+                $best       = $hex;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * 主色候选打分（饱和度 + 语义标签 - 灰阶惩罚）
+     */
+    private static function score_accent_candidate( $hex, $hint ) {
+        $rgb = self::hex_to_rgb( $hex );
+        $max = max( $rgb );
+        $min = min( $rgb );
+        if ( $max <= 0 ) {
+            return -100;
+        }
+
+        $saturation = ( $max - $min ) / $max;
+        $luminance  = self::luminance( $hex );
+        if ( $luminance < 0.05 || $luminance > 0.94 ) {
+            return -100;
+        }
+
+        $score = $saturation * 100;
+        if ( $luminance < 0.14 || $luminance > 0.82 ) {
+            $score -= 20;
+        }
+        if ( preg_match( '/primary|accent|brand|link|highlight|button/i', (string) $hint ) ) {
+            $score += 26;
+        }
+        if ( preg_match( '/background|surface|base|neutral|gray|grey|muted|body|text|contrast|white|black/i', (string) $hint ) ) {
+            $score -= 45;
+        }
+
+        return $score;
+    }
+
+    private static function normalize_hex_color( $color ) {
+        $color = trim( (string) $color );
+        if ( '' === $color ) {
+            return '';
+        }
+        if ( '#' !== substr( $color, 0, 1 ) ) {
+            $color = '#' . $color;
+        }
+        if ( preg_match( '/^#([0-9a-f]{3})$/i', $color, $m ) ) {
+            return '#' . $m[1][0] . $m[1][0] . $m[1][1] . $m[1][1] . $m[1][2] . $m[1][2];
+        }
+        if ( preg_match( '/^#([0-9a-f]{6})$/i', $color ) ) {
+            return strtolower( $color );
+        }
+        return '';
+    }
+
+    private static function hex_to_rgb( $hex ) {
+        $hex = ltrim( self::normalize_hex_color( $hex ), '#' );
+        if ( 6 !== strlen( $hex ) ) {
+            return array( 99, 102, 241 );
+        }
+        return array(
+            hexdec( substr( $hex, 0, 2 ) ),
+            hexdec( substr( $hex, 2, 2 ) ),
+            hexdec( substr( $hex, 4, 2 ) ),
+        );
+    }
+
+    /**
+     * 将颜色按比例混向目标色（用于生成渐变的第二停靠点）
+     */
+    private static function mix_hex( $hex, $toward, $ratio ) {
+        $a = self::hex_to_rgb( $hex );
+        $b = self::hex_to_rgb( $toward );
+        $ratio = max( 0, min( 1, (float) $ratio ) );
+
+        $out = array();
+        for ( $i = 0; $i < 3; $i++ ) {
+            $out[] = (int) round( $a[ $i ] * ( 1 - $ratio ) + $b[ $i ] * $ratio );
+        }
+        return sprintf( '#%02x%02x%02x', $out[0], $out[1], $out[2] );
+    }
+
+    /**
+     * 近似相对亮度（决定按钮上的文字用黑还是白）
+     */
+    private static function luminance( $hex ) {
+        $rgb = self::hex_to_rgb( $hex );
+        $channels = array();
+        foreach ( $rgb as $value ) {
+            $c = $value / 255;
+            $channels[] = ( $c <= 0.03928 ) ? $c / 12.92 : pow( ( $c + 0.055 ) / 1.055, 2.4 );
+        }
+        return 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2];
+    }
+
+    private static function pick_contrast_color( $hex ) {
+        return self::luminance( $hex ) > 0.5 ? '#101828' : '#ffffff';
+    }
+
+    // ─────────── 自定义 404 页面：生成 / 读取 / 保存 / 重置 ───────────
+
+    /**
+     * 读取后台提交的样式参数（空值表示沿用已保存设置）
+     *
+     * @return array
+     */
+    private static function read_page_style_args() {
+        $args = array();
+        // 逐项判断「是否提交」，而不是「是否非空」：
+        // accent 的空字符串是合法值（= 自动跟随主题色），不能当成未提交。
+        if ( isset( $_POST['layout'] ) ) {
+            $args['layout'] = sanitize_key( wp_unslash( $_POST['layout'] ) );
+        }
+        if ( isset( $_POST['color_mode'] ) ) {
+            $args['color_mode'] = sanitize_key( wp_unslash( $_POST['color_mode'] ) );
+        }
+        if ( isset( $_POST['accent'] ) ) {
+            $args['accent'] = sanitize_text_field( wp_unslash( $_POST['accent'] ) );
+        }
+        return $args;
+    }
+
+    /**
+     * 预览地址（管理员专用）
+     */
+    private static function preview_url() {
+        return add_query_arg( 'yimai_gso_404_preview', '1', home_url( '/' ) );
+    }
+
+    /**
+     * 生成 404 页面 HTML（后台文本框内容 + iframe 预览文档）
+     */
     public static function ajax_generate_404_page() {
         check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
-        $site_name = get_bloginfo( 'name' );
-        $home_url  = home_url( '/' );
 
-        $recent_posts = get_posts( array( 'numberposts' => 10, 'post_status' => 'publish', 'orderby' => 'date', 'order' => 'DESC' ) );
-        $recent_html = '';
-        foreach ( $recent_posts as $rp ) {
-            $recent_html .= sprintf(
-                '<li><a href="%s">%s</a> <span style="color:#999;font-size:12px">%s</span></li>',
-                esc_url( get_permalink( $rp->ID ) ),
-                esc_html( $rp->post_title ),
-                get_the_date( 'Y-m-d', $rp )
-            );
-        }
-
-        $categories = get_categories( array( 'hide_empty' => true, 'number' => 20 ) );
-        $cat_html = '';
-        foreach ( $categories as $cat ) {
-            $cat_html .= sprintf(
-                '<a href="%s" style="display:inline-block;margin:4px 8px 4px 0;padding:4px 12px;background:#f0f0f1;border-radius:4px;text-decoration:none;color:#2271b1;font-size:13px">%s (%d)</a>',
-                esc_url( get_category_link( $cat->term_id ) ),
-                esc_html( $cat->name ),
-                absint( $cat->count )
-            );
-        }
-
-        $html = sprintf(
-            '<div style="max-width:720px;margin:60px auto;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">
-                <div style="text-align:center;margin-bottom:40px">
-                    <h1 style="font-size:72px;margin:0;color:#1d2327">404</h1>
-                    <p style="font-size:20px;color:#646970;margin:16px 0 0">抱歉，您访问的页面不存在</p>
-                    <p style="color:#8c8f94;margin:8px 0 0">页面可能已被移动、删除或从未存在</p>
-                </div>
-                <div style="margin-bottom:32px"><form role="search" method="get" action="%s" style="display:flex;max-width:480px;margin:0 auto">
-                    <input type="search" name="s" placeholder="搜索您想找的内容..." style="flex:1;padding:10px 16px;border:1px solid #8c8f94;border-radius:4px 0 0 4px;font-size:15px;outline:none">
-                    <button type="submit" style="padding:10px 24px;background:#2271b1;color:#fff;border:none;border-radius:0 4px 4px 0;cursor:pointer;font-size:15px">搜索</button>
-                </form></div>
-                <div style="margin-bottom:32px"><a href="%s" style="display:inline-block;padding:10px 24px;background:#2271b1;color:#fff;border-radius:4px;text-decoration:none;font-size:15px">&#8592; 返回首页</a></div>
-                <div style="display:flex;gap:24px;flex-wrap:wrap">
-                    <div style="flex:1;min-width:280px"><h3 style="margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid #2271b1;font-size:16px">最新文章</h3><ul style="margin:0;padding:0;list-style:none">%s</ul></div>
-                    <div style="flex:1;min-width:280px"><h3 style="margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid #2271b1;font-size:16px">分类浏览</h3><div>%s</div></div>
-                </div>
-            </div>',
-            esc_url( $home_url ), esc_url( $home_url ), $recent_html, $cat_html
-        );
+        $ctx      = self::build_404_context( array_merge( self::read_page_style_args(), array( 'is_preview' => true ) ) );
+        $fragment = self::template_fragment( $ctx, true );
 
         wp_send_json_success( array(
-            'html'       => $html,
-            'site_name'  => $site_name,
-            'preview_url' => $home_url . '?yimai_gso_404_preview=1',
+            'html'          => $fragment,
+            'document'      => self::standalone_document( self::resolve_fragment_tokens( $fragment, $ctx ), $ctx ),
+            'dynamic'       => self::fragment_dynamic_parts( $ctx ),
+            'layout'        => $ctx['layout'],
+            'color_mode'    => $ctx['color_mode'],
+            'accent'        => $ctx['accent'],
+            'accent_source' => $ctx['accent_source'],
+            'accent_label'  => $ctx['accent_label'],
+            'preview_url'   => self::preview_url(),
         ) );
+    }
+
+    /**
+     * 读取已保存的自定义 404 页面（没有则返回空，由前端决定是否生成默认模板）
+     */
+    public static function ajax_get_page() {
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => '权限不足' ) );
+        }
+
+        $ctx = self::build_404_context( array( 'is_preview' => true ) );
+
+        wp_send_json_success( array(
+            'html'           => (string) YIMAI_GSO_Settings::get( 'optimize_404_custom_page', '' ),
+            'dynamic'        => self::fragment_dynamic_parts( $ctx ),
+            'layout'         => $ctx['layout'],
+            'color_mode'     => $ctx['color_mode'],
+            'accent'         => $ctx['accent'],
+            'accent_source'  => $ctx['accent_source'],
+            'accent_label'   => $ctx['accent_label'],
+            'custom_enabled' => absint( YIMAI_GSO_Settings::get( 'optimize_404_custom_enabled', 0 ) ),
+            'preview_url'    => self::preview_url(),
+        ) );
+    }
+
+    /**
+     * 写入自定义 404 页面 HTML
+     *
+     * 这段 HTML 通常十几 KB，不必随 alloptions 在每次请求里加载，
+     * 因此新建时 autoload=no；WP 6.4+ 还会把已存在的老 option 一并改为不自动加载。
+     */
+    private static function set_custom_page_option( $html ) {
+        $option_name = 'yimai_gso_optimize_404_custom_page';
+        update_option( $option_name, $html, false );
+        YIMAI_GSO_Settings::set( 'optimize_404_custom_page', $html ); // 同步设置类的内存缓存
+        if ( function_exists( 'wp_set_option_autoload' ) ) {
+            wp_set_option_autoload( $option_name, false );
+        }
+    }
+
+    /**
+     * 保存后台文本框内容为自定义 404 页面，并立即启用
+     */
+    public static function ajax_save_page() {
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => '权限不足。' ) );
+        }
+
+        $html = self::sanitize_page_markup( wp_unslash( $_POST['html'] ?? '' ) );
+        if ( '' === $html ) {
+            wp_send_json_error( array( 'message' => '内容是空的：请先生成模板再保存。' ) );
+        }
+
+        $layout = sanitize_key( wp_unslash( $_POST['layout'] ?? 'theme' ) );
+        $layout = in_array( $layout, array( 'theme', 'standalone' ), true ) ? $layout : 'theme';
+
+        $mode = sanitize_key( wp_unslash( $_POST['color_mode'] ?? 'auto' ) );
+        $mode = in_array( $mode, array( 'auto', 'light', 'dark' ), true ) ? $mode : 'auto';
+
+        $accent_raw = sanitize_text_field( wp_unslash( $_POST['accent'] ?? '' ) );
+        $accent     = ( '' === $accent_raw || 'theme' === $accent_raw ) ? '' : self::normalize_hex_color( $accent_raw );
+
+        // 让落库的片段根节点 class 与本次选择的骨架/配色一致（改选项后不必重新生成）
+        $html = self::normalize_fragment_root( $html, array( 'layout' => $layout, 'color_mode' => $mode ) );
+
+        self::set_custom_page_option( $html );
+        YIMAI_GSO_Settings::set( 'optimize_404_layout', $layout );
+        YIMAI_GSO_Settings::set( 'optimize_404_color_mode', $mode );
+        YIMAI_GSO_Settings::set( 'optimize_404_accent', $accent );
+        YIMAI_GSO_Settings::set( 'optimize_404_custom_enabled', 1 );
+
+        wp_send_json_success( array(
+            'message'     => '已保存并启用，前台 404 页面立即生效。',
+            'html'        => $html,
+            'dynamic'     => self::fragment_dynamic_parts( self::build_404_context( array( 'is_preview' => true ) ) ),
+            'bytes'       => strlen( $html ),
+            'preview_url' => self::preview_url(),
+        ) );
+    }
+
+    /**
+     * 清空自定义页面，回到插件默认模板
+     */
+    public static function ajax_reset_page() {
+        check_ajax_referer( 'yimai_gso_seo_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => '权限不足。' ) );
+        }
+
+        self::set_custom_page_option( '' );
+        YIMAI_GSO_Settings::set( 'optimize_404_layout', 'theme' );
+        YIMAI_GSO_Settings::set( 'optimize_404_color_mode', 'auto' );
+        YIMAI_GSO_Settings::set( 'optimize_404_accent', '' );
+
+        $ctx      = self::build_404_context( array( 'is_preview' => true ) );
+        $fragment = self::template_fragment( $ctx, true );
+
+        wp_send_json_success( array(
+            'message'     => '已恢复默认模板，前台立即生效。',
+            'html'        => $fragment,
+            'document'    => self::standalone_document( self::resolve_fragment_tokens( $fragment, $ctx ), $ctx ),
+            'dynamic'     => self::fragment_dynamic_parts( $ctx ),
+            'layout'      => $ctx['layout'],
+            'color_mode'  => $ctx['color_mode'],
+            'accent'      => $ctx['accent'],
+            'preview_url' => self::preview_url(),
+        ) );
+    }
+
+    /**
+     * 清洗后台提交的 404 页面 HTML
+     *
+     * 只允许排版与样式，拦掉可执行内容（脚本、内联事件、iframe/object、meta refresh、
+     * javascript: 协议）。保存入口仅限 manage_options，因此不做标签白名单，
+     * 以免把 <style>、data-* 等样式相关标记一并削掉。
+     *
+     * @param string $html
+     * @return string
+     */
+    private static function sanitize_page_markup( $html ) {
+        $html = trim( (string) $html );
+        if ( '' === $html ) {
+            return '';
+        }
+        if ( strlen( $html ) > 200000 ) {
+            $html = substr( $html, 0, 200000 );
+        }
+
+        $html = preg_replace( '#<script\b[^>]*>.*?</script>#is', '', $html );
+        $html = preg_replace( '#<script\b[^>]*/?>#is', '', $html );
+        $html = preg_replace( '#<(iframe|object|embed|applet|base)\b[^>]*>.*?</\1>#is', '', $html );
+        $html = preg_replace( '#<(iframe|object|embed|applet|base)\b[^>]*/?>#is', '', $html );
+        $html = preg_replace( '#<meta\b[^>]*http-equiv\s*=\s*(["\']?)refresh\1[^>]*>#is', '', $html );
+        $html = preg_replace( '#\son[a-z]+\s*=\s*(".*?"|\'.*?\'|[^\s>]+)#is', '', $html );
+        // 链接/表单目标里的 javascript: 协议：带引号与不带引号两种写法分别处理
+        $html = preg_replace( '#(href|src|action|formaction)\s*=\s*(["\'])\s*javascript:[^"\']*\2#is', '$1=$2#$2', $html );
+        $html = preg_replace( '#(href|src|action|formaction)\s*=\s*javascript:[^\s>]*#is', '$1="#"', $html );
+
+        return trim( (string) $html );
     }
 
     // ─────────── 设置保存 ───────────
