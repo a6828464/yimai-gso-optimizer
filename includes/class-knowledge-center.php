@@ -32,6 +32,8 @@ class YIMAI_GSO_Knowledge_Center {
         add_action( 'admin_post_' . self::UPDATE_ACTION, array( $this, 'handle_update' ) );
         add_action( 'admin_post_' . self::DELETE_ACTION, array( $this, 'handle_delete' ) );
         add_action( self::AI_CLASSIFY_HOOK, array( $this, 'process_ai_classification_queue' ) );
+        add_action( 'wp_ajax_yimai_gso_kb_get_document', array( $this, 'ajax_get_document' ) );
+        add_action( 'wp_ajax_yimai_gso_kb_run_classification', array( $this, 'ajax_run_classification' ) );
     }
 
     public function register_menu() {
@@ -162,6 +164,16 @@ class YIMAI_GSO_Knowledge_Center {
             </div>
 
             <h2>已导入资料</h2>
+            <?php
+            global $wpdb;
+            $pending_ai = absint( $wpdb->get_var( "SELECT COUNT(*) FROM " . self::documents_table() . " WHERE status = 'ready' AND visibility != 'blocked' AND metadata LIKE '%\"classification\":\"rules\"%'" ) );
+            ?>
+            <p class="yimai-kb-tools">
+                <button type="button" class="button" id="yimai-kb-run-classification"<?php disabled( $pending_ai < 1 ); ?>>
+                    ⚡ AI 复核待识别资料<?php echo $pending_ai > 0 ? '（' . esc_html( (string) $pending_ai ) . ' 条）' : ''; ?>
+                </button>
+                <span id="yimai-kb-classify-msg" style="margin-left:8px;"></span>
+            </p>
             <table class="widefat striped yimai-kb-table">
                 <thead><tr><th>资料</th><th>识别摘要</th><th>范围</th><th>风险</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead>
                 <tbody>
@@ -187,7 +199,8 @@ class YIMAI_GSO_Knowledge_Center {
                         <td><?php echo esc_html( $row['status'] ); ?></td>
                         <td><?php echo esc_html( $row['updated_at'] ); ?></td>
                         <td>
-                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('确定删除这条资料及其索引吗？');">
+                            <button type="button" class="button button-small yimai-kb-view-btn" data-id="<?php echo esc_attr( (string) $row['id'] ); ?>">👁 查看</button>
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('确定删除这条资料及其索引吗？');" style="display:inline">
                                 <input type="hidden" name="action" value="<?php echo esc_attr( self::DELETE_ACTION ); ?>">
                                 <input type="hidden" name="document_id" value="<?php echo esc_attr( (string) $row['id'] ); ?>">
                                 <?php wp_nonce_field( self::DELETE_ACTION . '_' . $row['id'] ); ?>
@@ -199,9 +212,64 @@ class YIMAI_GSO_Knowledge_Center {
                 </tbody>
             </table>
         </div>
+        <div id="yimai-kb-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="yimai-kb-modal-title">
+            <div class="yimai-kb-modal-backdrop" data-close="1"></div>
+            <div class="yimai-kb-modal-box">
+                <button type="button" class="yimai-kb-modal-close notice-dismiss" data-close="1" aria-label="关闭"><span class="screen-reader-text">关闭</span></button>
+                <h2 id="yimai-kb-modal-title">资料详情</h2>
+                <div id="yimai-kb-modal-body"><span class="spinner is-active"></span></div>
+            </div>
+        </div>
         <style>
-            .yimai-knowledge-wrap{max-width:1320px}.yimai-kb-stats{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:12px;margin:20px 0}.yimai-kb-stats>div{background:#fff;border:1px solid #dcdcde;border-left:4px solid #2271b1;padding:16px}.yimai-kb-stats strong{display:block;font-size:26px;line-height:1.1}.yimai-kb-stats span{display:block;margin-top:6px;color:#50575e}.yimai-kb-import{background:#fff;border:1px solid #dcdcde;padding:18px;margin:16px 0 24px}.yimai-kb-import h2{margin-top:0}.yimai-kb-import input[type=file]{min-width:420px}.yimai-kb-table td{vertical-align:top}.yimai-kb-table code{font-size:11px;word-break:break-all}@media(max-width:782px){.yimai-kb-stats{grid-template-columns:repeat(2,1fr)}.yimai-kb-import input[type=file]{min-width:0;width:100%}}
+            .yimai-knowledge-wrap{max-width:1320px}.yimai-kb-stats{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:12px;margin:20px 0}.yimai-kb-stats>div{background:#fff;border:1px solid #dcdcde;border-left:4px solid #2271b1;padding:16px}.yimai-kb-stats strong{display:block;font-size:26px;line-height:1.1}.yimai-kb-stats span{display:block;margin-top:6px;color:#50575e}.yimai-kb-import{background:#fff;border:1px solid #dcdcde;padding:18px;margin:16px 0 24px}.yimai-kb-import h2{margin-top:0}.yimai-kb-import input[type=file]{min-width:420px}.yimai-kb-table td{vertical-align:top}.yimai-kb-table code{font-size:11px;word-break:break-all}.yimai-kb-tools{margin:8px 0}
+            #yimai-kb-modal{position:fixed;inset:0;z-index:100050}.yimai-kb-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55)}.yimai-kb-modal-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(860px,92vw);max-height:84vh;overflow:auto;background:#fff;border-radius:6px;padding:20px 24px;box-shadow:0 8px 40px rgba(0,0,0,.25)}.yimai-kb-modal-close{position:absolute;top:8px;right:8px}
+            .yimai-kb-meta{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px}.yimai-kb-meta span{background:#f0f0f1;border:1px solid #dcdcde;border-radius:3px;padding:2px 10px;font-size:12px}.yimai-kb-summary{background:#f6f7f7;border-left:4px solid #2271b1;padding:10px 14px;margin:0 0 14px}.yimai-kb-content{white-space:pre-wrap;word-break:break-word;background:#fff;border:1px solid #dcdcde;border-radius:4px;padding:12px;max-height:44vh;overflow:auto;font-size:12.5px;line-height:1.7}
+            @media(max-width:782px){.yimai-kb-stats{grid-template-columns:repeat(2,1fr)}.yimai-kb-import input[type=file]{min-width:0;width:100%}}
         </style>
+        <script>
+        jQuery(function($){
+            // ── 查看内容弹窗 ──
+            $('#yimai-kb-modal').on('click','[data-close]',function(e){ if(e.target===this||$(this).is('.yimai-kb-modal-backdrop')){$('#yimai-kb-modal').hide();} });
+            $(document).on('keydown', function(e){ if(e.key==='Escape'){$('#yimai-kb-modal').hide();} });
+            $('.yimai-kb-view-btn').on('click', function(){
+                var id = $(this).data('id');
+                $('#yimai-kb-modal-body').html('<span class="spinner is-active"></span>');
+                $('#yimai-kb-modal').show();
+                $.post(yimaiGsoData.ajaxUrl, { action:'yimai_gso_kb_get_document', nonce: yimaiGsoData.nonce, document_id: id }, function(res){
+                    if(!res.success){ $('#yimai-kb-modal-body').html('<p style="color:#b32d2e">'+(res.data&&res.data.message||'加载失败')+'</p>'); return; }
+                    var d = res.data;
+                    var visLabel = {public:'公开', internal:'内部参考', restricted:'受限', blocked:'已拦截'};
+                    var html = '<p style="margin:0 0 8px"><strong>'+escapeHtml(d.title)+'</strong> <code style="font-size:11px">'+escapeHtml(d.source_name)+'</code></p>';
+                    html += '<div class="yimai-kb-meta"><span>范围：'+(visLabel[d.visibility]||d.visibility)+'</span><span>风险：'+escapeHtml(d.risk_level)+'</span><span>状态：'+escapeHtml(d.status)+'</span><span>分块：'+d.chunk_count+' 块</span><span>更新：'+escapeHtml(d.updated_at)+'</span></div>';
+                    html += '<div class="yimai-kb-summary"><strong>识别摘要：</strong>'+escapeHtml(d.summary||'（暂无）')+'</div>';
+                    if(d.headings && d.headings.length){ html += '<p style="font-size:12px;color:#50575e;margin:0 0 12px">已建索引的章节锚点：'+d.headings.map(escapeHtml).join(' · ')+'</p>'; }
+                    if(d.content){
+                        html += '<p style="font-size:12px;margin:0 0 6px"><strong>资料全文</strong>（'+d.content.length+' 字符）：</p><div class="yimai-kb-content">'+escapeHtml(d.content)+'</div>';
+                    } else {
+                        html += '<p style="color:#8a6d3b">正文为空（已拦截资料不保留正文；pending/empty 状态无正文）。</p>';
+                    }
+                    $('#yimai-kb-modal-body').html(html);
+                }).fail(function(){ $('#yimai-kb-modal-body').html('<p style="color:#b32d2e">请求失败，请重试。</p>'); });
+            });
+            function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+            // ── 手动 AI 复核 ──
+            $('#yimai-kb-run-classification').on('click', function(){
+                var $btn = $(this).prop('disabled', true).text('AI 识别中…');
+                $('#yimai-kb-classify-msg').text('');
+                $.post(yimaiGsoData.ajaxUrl, { action:'yimai_gso_kb_run_classification', nonce: yimaiGsoData.nonce }, function(res){
+                    $btn.prop('disabled', false);
+                    if(res.success){
+                        $('#yimai-kb-classify-msg').text(res.data.message);
+                        if(res.data.remaining === 0){ setTimeout(function(){location.reload();}, 1200); }
+                        else { $btn.text('⚡ 继续处理剩余 '+res.data.remaining+' 条'); setTimeout(function(){location.reload();}, 2500); }
+                    } else {
+                        $btn.text('⚡ AI 复核待识别资料');
+                        $('#yimai-kb-classify-msg').css('color','#b32d2e').text(res.data&&res.data.message||'执行失败');
+                    }
+                }).fail(function(){ $btn.prop('disabled', false).text('⚡ AI 复核待识别资料'); $('#yimai-kb-classify-msg').css('color','#b32d2e').text('请求失败，请重试。'); });
+            });
+        });
+        </script>
         <?php
     }
 
@@ -603,7 +671,7 @@ class YIMAI_GSO_Knowledge_Center {
 
         $visibility = 'internal';
         $risk       = 'low';
-        $summary    = '由本地规则完成初步分类，等待管理员确认。';
+        $summary    = 'AI 主题识别排队中（本地规则已完成初步分类，AI 复核后自动更新）。';
         foreach ( $public as $needle ) {
             if ( false !== strpos( $haystack, strtolower( $needle ) ) ) {
                 $visibility = 'public';
@@ -881,6 +949,83 @@ class YIMAI_GSO_Knowledge_Center {
         $wpdb->delete( self::documents_table(), array( 'id' => $document_id ), array( '%d' ) );
         wp_safe_redirect( admin_url( 'admin.php?page=yimai-gso-center&tab=settings&subtab=knowledge&yimai_message=' . rawurlencode( '资料及其索引已删除。' ) ) );
         exit;
+    }
+
+    /**
+     * AJAX：获取单条资料详情（标题、摘要、全文、分块统计）
+     * 供「查看内容」弹窗使用，权限 manage_options，nonce 复用主 nonce。
+     */
+    public function ajax_get_document() {
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => '权限不足。' ) );
+        }
+        $document_id = absint( $_POST['document_id'] ?? 0 );
+        if ( $document_id < 1 ) {
+            wp_send_json_error( array( 'message' => '缺少资料 ID。' ) );
+        }
+
+        global $wpdb;
+        $table = self::documents_table();
+        $row   = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $document_id ), ARRAY_A );
+        if ( ! $row ) {
+            wp_send_json_error( array( 'message' => '资料不存在。' ) );
+        }
+
+        $chunks_table = self::chunks_table();
+        $chunk_count  = absint( $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$chunks_table} WHERE document_id = %d", $document_id ) ) );
+        $chunk_rows   = $wpdb->get_results( $wpdb->prepare( "SELECT heading FROM {$chunks_table} WHERE document_id = %d ORDER BY chunk_index ASC LIMIT 6", $document_id ), ARRAY_A );
+        $headings     = array_values( array_filter( array_map( function ( $c ) { return (string) ( $c['heading'] ?? '' ); }, $chunk_rows ) ) );
+
+        wp_send_json_success( array(
+            'id'          => absint( $row['id'] ),
+            'title'       => (string) ( $row['title'] ?: $row['file_name'] ),
+            'source_name' => (string) $row['source_name'],
+            'summary'     => (string) $row['summary'],
+            'content'     => (string) $row['content'],
+            'visibility'  => (string) $row['visibility'],
+            'risk_level'  => (string) $row['risk_level'],
+            'status'      => (string) $row['status'],
+            'tags'        => (string) $row['tags'],
+            'chunk_count' => $chunk_count,
+            'headings'    => $headings,
+            'updated_at'  => (string) $row['updated_at'],
+            'file_name'   => (string) $row['file_name'],
+            'mime_type'   => (string) $row['mime_type'],
+        ) );
+    }
+
+    /**
+     * AJAX：手动触发 AI 分类队列（不等待 wp-cron）
+     * 一次最多处理 5 条（与 process_ai_classification_queue 同批），返回剩余待处理数。
+     */
+    public function ajax_run_classification() {
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => '权限不足。' ) );
+        }
+        if ( ! YIMAI_GSO_Settings::get( 'ai_api_key', '' ) ) {
+            wp_send_json_error( array( 'message' => 'AI 未配置：请先在「设置 → AI配置」填写 API Key。' ) );
+        }
+
+        global $wpdb;
+        $table = self::documents_table();
+        $remaining = absint( $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'ready' AND visibility != 'blocked' AND metadata LIKE '%\"classification\":\"rules\"%'" ) );
+
+        if ( $remaining < 1 ) {
+            wp_send_json_success( array( 'message' => '没有待 AI 识别的资料（全部已处理或被拦截）。', 'remaining' => 0 ) );
+        }
+
+        // 直接同步跑一轮（批 5 条，每条一次 AI 调用），失败由返回 message 透出
+        $this->process_ai_classification_queue();
+
+        $remaining = absint( $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'ready' AND visibility != 'blocked' AND metadata LIKE '%\"classification\":\"rules\"%'" ) );
+        wp_send_json_success( array(
+            'message'   => $remaining > 0
+                ? sprintf( '已处理一批（每批最多 5 条），还剩 %d 条待 AI 识别，可再点一次继续。', $remaining )
+                : 'AI 识别已全部完成，列表将刷新。',
+            'remaining' => $remaining,
+        ) );
     }
 
     private function redirect_with_result( $imported, $errors ) {
