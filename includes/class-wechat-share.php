@@ -871,7 +871,12 @@ class YIMAI_GSO_Wechat_Share {
             'https://res2.wx.qq.com/open/js/jweixin-1.6.0.js'
         ];
         (function next(i) {
-            if (i >= srcs.length) { log('SDK 载入失败'); badge('微信 SDK 载入失败', '#b91c1c'); return; }
+            if (i >= srcs.length) {
+                log('SDK 载入失败');
+                badge('微信 SDK 载入失败', '#b91c1c');
+                report('sdkfail', 'jweixin 两个 CDN 都载入失败');
+                return;
+            }
             var s = document.createElement('script');
             s.src = srcs[i];
             s.async = true;
@@ -898,11 +903,10 @@ class YIMAI_GSO_Wechat_Share {
     }
 
     // 3) 配置并覆盖分享卡片
-    // 真机结果回传：失败原因只在客户端 errMsg 里，服务端推不出来
     // 真机结果回传：失败原因只在客户端 errMsg 里，服务端推不出来。
-    // 只在强制调试（?ymwxdebug=1 或后台开关）时发，避免每个访客都写库。
+    // 一律上报（只写一条 option，不产生额外请求），这样用户在手机上正常打开
+    // 一次页面就能在后台看到结果，不必记得加调试参数。
     function report(status, msg) {
-        if (!isDebug()) { return; }
         try {
             var xhr = new XMLHttpRequest();
             xhr.open('POST', REPORT, true);
@@ -935,15 +939,33 @@ class YIMAI_GSO_Wechat_Share {
             var appMsg = { title: s.title, desc: s.desc, link: s.link, imgUrl: s.imgUrl };
             var timeline = { title: s.timelineTitle || s.title, link: s.link, imgUrl: s.imgUrl };
 
-            // 新旧接口同时调用：8.x 走新接口，部分安卓老版本只认旧接口
-            if (window.wx.updateAppMessageShareData) { window.wx.updateAppMessageShareData(appMsg); }
-            if (window.wx.onMenuShareAppMessage) { window.wx.onMenuShareAppMessage(appMsg); }
-            if (window.wx.updateTimelineShareData) { window.wx.updateTimelineShareData(timeline); }
-            if (window.wx.onMenuShareTimeline) { window.wx.onMenuShareTimeline(timeline); }
+            // 逐个接口回报真实结果：某个 API 没权限时会单独 fail，不报这里就看不出来。
+            // 不用 Object.assign——老安卓微信 WebView 里可能没有。
+            var failures = [];
+            function run(name, args) {
+                if (typeof window.wx[name] !== 'function') {
+                    failures.push(name + ':unsupported');
+                    return;
+                }
+                var payload = { title: args.title, link: args.link, imgUrl: args.imgUrl };
+                if (args.desc) { payload.desc = args.desc; }
+                payload.fail = function (r) { failures.push(name + ':' + ((r && r.errMsg) || 'fail')); };
+                window.wx[name](payload);
+            }
+            run('updateAppMessageShareData', appMsg);
+            run('onMenuShareAppMessage', appMsg);
+            run('updateTimelineShareData', timeline);
+            run('onMenuShareTimeline', timeline);
 
-            log('分享卡片已就绪', appMsg);
-            badge('分享卡片已就绪 ✓', '#15803d');
-            report('ready', 'ok');
+            if (failures.length) {
+                log('部分分享接口失败', failures);
+                badge('分享接口失败：' + failures.join(' | '), '#f59e0b');
+                report('apifail', failures.join(' | '));
+            } else {
+                log('分享卡片已就绪', appMsg);
+                badge('分享卡片已就绪 ✓', '#15803d');
+                report('ready', 'ok');
+            }
         });
 
         window.wx.error(function (res) {
@@ -1529,15 +1551,23 @@ class YIMAI_GSO_Wechat_Share {
             if ( '' !== $rep_stat ) {
                 if ( 'ready' === $rep_stat ) {
                     $verdict = array( 'ok', '真机已就绪：wx.config 通过，分享卡片应该正常出图出标题了' );
+                } elseif ( 'sdk' === $rep_stat ) {
+                    $verdict = array( 'bad', 'SDK 载入了但 wx.config 一直没回调：签名接口大概率被拦（停留在这一步本身就是证据）' );
                 } elseif ( false !== stripos( $rep_msg, 'invalid signature' ) ) {
                     $verdict = array( 'bad', '签名不匹配：多为「JS接口安全域名」和当前访问域名不一致，或页面 URL 带参数时签名用的不是同一个 URL' );
                 } elseif ( false !== stripos( $rep_msg, 'invalid domain' ) || false !== stripos( $rep_msg, 'invalid url domain' ) ) {
                     $verdict = array( 'bad', '域名不在公众号「JS接口安全域名」里：必须与访问域名完全一致，www 与不带 www 视为两个域名' );
                 } elseif ( false !== stripos( $rep_msg, 'permission' ) || false !== stripos( $rep_msg, 'offline' ) ) {
                     $verdict = array( 'bad', '公众号没有 JS 接口权限：多为未完成微信认证，或该 AppID 是测试号/订阅号未认证' );
-                } elseif ( false !== stripos( $rep_msg, 'signfail' ) ) {
+                } elseif ( 'signfail' === $rep_stat ) {
                     $verdict = array( 'bad', '签名接口本身失败：看上面的最近错误与「测试公众号凭据」结果' );
-                } elseif ( false !== stripos( $rep_msg, 'config:fail' ) ) {
+                } elseif ( 'fetchfail' === $rep_stat ) {
+                    $verdict = array( 'bad', '签名接口没有响应：多为 CDN/WAF 拦截或 REST 被安全插件禁用，直接访问 /wp-json/yimai-gso/v1/wechat-jssdk 看返回' );
+                } elseif ( 'sdkfail' === $rep_stat ) {
+                    $verdict = array( 'bad', '微信 JS-SDK 两个 CDN 都载入失败：页面可能被 CSP 限制，或手机网络到 res.wx.qq.com 不通' );
+                } elseif ( 'apifail' === $rep_stat ) {
+                    $verdict = array( 'bad', 'config 通过了，但具体的分享接口调用失败（见下方明细）——多为该公众号没有对应接口权限' );
+                } elseif ( 'config:fail' === $rep_stat ) {
                     $verdict = array( 'bad', 'wx.config 被微信拒绝：按 errMsg 逐项查安全域名 / AppID 归属账号 / 认证状态' );
                 } else {
                     $verdict = array( 'bad', '真机报了错，见下方 errMsg' );
