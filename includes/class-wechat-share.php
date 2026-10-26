@@ -171,6 +171,19 @@ class YIMAI_GSO_Wechat_Share {
             }
         }
 
+        // 3.5) 插件内置品牌封面：比 512×512 白底 logo 更适合做卡片图
+        if ( '' === $out['url'] ) {
+            $builtin = YIMAI_GSO_PLUGIN_URL . 'assets/images/share-cover.jpg';
+            $builtin_path = YIMAI_GSO_PLUGIN_DIR . 'assets/images/share-cover.jpg';
+            if ( file_exists( $builtin_path ) ) {
+                $out['url']    = $builtin;
+                $out['width']  = 800;
+                $out['height'] = 600;
+                $out['type']   = 'image/jpeg';
+                $out['source'] = 'builtin';
+            }
+        }
+
         // 4) 站点图标
         if ( '' === $out['url'] && function_exists( 'get_site_icon_url' ) ) {
             $icon = get_site_icon_url( 512 );
@@ -466,7 +479,13 @@ class YIMAI_GSO_Wechat_Share {
             }
         } elseif ( $is_home ) {
             $home_title = trim( (string) YIMAI_GSO_Settings::get( 'wechat_share_home_title', '' ) );
-            $title      = ( '' !== $home_title ) ? $home_title : $site;
+            if ( '' === $home_title ) {
+                // 只给品牌名太单薄，拼一句定位；再长就交给下面的朋友圈标题截断
+                $tagline    = trim( preg_replace( '/\s+/u', '', (string) get_bloginfo( 'description' ) ) );
+                $tagline    = rtrim( mb_substr( $tagline, 0, 12 ), '，,。.、·' );
+                $home_title = ( '' !== $tagline ) ? ( $site . '·普拉提｜' . $tagline ) : $site;
+            }
+            $title      = $home_title;
             $desc       = trim( (string) get_bloginfo( 'description' ) );
             $link       = home_url( '/' );
         } else {
@@ -1070,6 +1089,13 @@ class YIMAI_GSO_Wechat_Share {
             run('onMenuShareAppMessage', appMsg);
             run('updateTimelineShareData', timeline);
             run('onMenuShareTimeline', timeline);
+
+            // 页面停留期间重设一次：微信在部分机型上会在「···」面板打开时重新拉取，
+            // 首屏设置太早会被覆盖，这也是「ready 了却没生效」的常见原因
+            setTimeout(function () {
+                run('updateAppMessageShareData', appMsg);
+                run('updateTimelineShareData', timeline);
+            }, 1200);
 
             if (failures.length) {
                 log('部分分享接口失败', failures);
