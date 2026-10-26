@@ -2,3 +2,4 @@
 .backups/
 .update-state.json
 *.bak-*
+docs/ui-demo.html

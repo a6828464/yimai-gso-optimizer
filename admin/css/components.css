@@ -1,0 +1,1237 @@
+/* ==========================================================================
+   一麦GSO双擎优化 · 统一组件层（components.css）  since 2.10.0
+   --------------------------------------------------------------------------
+   为什么有这个文件：
+   插件后台此前存在两套互不相干的设计语言 —— 主面板用 admin.css 的
+   --yimai-gso-* 变量（indigo / 16px 圆角 / 卡片化），微信分享卡片页用
+   独立的 .ymwx-* 类 + 页面内联 CSS（slate / 10px 圆角 / 零响应式）。
+   这里把「一套」定死：所有新页面（公众号同步页）与重构页面（微信分享卡片页）
+   只消费本文件的 .yimai-gso-* 组件类，不再各写内联样式。
+
+   三条铁律：
+   1) 只新增，不重写。本文件不修改 admin.css 的任何一条规则，只叠加。
+      仅有的两个历史同名类（.yimai-gso-badge / .yimai-gso-empty）都按
+      「向后兼容的超集」写，老页面视觉不变（见 §7 兼容说明）。
+   2) 颜色、圆角、间距一律读 admin.css :root 里的变量；本文件只补缺的，
+      不复制值。改主题色只改 admin.css 一处。
+   3) 断点只用 1200 / 960 / 782 / 480 四档。782 是 WordPress 后台自身的
+      移动端分界（WP 在 782px 折叠左侧菜单），组件必须与它对齐。
+
+   加载顺序：admin.css → panels.css → components.css → responsive.css
+   （都依赖 handle 'yimai-gso-admin'，同依赖按 enqueue 顺序输出）。
+   因此本文件对同名老类是「后者胜出」，responsive.css 再覆盖本文件的断点规则。
+   ========================================================================== */
+
+/* ==========================================================================
+   §0 设计令牌（只补 admin.css :root 没有的）
+   ========================================================================== */
+:root {
+    /* ---- 间距阶梯：所有组件内外边距只能取这七档，禁止随手写 13px ---- */
+    --yimai-gso-gap-xs: 4px;
+    --yimai-gso-gap-sm: 8px;
+    --yimai-gso-gap-md: 12px;
+    --yimai-gso-gap-lg: 16px;
+    --yimai-gso-gap-xl: 20px;
+    --yimai-gso-gap-2xl: 24px;
+
+    /* ---- 圆角补充：admin.css 只有 8 / 16 / 20，缺小圆角和胶囊 ---- */
+    --yimai-gso-radius-xs: 6px;
+    --yimai-gso-radius-pill: 999px;
+
+    /* ---- 字号阶梯：14px 是正文下限，移动端不允许比它更小 ---- */
+    --yimai-gso-font-xs: 12px;
+    --yimai-gso-font-sm: 13px;
+    --yimai-gso-font-base: 14px;
+    --yimai-gso-font-md: 15px;
+    --yimai-gso-font-lg: 18px;
+    --yimai-gso-font-xl: 20px;
+    --yimai-gso-font-title: 22px;
+    --yimai-gso-line-height: 1.65;
+
+    /* ---- 触控与控件高度 ----
+       tap 是移动端最小可点高度（375px 验收硬指标），control-h 是桌面控件高度 */
+    --yimai-gso-tap: 44px;
+    --yimai-gso-control-h: 38px;
+
+    /* ---- 状态色三件套（soft=底 / ink=字 / line=边）----
+       分开定义而不是用 rgba()，是因为要同时服务实心徽章、提示条和边框，
+       且 rgba 叠在深色底上会变脏。三个值都从 admin.css 的功能色推出来，
+       主题色调整时同步改这里即可。 */
+    --yimai-gso-primary-soft: #eef2ff;
+    --yimai-gso-primary-ink: #4338ca;
+    --yimai-gso-primary-line: #c7d2fe;
+
+    --yimai-gso-success-soft: #ecfdf5;
+    --yimai-gso-success-ink: #047857;
+    --yimai-gso-success-line: #a7f3d0;
+
+    --yimai-gso-warning-soft: #fffbeb;
+    --yimai-gso-warning-ink: #b45309;
+    --yimai-gso-warning-line: #fde68a;
+
+    --yimai-gso-danger-soft: #fef2f2;
+    --yimai-gso-danger-ink: #b91c1c;
+    --yimai-gso-danger-line: #fecaca;
+
+    --yimai-gso-info-soft: #eff6ff;
+    --yimai-gso-info-ink: #1d4ed8;
+    --yimai-gso-info-line: #bfdbfe;
+
+    --yimai-gso-muted-soft: #f1f5f9;
+    --yimai-gso-muted-ink: #475569;
+    --yimai-gso-muted-line: #e2e8f0;
+
+    /* ---- 断点常量：仅供文档/JS 读取 ----
+       媒体查询里不能写 var()，所以每个 @media 里必须重复字面值；
+       这里保留一份是为了一眼看到全部断点，改动时两处一起改。 */
+    --yimai-gso-bp-xl: 1200px;
+    --yimai-gso-bp-lg: 960px;
+    --yimai-gso-bp-md: 782px;
+    --yimai-gso-bp-sm: 480px;
+}
+
+/* ==========================================================================
+   §1 页面壳层
+   --------------------------------------------------------------------------
+   .yimai-gso-page 是每个插件页面的内容根节点，负责字号、行高、颜色，
+   并且负责「不许横向溢出」——min-width:0 是 grid/flex 子项真正收缩的前提，
+   少了它任何一段长文本都能把 375px 撑出横向滚动条。
+   ========================================================================== */
+.yimai-gso-page {
+    max-width: 100%;
+    min-width: 0;
+    font-size: var(--yimai-gso-font-base);
+    line-height: var(--yimai-gso-line-height);
+    color: var(--yimai-gso-text);
+}
+
+/* 页头：标题在左、操作区在右，窄屏自动换行（不靠 JS，纯 flex-wrap） */
+.yimai-gso-page-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--yimai-gso-gap-md);
+    margin: 0 0 var(--yimai-gso-gap-xl);
+    padding: 0 0 var(--yimai-gso-gap-lg);
+    border-bottom: 1px solid var(--yimai-gso-border);
+    min-width: 0;
+}
+
+.yimai-gso-page-head h1,
+.yimai-gso-page-head h2,
+.yimai-gso-page-head .yimai-gso-page-title {
+    display: flex;
+    align-items: center;
+    gap: var(--yimai-gso-gap-sm);
+    margin: 0;
+    padding: 0;
+    font-size: var(--yimai-gso-font-title);
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--yimai-gso-text);
+}
+
+/* dashicons 在标题里跟文字同色系，避免 WP 默认的 #646970 发灰 */
+.yimai-gso-page-head h1 .dashicons,
+.yimai-gso-page-head h2 .dashicons,
+.yimai-gso-page-head .yimai-gso-page-title .dashicons {
+    color: var(--yimai-gso-primary);
+    font-size: 26px;
+    width: 26px;
+    height: 26px;
+}
+
+/* 页头里的操作区：复用 .yimai-gso-actions，这里只清掉它的上外边距 */
+.yimai-gso-page-head .yimai-gso-actions {
+    margin-top: 0;
+}
+
+.yimai-gso-page-desc {
+    margin: var(--yimai-gso-gap-sm) 0 0;
+    max-width: 860px;
+    font-size: var(--yimai-gso-font-base);
+    line-height: var(--yimai-gso-line-height);
+    color: var(--yimai-gso-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.yimai-gso-page-desc code {
+    padding: 1px 5px;
+    border-radius: var(--yimai-gso-radius-xs);
+    background: var(--yimai-gso-muted-soft);
+    color: var(--yimai-gso-muted-ink);
+    font-size: var(--yimai-gso-font-sm);
+}
+
+/* ==========================================================================
+   §2 指标卡片
+   --------------------------------------------------------------------------
+   .yimai-gso-stat 就是微信分享页原来 .ymwx-card 的正式版本：
+   上行 K（说明，13px 灰）、下行 V（值，20px 粗）。auto-fit 让 4 张卡在
+   桌面排一行、在 782 排两列、在 480 排一列，全程不需要额外断点类。
+   ========================================================================== */
+.yimai-gso-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
+    gap: var(--yimai-gso-gap-md);
+    margin: 0 0 var(--yimai-gso-gap-xl);
+    min-width: 0;
+}
+
+.yimai-gso-stat {
+    min-width: 0;
+    padding: var(--yimai-gso-gap-lg);
+    background: var(--yimai-gso-card);
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: var(--yimai-gso-radius);
+    box-shadow: var(--yimai-gso-shadow-sm);
+}
+
+.yimai-gso-stat-k {
+    margin: 0 0 var(--yimai-gso-gap-xs);
+    font-size: var(--yimai-gso-font-sm);
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--yimai-gso-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.yimai-gso-stat-v {
+    margin: 0;
+    font-size: var(--yimai-gso-font-xl);
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--yimai-gso-text);
+    overflow-wrap: anywhere;
+}
+
+/* 值本身着色（旧页 .ymwx-card-v.ok/.bad 的对应写法）。
+   能放徽章的地方优先放徽章，值着色只用于「数字/短词」这类不适合加框的值。 */
+.yimai-gso-stat-v.is-pass { color: var(--yimai-gso-success-ink); }
+.yimai-gso-stat-v.is-warn { color: var(--yimai-gso-warning-ink); }
+.yimai-gso-stat-v.is-fail { color: var(--yimai-gso-danger-ink); }
+.yimai-gso-stat-v.is-info { color: var(--yimai-gso-info-ink); }
+.yimai-gso-stat-v.is-muted { color: var(--yimai-gso-text-muted); }
+
+/* ==========================================================================
+   §3 区块卡片
+   --------------------------------------------------------------------------
+   一块设置 / 一组结果 = 一个 section。head 带浅底和分隔线，body 放内容。
+   注意：section 不加 overflow:hidden —— 那会把里面的下拉、tooltip 裁掉；
+   圆角改用 head 的 border-radius 单独处理。
+   ========================================================================== */
+.yimai-gso-section {
+    min-width: 0;
+    margin: 0 0 var(--yimai-gso-gap-xl);
+    background: var(--yimai-gso-card);
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: var(--yimai-gso-radius);
+    box-shadow: var(--yimai-gso-shadow);
+}
+
+.yimai-gso-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--yimai-gso-gap-md);
+    min-width: 0;
+    padding: var(--yimai-gso-gap-md) var(--yimai-gso-gap-xl);
+    background: var(--yimai-gso-bg);
+    border-bottom: 1px solid var(--yimai-gso-border);
+    border-radius: calc(var(--yimai-gso-radius) - 1px) calc(var(--yimai-gso-radius) - 1px) 0 0;
+}
+
+.yimai-gso-section-head h2,
+.yimai-gso-section-head h3,
+.yimai-gso-section-head .yimai-gso-section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--yimai-gso-gap-sm);
+    margin: 0;
+    font-size: var(--yimai-gso-font-md);
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--yimai-gso-text);
+}
+
+.yimai-gso-section-head .dashicons {
+    color: var(--yimai-gso-primary);
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+.yimai-gso-section-body {
+    min-width: 0;
+    padding: var(--yimai-gso-gap-xl);
+}
+
+/* section-body 里没有 section 时不该出现双份留白 */
+.yimai-gso-section-body > :first-child { margin-top: 0; }
+.yimai-gso-section-body > :last-child { margin-bottom: 0; }
+
+/* 正文里的长代码/长链接不许撑破容器（否则 375px 直接横向滚动） */
+.yimai-gso-section-body pre {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.yimai-gso-section-body code {
+    overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   §4 两栏字段
+   --------------------------------------------------------------------------
+   替代 WP 的 <table class="form-table">：不再依赖 table 布局，
+   左 label 右 control，窄屏整体塌成单列（label 在上、control 在下、control 全宽）。
+   control 里的 input/select/textarea 统一高度、圆角、边框，不再各自内联写样式。
+   ========================================================================== */
+.yimai-gso-field {
+    display: grid;
+    grid-template-columns: minmax(132px, 216px) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--yimai-gso-gap-sm) var(--yimai-gso-gap-lg);
+    min-width: 0;
+}
+
+.yimai-gso-field + .yimai-gso-field {
+    margin-top: var(--yimai-gso-gap-lg);
+}
+
+.yimai-gso-field-label {
+    min-width: 0;
+    padding-top: 9px;
+    font-size: var(--yimai-gso-font-base);
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--yimai-gso-text);
+}
+
+.yimai-gso-field-label .required {
+    margin-left: 2px;
+    color: var(--yimai-gso-danger);
+}
+
+.yimai-gso-field-control {
+    min-width: 0;
+    font-size: var(--yimai-gso-font-base);
+    line-height: var(--yimai-gso-line-height);
+}
+
+/* 只接管文本类控件，不动 checkbox/radio/color —— 它们有自己的外观 */
+.yimai-gso-field-control input[type="text"],
+.yimai-gso-field-control input[type="url"],
+.yimai-gso-field-control input[type="password"],
+.yimai-gso-field-control input[type="number"],
+.yimai-gso-field-control input[type="email"],
+.yimai-gso-field-control input[type="search"],
+.yimai-gso-field-control input[type="tel"],
+.yimai-gso-field-control select,
+.yimai-gso-field-control textarea {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-height: var(--yimai-gso-control-h);
+    padding: 7px 10px;
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: var(--yimai-gso-radius-sm);
+    background: var(--yimai-gso-card);
+    color: var(--yimai-gso-text);
+    font-size: var(--yimai-gso-font-base);
+    line-height: 1.5;
+    box-shadow: none;
+}
+
+.yimai-gso-field-control textarea {
+    min-height: 92px;
+    padding: 9px 10px;
+    resize: vertical;
+}
+
+.yimai-gso-field-control input[type="text"]:focus,
+.yimai-gso-field-control input[type="url"]:focus,
+.yimai-gso-field-control input[type="password"]:focus,
+.yimai-gso-field-control input[type="number"]:focus,
+.yimai-gso-field-control input[type="email"]:focus,
+.yimai-gso-field-control input[type="search"]:focus,
+.yimai-gso-field-control input[type="tel"]:focus,
+.yimai-gso-field-control select:focus,
+.yimai-gso-field-control textarea:focus {
+    border-color: var(--yimai-gso-primary);
+    box-shadow: 0 0 0 1px var(--yimai-gso-primary);
+    outline: none;
+}
+
+/* 勾选项（label 包 input）单独一行，点整行都能命中 */
+.yimai-gso-field-control > label {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: var(--yimai-gso-gap-sm);
+    min-height: var(--yimai-gso-control-h);
+    font-size: var(--yimai-gso-font-base);
+    line-height: 1.6;
+    color: var(--yimai-gso-text);
+    cursor: pointer;
+}
+
+.yimai-gso-field-control > label input[type="checkbox"],
+.yimai-gso-field-control > label input[type="radio"] {
+    flex: 0 0 auto;
+    margin: 3px 0 0;
+}
+
+/* 控件旁的口径说明 / 校验失败提示 */
+.yimai-gso-field-hint {
+    margin: var(--yimai-gso-gap-xs) 0 0;
+    font-size: var(--yimai-gso-font-sm);
+    line-height: 1.6;
+    color: var(--yimai-gso-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.yimai-gso-field-hint.is-error { color: var(--yimai-gso-danger-ink); }
+.yimai-gso-field-hint.is-success { color: var(--yimai-gso-success-ink); }
+
+/* ==========================================================================
+   §5 状态徽章
+   --------------------------------------------------------------------------
+   一个徽章 = 一个状态的文字标签。用 box-shadow 画描边而不是 border，
+   因为 admin.css 里的 .yimai-gso-badge 是老类（多处计数器在用），
+   加 border 会让那些老徽章无端变大 2px。
+   ========================================================================== */
+.yimai-gso-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--yimai-gso-gap-xs);
+    padding: 2px 10px;
+    border-radius: var(--yimai-gso-radius-pill);
+    font-size: var(--yimai-gso-font-xs);
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.yimai-gso-badge > .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    line-height: 14px;
+}
+
+.yimai-gso-badge.is-pass {
+    background: var(--yimai-gso-success-soft);
+    color: var(--yimai-gso-success-ink);
+    box-shadow: inset 0 0 0 1px var(--yimai-gso-success-line);
+}
+
+.yimai-gso-badge.is-warn {
+    background: var(--yimai-gso-warning-soft);
+    color: var(--yimai-gso-warning-ink);
+    box-shadow: inset 0 0 0 1px var(--yimai-gso-warning-line);
+}
+
+.yimai-gso-badge.is-fail {
+    background: var(--yimai-gso-danger-soft);
+    color: var(--yimai-gso-danger-ink);
+    box-shadow: inset 0 0 0 1px var(--yimai-gso-danger-line);
+}
+
+.yimai-gso-badge.is-info {
+    background: var(--yimai-gso-info-soft);
+    color: var(--yimai-gso-info-ink);
+    box-shadow: inset 0 0 0 1px var(--yimai-gso-info-line);
+}
+
+.yimai-gso-badge.is-muted {
+    background: var(--yimai-gso-muted-soft);
+    color: var(--yimai-gso-muted-ink);
+    box-shadow: inset 0 0 0 1px var(--yimai-gso-muted-line);
+}
+
+/* ==========================================================================
+   §6 表格
+   --------------------------------------------------------------------------
+   表格永远是「外层负责横滑、内层保持宽度」：手机上一行放不下就左右拖，
+   绝不把列压窄到文字换行成渣。这是 375px 无横向溢出的唯一正确做法——
+   溢出的容器有 overflow-x:auto，页面本身就不会被撑宽。
+   ========================================================================== */
+.yimai-gso-table-wrap {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: var(--yimai-gso-radius-sm);
+    background: var(--yimai-gso-card);
+}
+
+.yimai-gso-table {
+    width: 100%;
+    min-width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    font-size: var(--yimai-gso-font-base);
+    line-height: 1.55;
+    color: var(--yimai-gso-text);
+}
+
+.yimai-gso-table th,
+.yimai-gso-table td {
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--yimai-gso-border);
+}
+
+.yimai-gso-table thead th {
+    background: var(--yimai-gso-bg);
+    color: var(--yimai-gso-text-muted);
+    font-size: var(--yimai-gso-font-sm);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.yimai-gso-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.yimai-gso-table tbody tr:hover td {
+    background: #fbfcfe;
+}
+
+/* 状态列 / 时间列不折行，靠外层横滑兜住；正文列保持自动换行 */
+.yimai-gso-table .is-nowrap {
+    white-space: nowrap;
+}
+
+.yimai-gso-table .is-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 单元格里放空状态或说明时去掉边框，避免出现「框里套框」 */
+.yimai-gso-table td .yimai-gso-empty {
+    border: 0;
+    padding: var(--yimai-gso-gap-xl) var(--yimai-gso-gap-md);
+}
+
+/* ==========================================================================
+   §7 选项卡
+   --------------------------------------------------------------------------
+   纯链接式选项卡：.is-active 由 PHP 渲染时决定，切换靠页面跳转。
+   横向排不下时整条 tab 栏自己横滑（不换行、不折叠、不需要 JS）。
+   ========================================================================== */
+.yimai-gso-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0 0 var(--yimai-gso-gap-lg);
+    padding: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    list-style: none;
+    border-bottom: 1px solid var(--yimai-gso-border);
+}
+
+.yimai-gso-tabs > li {
+    margin: 0;
+    flex: 0 0 auto;
+    list-style: none;
+}
+
+.yimai-gso-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--yimai-gso-gap-xs);
+    flex: 0 0 auto;
+    min-height: var(--yimai-gso-tap);
+    margin: 0 0 -1px 0;
+    padding: 8px 14px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: var(--yimai-gso-radius-sm) var(--yimai-gso-radius-sm) 0 0;
+    background: transparent;
+    color: var(--yimai-gso-text-muted);
+    font-size: var(--yimai-gso-font-base);
+    font-weight: 500;
+    line-height: 1.4;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .15s ease, background-color .15s ease, border-color .15s ease;
+}
+
+.yimai-gso-tab:hover,
+.yimai-gso-tab:focus {
+    color: var(--yimai-gso-primary-dark);
+    background: var(--yimai-gso-primary-soft);
+    text-decoration: none;
+    box-shadow: none;
+}
+
+.yimai-gso-tab:focus-visible {
+    outline: 2px solid var(--yimai-gso-primary);
+    outline-offset: -2px;
+}
+
+.yimai-gso-tab.is-active {
+    color: var(--yimai-gso-primary-dark);
+    font-weight: 600;
+    border-bottom-color: var(--yimai-gso-primary);
+    background: transparent;
+}
+
+.yimai-gso-tab .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+}
+
+/* ==========================================================================
+   §8 提示条
+   --------------------------------------------------------------------------
+   页面内的行内提示（保存成功、接口报错、配额提醒）。不用 WP 的 .notice：
+   .notice 会带 WP 自己的关闭按钮与左边框宽度，和卡片化布局对不齐。
+   ========================================================================== */
+.yimai-gso-notice {
+    margin: 0 0 var(--yimai-gso-gap-lg);
+    padding: var(--yimai-gso-gap-md) var(--yimai-gso-gap-lg);
+    border: 1px solid var(--yimai-gso-border);
+    border-left: 4px solid var(--yimai-gso-gray-light);
+    border-radius: var(--yimai-gso-radius-sm);
+    background: var(--yimai-gso-card);
+    color: var(--yimai-gso-text);
+    font-size: var(--yimai-gso-font-base);
+    line-height: var(--yimai-gso-line-height);
+    overflow-wrap: anywhere;
+}
+
+.yimai-gso-notice > p {
+    margin: 0;
+}
+
+.yimai-gso-notice > p + p {
+    margin-top: var(--yimai-gso-gap-sm);
+}
+
+.yimai-gso-notice strong {
+    font-weight: 600;
+}
+
+.yimai-gso-notice.is-success {
+    background: var(--yimai-gso-success-soft);
+    border-color: var(--yimai-gso-success-line);
+    border-left-color: var(--yimai-gso-success);
+    color: var(--yimai-gso-success-ink);
+}
+
+.yimai-gso-notice.is-error {
+    background: var(--yimai-gso-danger-soft);
+    border-color: var(--yimai-gso-danger-line);
+    border-left-color: var(--yimai-gso-danger);
+    color: var(--yimai-gso-danger-ink);
+}
+
+.yimai-gso-notice.is-warning {
+    background: var(--yimai-gso-warning-soft);
+    border-color: var(--yimai-gso-warning-line);
+    border-left-color: var(--yimai-gso-warning);
+    color: var(--yimai-gso-warning-ink);
+}
+
+.yimai-gso-notice.is-info {
+    background: var(--yimai-gso-info-soft);
+    border-color: var(--yimai-gso-info-line);
+    border-left-color: var(--yimai-gso-info);
+    color: var(--yimai-gso-info-ink);
+}
+
+/* ==========================================================================
+   §9 操作区（按钮组）
+   --------------------------------------------------------------------------
+   一屏之内的主次按钮都放这里，靠 DOM 顺序决定左右顺序。
+   窄屏整组竖排、每个按钮吃满宽度 —— 手指点击不会误触相邻按钮。
+   ========================================================================== */
+.yimai-gso-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--yimai-gso-gap-sm);
+    margin-top: var(--yimai-gso-gap-lg);
+    min-width: 0;
+}
+
+.yimai-gso-actions:first-child {
+    margin-top: 0;
+}
+
+/* 操作区里的按钮一律 border-box。
+   为什么必须写：admin.css 的 .yimai-gso-btn-modern-* 用 padding:10px 24px 且
+   没设 box-sizing，默认 content-box 下 width:100% 只约束内容盒，
+   在 375px 上会变成 351 + 48 = 399px —— 直接撑出横向滚动条。 */
+.yimai-gso-actions > * {
+    box-sizing: border-box;
+}
+
+/* WP 的 .button 自带 margin-right，放进 flex gap 会变成双倍间距 */
+.yimai-gso-actions > .button,
+.yimai-gso-actions > .button-primary,
+.yimai-gso-actions > .button-secondary,
+.yimai-gso-actions > button,
+.yimai-gso-actions > a.button,
+.yimai-gso-actions > input[type="submit"] {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--yimai-gso-gap-xs);
+    min-height: 32px;
+    text-align: center;
+}
+
+/* 分组：左右各一组按钮时用，中间自动把空隙吃掉 */
+.yimai-gso-actions .is-spacer {
+    flex: 1 1 auto;
+}
+
+/* ==========================================================================
+   §10 空状态
+   --------------------------------------------------------------------------
+   与 admin.css 老 .yimai-gso-badge/.yimai-gso-empty 保持视觉兼容：
+   老页面里 .yimai-gso-empty 是「有框有底、居中、60px 内边距」，
+   这里只补字号/行高/内部元素，并让窄屏内边距收紧。
+   ========================================================================== */
+.yimai-gso-empty {
+    padding: 60px var(--yimai-gso-gap-xl);
+    text-align: center;
+    color: var(--yimai-gso-gray);
+    background: var(--yimai-gso-card);
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: var(--yimai-gso-radius);
+    font-size: var(--yimai-gso-font-base);
+    line-height: var(--yimai-gso-line-height);
+}
+
+.yimai-gso-empty > p:first-child { margin-top: 0; }
+.yimai-gso-empty > p:last-child { margin-bottom: 0; }
+
+/* 图标/标题/副文案只在本组件内部生效，不去动老 .yimai-gso-empty-state */
+.yimai-gso-empty .yimai-gso-empty-icon {
+    margin-bottom: var(--yimai-gso-gap-sm);
+    font-size: 30px;
+    line-height: 1;
+    color: var(--yimai-gso-gray-light);
+}
+
+.yimai-gso-empty .yimai-gso-empty-title {
+    margin-bottom: var(--yimai-gso-gap-xs);
+    font-size: var(--yimai-gso-font-md);
+    font-weight: 600;
+    color: var(--yimai-gso-text);
+}
+
+.yimai-gso-empty .yimai-gso-empty-hint {
+    color: var(--yimai-gso-text-muted);
+    font-size: var(--yimai-gso-font-sm);
+}
+
+/* ==========================================================================
+   §11 键值列表
+   --------------------------------------------------------------------------
+   只读信息的成对展示（AppID、域名、错误码、缓存时间）。
+   桌面两栏，窄屏仍两栏但左列压到最小可用宽度 —— 值比标签长得多，
+   竖排会让整块变成一列文字墙，反而更难读。
+   ========================================================================== */
+.yimai-gso-kv {
+    display: grid;
+    grid-template-columns: minmax(84px, 148px) minmax(0, 1fr);
+    gap: var(--yimai-gso-gap-sm) var(--yimai-gso-gap-lg);
+    margin: 0;
+    font-size: var(--yimai-gso-font-base);
+    line-height: var(--yimai-gso-line-height);
+    min-width: 0;
+}
+
+/* 支持 div 与 dl 两种写法；dl 的 dt/dd 默认外边距要清掉 */
+.yimai-gso-kv-k,
+.yimai-gso-kv > dt {
+    margin: 0;
+    color: var(--yimai-gso-text-muted);
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+
+.yimai-gso-kv-v,
+.yimai-gso-kv > dd {
+    margin: 0;
+    min-width: 0;
+    color: var(--yimai-gso-text);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.yimai-gso-kv-v code {
+    font-size: var(--yimai-gso-font-sm);
+    overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   §12 手机卡片预览
+   --------------------------------------------------------------------------
+   微信分享卡片页右侧那个「转发出来长什么样」的手机模拟卡。
+   固定 320px 宽是为了一比一接近微信里真实卡片的比例；
+   窄屏（<782）自动铺满，避免 320px + 页面内边距把 375px 撑爆。
+   子元素 -media / -title / -desc / -meta 对应微信气泡里的四个视觉区。
+   ========================================================================== */
+.yimai-gso-preview-card {
+    max-width: 320px;
+    margin: 0;
+    background: #fafafa;
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: var(--yimai-gso-radius);
+    box-shadow: var(--yimai-gso-shadow-sm);
+    overflow: hidden;
+}
+
+.yimai-gso-preview-card-media {
+    display: block;
+    width: 100%;
+    height: 170px;
+    overflow: hidden;
+    background: var(--yimai-gso-bg);
+}
+
+.yimai-gso-preview-card-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    object-fit: cover;
+}
+
+/* 微信标题最多两行就截断，这里用 line-clamp 复刻，避免预览和真机不一致 */
+.yimai-gso-preview-card-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
+    overflow: hidden;
+    margin: 0;
+    padding: 12px 14px 6px;
+    font-size: var(--yimai-gso-font-md);
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--yimai-gso-text);
+}
+
+.yimai-gso-preview-card-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
+    overflow: hidden;
+    margin: 0;
+    padding: 0 14px 10px;
+    font-size: var(--yimai-gso-font-sm);
+    line-height: 1.6;
+    color: var(--yimai-gso-text-muted);
+}
+
+.yimai-gso-preview-card-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--yimai-gso-gap-xs);
+    margin: 0;
+    padding: 0 14px 12px;
+    font-size: var(--yimai-gso-font-xs);
+    line-height: 1.5;
+    color: var(--yimai-gso-gray-light);
+}
+
+.yimai-gso-preview-card-meta .dashicons {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+    line-height: 13px;
+}
+
+/* ==========================================================================
+   §13 页面壳层：移动端内边距收紧（为什么只能在这里覆盖 admin.css）
+   --------------------------------------------------------------------------
+   admin.css 第 37-45 行用 !important 把 .yimai-gso-wrap 锁成 20px 40px。
+   375px 屏上左右各 40px = 80px，只剩 295px 给内容，卡片必然被挤到换行。
+   覆盖它的唯一办法是「同选择器 + 同 !important + 更晚加载」——本文件在
+   admin.css 之后输出，正好满足，所以选择器必须与 admin.css 一字不差，
+   少一个 body.wp-admin 就会因为权重不足而失效。
+
+   具体规则写在 §14 的 ① 条（只能待在媒体查询里，否则桌面端会被一起改掉）。
+   responsive.css 里不要重复定义这条，两边同时写会互相打架。
+   ========================================================================== */
+
+/* ==========================================================================
+   §14 响应式：1200 / 960 / 782 / 480 四档
+   --------------------------------------------------------------------------
+   782 断点不是随手取的：WordPress 后台在 782px 折叠左侧管理菜单，
+   内容区宽度会突变，组件必须在同一处一起变，否则会出现「菜单已折叠但卡片
+   还是四列」的畸形状态。所有 782 规则集中在本块，方便逐条验收 375px。
+   ========================================================================== */
+
+/* ---- ≤1200：多列收敛 ---- */
+@media (max-width: 1200px) {
+    .yimai-gso-stat-grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+
+    .yimai-gso-field {
+        grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+    }
+}
+
+/* ---- ≤960：中屏，标题与 label 让位，内容优先 ---- */
+@media (max-width: 960px) {
+    .yimai-gso-page-head {
+        align-items: stretch;
+    }
+
+    .yimai-gso-page-head h1,
+    .yimai-gso-page-head h2,
+    .yimai-gso-page-head .yimai-gso-page-title {
+        font-size: var(--yimai-gso-font-xl);
+    }
+
+    .yimai-gso-field {
+        grid-template-columns: minmax(104px, 150px) minmax(0, 1fr);
+    }
+
+    .yimai-gso-section-head,
+    .yimai-gso-section-body {
+        padding-left: var(--yimai-gso-gap-lg);
+        padding-right: var(--yimai-gso-gap-lg);
+    }
+}
+
+/* ---- ≤782：WordPress 后台移动端分界。375px 验收的全部硬指标在这块 ---- */
+@media (max-width: 782px) {
+    /* ① 页面壳层左右留白（选择器与 admin.css 完全一致，靠后加载胜出） */
+    body.wp-admin .yimai-gso-wrap,
+    body.wp-admin div.wrap.yimai-gso-wrap {
+        padding: 12px 14px !important;
+    }
+
+    /* ② 页头变上下结构，标题降一级，操作区吃满宽度 */
+    .yimai-gso-page-head {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--yimai-gso-gap-md);
+        margin-bottom: var(--yimai-gso-gap-lg);
+        padding-bottom: var(--yimai-gso-gap-md);
+    }
+
+    .yimai-gso-page-head h1,
+    .yimai-gso-page-head h2,
+    .yimai-gso-page-head .yimai-gso-page-title {
+        font-size: var(--yimai-gso-font-lg);
+        line-height: 1.4;
+    }
+
+    .yimai-gso-page-head .yimai-gso-actions {
+        width: 100%;
+    }
+
+    .yimai-gso-page-desc {
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    /* 说明文字里的 <code>、键值里的 <code>、表头这三处在桌面端是 13px，
+       移动端必须一起抬到 14px —— 否则「字号不小于 14px」的验收会在细节上翻车。 */
+    .yimai-gso-page-desc code,
+    .yimai-gso-kv-v code,
+    .yimai-gso-table thead th {
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    /* ③ 指标卡两列（480 再降到一列），值不缩字号 */
+    .yimai-gso-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--yimai-gso-gap-sm);
+        margin-bottom: var(--yimai-gso-gap-lg);
+    }
+
+    .yimai-gso-stat {
+        padding: var(--yimai-gso-gap-md);
+        border-radius: var(--yimai-gso-radius-sm);
+    }
+
+    .yimai-gso-stat-k {
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    .yimai-gso-stat-v {
+        font-size: var(--yimai-gso-font-lg);
+    }
+
+    /* ④ 区块内边距收紧，head 允许换行 */
+    .yimai-gso-section {
+        border-radius: var(--yimai-gso-radius-sm);
+        margin-bottom: var(--yimai-gso-gap-lg);
+    }
+
+    .yimai-gso-section-head {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--yimai-gso-gap-sm);
+        padding: var(--yimai-gso-gap-md) var(--yimai-gso-gap-md);
+    }
+
+    .yimai-gso-section-head h2,
+    .yimai-gso-section-head h3,
+    .yimai-gso-section-head .yimai-gso-section-title {
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    /* head 变竖排后，flex 子项默认 stretch 会把徽章拉成一整条；
+       徽章本身是「贴标签」，必须保持内容宽度。按钮组不受影响（它自己 width:100%）。 */
+    .yimai-gso-section-head > .yimai-gso-badge {
+        align-self: flex-start;
+    }
+
+    .yimai-gso-section-body {
+        padding: var(--yimai-gso-gap-md);
+    }
+
+    /* ⑤ 字段塌成单列：label 在上、control 在下、control 全宽 */
+    .yimai-gso-field {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--yimai-gso-gap-xs);
+    }
+
+    .yimai-gso-field + .yimai-gso-field {
+        margin-top: var(--yimai-gso-gap-lg);
+    }
+
+    .yimai-gso-field-label {
+        padding-top: 0;
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    .yimai-gso-field-control input[type="text"],
+    .yimai-gso-field-control input[type="url"],
+    .yimai-gso-field-control input[type="password"],
+    .yimai-gso-field-control input[type="number"],
+    .yimai-gso-field-control input[type="email"],
+    .yimai-gso-field-control input[type="search"],
+    .yimai-gso-field-control input[type="tel"],
+    .yimai-gso-field-control select,
+    .yimai-gso-field-control textarea {
+        width: 100%;
+        max-width: 100%;
+        min-height: var(--yimai-gso-tap);
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    .yimai-gso-field-control > label {
+        min-height: var(--yimai-gso-tap);
+        align-items: center;
+    }
+
+    /* 勾选框本身放大到 18px（整行 label 就是 44px 的点击区，不靠勾选框本身凑高度） */
+    .yimai-gso-field-control > label input[type="checkbox"],
+    .yimai-gso-field-control > label input[type="radio"] {
+        width: 18px;
+        height: 18px;
+        min-width: 18px;
+        min-height: 18px;
+        margin: 0;
+    }
+
+    .yimai-gso-field-hint {
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    /* ⑥ 徽章与提示条字号抬到 14px 起（12px 在手机上要眯眼） */
+    .yimai-gso-badge {
+        font-size: var(--yimai-gso-font-base);
+        padding: 3px 10px;
+    }
+
+    .yimai-gso-badge > .dashicons {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+        line-height: 15px;
+    }
+
+    .yimai-gso-notice {
+        padding: var(--yimai-gso-gap-md);
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    /* ⑦ 表格：外层横滑兜底，内层给最小宽度，绝不压字 ----
+       720 不是拍的：560px 时「文章」列只剩 76px（≈5 字/行）、6 列结构里唯一可伸缩的
+       「错误原因」列被挤到 83~115px，长 errmsg 逐字换行、行高飙到 260px 以上；
+       720px 时同列到 146px（≈10 字/行）。这个基线与 responsive.css 侧的量法一致，
+       避免出现「老表 720、新表 560」的两套口径。
+       代价：窄表（如分享页 2 列的「常见错误码」）在手机上会多滑一点 —— 它本来
+       也装在 .yimai-gso-table-wrap 里横滑（旧的 560 同样超出 375 视口），
+       属于「本来就要滑，现在多滑 160px」，见 docs/UI组件规范.md §2.7。 */
+    .yimai-gso-table-wrap {
+        border-radius: var(--yimai-gso-radius-sm);
+    }
+
+    .yimai-gso-table {
+        min-width: 720px;
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    .yimai-gso-table th,
+    .yimai-gso-table td {
+        padding: 12px 10px;
+    }
+
+    /* ⑧ 选项卡：整条横滑，点击区 44px */
+    .yimai-gso-tabs {
+        margin-bottom: var(--yimai-gso-gap-md);
+        gap: 0;
+    }
+
+    .yimai-gso-tab {
+        min-height: var(--yimai-gso-tap);
+        padding: 10px 12px;
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    /* ⑨ 操作区竖排 + 全宽 + 44px 触控高度 ----
+       t14 权重契约：admin.css 用「.wp-core-ui .yimai-gso-wrap .yimai-gso-btn-modern-*」
+       (0,3,0) 声明 min-height:auto !important；
+       而「!important 撞 !important」时先比特异性，所以这里的选择器也必须到 (0,3,0)。
+       提权重的办法是用 .yimai-gso-page 前缀补一个类，而不是再堆一个权重标记 ——
+       堆了只是把战争推高一格，下一个页面还得继续堆。
+       两边同为 (0,3,0) 时本文件后加载即胜出。完整契约见 docs/UI组件规范.md §6。 */
+    .yimai-gso-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--yimai-gso-gap-sm);
+        margin-top: var(--yimai-gso-gap-md);
+    }
+
+    .yimai-gso-actions > .button,
+    .yimai-gso-actions > .button-primary,
+    .yimai-gso-actions > .button-secondary,
+    .yimai-gso-actions > button,
+    .yimai-gso-actions > a.button,
+    .yimai-gso-actions > input[type="submit"] {
+        display: flex;
+        width: 100%;
+        min-height: var(--yimai-gso-tap);
+        margin: 0;
+        /* WP 后台把 .button 定成 13px，移动端必须抬到 14px */
+        font-size: var(--yimai-gso-font-base);
+        line-height: 1.4;
+    }
+
+    /* (0,3,0)：.yimai-gso-page(1) + .yimai-gso-actions(1) + 按钮类(1) */
+    .yimai-gso-page .yimai-gso-actions > .yimai-gso-btn-modern-primary,
+    .yimai-gso-page .yimai-gso-actions > .yimai-gso-btn-modern-secondary,
+    .yimai-gso-page .yimai-gso-actions > .yimai-gso-btn-modern-danger,
+    .yimai-gso-page .yimai-gso-actions > .yimai-gso-btn-activate,
+    .yimai-gso-page .yimai-gso-actions > .yimai-gso-btn-danger {
+        width: 100% !important;
+        min-height: var(--yimai-gso-tap) !important;
+        margin: 0 !important;
+    }
+
+    /* ⑩ 空状态与键值列表 */
+    .yimai-gso-empty {
+        padding: var(--yimai-gso-gap-2xl) var(--yimai-gso-gap-md);
+        border-radius: var(--yimai-gso-radius-sm);
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    .yimai-gso-empty .yimai-gso-empty-hint {
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    .yimai-gso-kv {
+        grid-template-columns: minmax(80px, 112px) minmax(0, 1fr);
+        gap: var(--yimai-gso-gap-sm) var(--yimai-gso-gap-md);
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    /* ⑪ 手机预览卡铺满（320px 固定宽 + 页面留白会把 375px 撑出横向滚动） */
+    .yimai-gso-preview-card {
+        max-width: 100%;
+        border-radius: var(--yimai-gso-radius-sm);
+    }
+
+    .yimai-gso-preview-card-media {
+        height: 156px;
+    }
+
+    .yimai-gso-preview-card-title {
+        font-size: var(--yimai-gso-font-md);
+        padding: 10px 12px 6px;
+    }
+
+    .yimai-gso-preview-card-desc {
+        font-size: var(--yimai-gso-font-base);
+        padding: 0 12px 8px;
+    }
+
+    .yimai-gso-preview-card-meta {
+        font-size: var(--yimai-gso-font-base);
+        padding: 0 12px 12px;
+    }
+}
+
+/* ---- ≤480：小屏手机，指标卡降为一列，进一步压紧留白 ---- */
+@media (max-width: 480px) {
+    /* 注意：这一档不再改动 wrap 内边距 —— 782 档的 12px 14px 已经是验收口径，
+       再往里压会导致「同一份设计在 375 和 480 上留白不一致」，也让验收无法照抄。 */
+
+    .yimai-gso-page-head h1,
+    .yimai-gso-page-head h2,
+    .yimai-gso-page-head .yimai-gso-page-title {
+        font-size: var(--yimai-gso-font-md);
+    }
+
+    .yimai-gso-stat-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .yimai-gso-stat-v {
+        font-size: var(--yimai-gso-font-md);
+    }
+
+    .yimai-gso-section-head,
+    .yimai-gso-section-body {
+        padding: var(--yimai-gso-gap-md);
+    }
+
+    .yimai-gso-tab {
+        padding: 10px 10px;
+    }
+
+    .yimai-gso-kv {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
+    }
+
+    .yimai-gso-kv-k,
+    .yimai-gso-kv > dt {
+        font-size: var(--yimai-gso-font-base);
+    }
+
+    .yimai-gso-preview-card-media {
+        height: 140px;
+    }
+}

@@ -66,6 +66,9 @@ class YIMAI_GSO_Wechat_Share {
 
         if ( is_admin() ) {
             add_action( 'admin_menu', array( $this, 'register_admin_page' ), 20 );
+            // 30 是刻意的：public 的 enqueue_assets 在 class-admin.php 里按默认优先级 10 注册，
+            // 本页样式必须排在 admin → panels → components → responsive 之后，否则会被同权重规则顶掉。
+            add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ), 30 );
             add_action( 'admin_post_yimai_gso_wechat_save', array( $this, 'handle_save' ) );
             add_action( 'wp_ajax_yimai_gso_wechat_test_token', array( $this, 'ajax_test_token' ) );
             add_action( 'wp_ajax_yimai_gso_wechat_probe', array( $this, 'ajax_probe' ) );
@@ -558,71 +561,16 @@ class YIMAI_GSO_Wechat_Share {
     /**
      * 取 access_token（带 7000 秒缓存 + 轻量互斥锁）
      *
+     * 实现已迁到共享类 YIMAI_GSO_Wx_Api：同一个 AppID 的 access_token 在微信侧是
+     * 「后取覆盖前取」，分享模块和草稿箱同步各缓存一份就会互相把对方刷失效，
+     * 表现是最难查的随机 40001。这里只保留同名 private 包装，让类内既有调用点
+     * （get_jsapi_ticket、后台凭据自检）一处都不用改。
+     *
      * @param bool $force 强制刷新
      * @return string|WP_Error
      */
     private function get_access_token( $force = false ) {
-        if ( ! $force ) {
-            $cached = get_transient( self::TOKEN_TRANSIENT );
-            if ( is_string( $cached ) && '' !== $cached ) {
-                return $cached;
-            }
-            // 另一个请求正在刷新时等它一下，避免并发刷新导致刚拿到的 token 立刻失效
-            if ( get_transient( self::LOCK_TRANSIENT ) ) {
-                for ( $i = 0; $i < 6; $i++ ) {
-                    usleep( 250000 );
-                    $cached = get_transient( self::TOKEN_TRANSIENT );
-                    if ( is_string( $cached ) && '' !== $cached ) {
-                        return $cached;
-                    }
-                }
-            }
-        }
-
-        $app_id = trim( (string) YIMAI_GSO_Settings::get( 'wechat_app_id', '' ) );
-        $secret = trim( (string) YIMAI_GSO_Settings::get( 'wechat_app_secret', '' ) );
-        if ( '' === $app_id || '' === $secret ) {
-            return new WP_Error( 'yimai_gso_wx_unconfigured', '未填写公众号 AppID / AppSecret' );
-        }
-
-        set_transient( self::LOCK_TRANSIENT, 1, 15 );
-
-        $api = add_query_arg(
-            array(
-                'grant_type' => 'client_credential',
-                'appid'      => $app_id,
-                'secret'     => $secret,
-            ),
-            'https://api.weixin.qq.com/cgi-bin/token'
-        );
-
-        $res = wp_remote_get( $api, array( 'timeout' => 15 ) );
-        delete_transient( self::LOCK_TRANSIENT );
-
-        if ( is_wp_error( $res ) ) {
-            update_option( self::ERROR_OPTION, array(
-                'context' => 'access_token',
-                'errcode' => 0,
-                'errmsg'  => $res->get_error_message(),
-                'hint'    => '服务器无法访问 api.weixin.qq.com（国内主机通常是 DNS 或出网限制）',
-                'time'    => current_time( 'mysql' ),
-            ), false );
-            return $res;
-        }
-
-        $data = json_decode( wp_remote_retrieve_body( $res ), true );
-        if ( ! is_array( $data ) ) {
-            return new WP_Error( 'yimai_gso_wx_badjson', '微信接口返回非 JSON 内容，请检查服务器到 api.weixin.qq.com 的网络' );
-        }
-        if ( empty( $data['access_token'] ) ) {
-            return $this->wechat_api_error( 'access_token', $data );
-        }
-
-        $ttl = isset( $data['expires_in'] ) ? ( (int) $data['expires_in'] - 200 ) : self::CACHE_TTL;
-        set_transient( self::TOKEN_TRANSIENT, (string) $data['access_token'], max( 120, min( self::CACHE_TTL, $ttl ) ) );
-        delete_option( self::ERROR_OPTION );
-
-        return (string) $data['access_token'];
+        return YIMAI_GSO_Wx_Api::get_access_token( $force );
     }
 
     /**
@@ -1191,6 +1139,41 @@ class YIMAI_GSO_Wechat_Share {
         );
     }
 
+    /**
+     * 只在「微信分享卡片」页加载本页专属样式。
+     *
+     * 为什么不并进 class-admin.php 的 enqueue_assets：那里的四个 handle 是所有插件页共用的
+     * 设计系统底座，而 wechat.css 只有这一页用得上（手机分享卡预览、诊断条目、凭据状态的特殊样式），
+     * 挂在全局等于让其它后台页白下载一份；页面级资源留在本类，改本页样式也不会牵动主面板。
+     *
+     * 版本号取 filemtime：改完 CSS 立刻生效，免得为了看一眼效果去 bump 插件版本。
+     * 依赖 yimai-gso-components，保证输出顺序在 components.css 之后（同依赖按入队顺序）。
+     */
+    public function enqueue_admin_assets( $hook ) {
+        // 页面 hook 形如 yimai-gso-center_page_yimai-gso-wechat，只认自己这一页
+        if ( false === strpos( (string) $hook, 'yimai-gso-wechat' ) ) {
+            return;
+        }
+
+        $relative = 'admin/css/wechat.css';
+        $version  = YIMAI_GSO_VERSION;
+        $absolute = YIMAI_GSO_PLUGIN_DIR . $relative;
+
+        if ( file_exists( $absolute ) ) {
+            $stamp = filemtime( $absolute );
+            if ( $stamp ) {
+                $version = (string) $stamp;
+            }
+        }
+
+        wp_enqueue_style(
+            'yimai-gso-wechat',
+            YIMAI_GSO_PLUGIN_URL . $relative,
+            array( 'yimai-gso-components' ),
+            $version
+        );
+    }
+
     public function handle_save() {
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die( '权限不足' );
@@ -1564,37 +1547,47 @@ class YIMAI_GSO_Wechat_Share {
         $host      = (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST );
         $site_home = home_url( '/' );
         ?>
-        <div class="wrap ymwx-wrap">
-            <h1>微信分享卡片</h1>
-            <p style="max-width:860px;color:#475569;line-height:1.8;">
-                微信内「发送给朋友 / 分享到朋友圈」时只有一个裸链接，是因为页面没有接入微信 JS-SDK，
-                微信抓不到信息就只显示一条 URL。这里把签名、分享字段和抓取元信息一次配好。
-            </p>
-
-            <?php if ( isset( $_GET['ymwx'] ) && 'saved' === $_GET['ymwx'] ) : ?>
-                <div class="notice notice-success is-dismissible"><p>设置已保存，缓存已重置。</p></div>
-            <?php endif; ?>
-
-            <div class="ymwx-cards">
-                <div class="ymwx-card">
-                    <div class="ymwx-card-k">公众号凭据</div>
-                    <div class="ymwx-card-v <?php echo ( $app_id && $has_secret ) ? 'ok' : 'bad'; ?>">
-                        <?php echo ( $app_id && $has_secret ) ? '已配置' : '未配置'; ?>
+        <div class="wrap yimai-gso-wrap">
+            <div class="yimai-gso-page">
+                <div class="yimai-gso-page-head">
+                    <div>
+                        <h1><span class="dashicons dashicons-share"></span>微信分享卡片</h1>
+                        <p class="yimai-gso-page-desc">
+                            微信内「发送给朋友 / 分享到朋友圈」时只有一个裸链接，是因为页面没有接入微信 JS-SDK，
+                            微信抓不到信息就只显示一条 URL。这里把签名、分享字段和抓取元信息一次配好。
+                        </p>
+                    </div>
+                    <div class="yimai-gso-actions">
+                        <button type="button" class="yimai-gso-btn-modern-secondary" id="ymwx-clear-cache">清除 token / ticket 缓存</button>
+                        <button type="button" class="yimai-gso-btn-modern-primary" id="ymwx-test-token">测试公众号凭据</button>
+                        <span class="yimai-gso-wx-inline-result" id="ymwx-token-result" aria-live="polite"></span>
                     </div>
                 </div>
-                <div class="ymwx-card">
-                    <div class="ymwx-card-k">access_token 缓存</div>
-                    <div class="ymwx-card-v <?php echo $token_ok ? 'ok' : ''; ?>"><?php echo $token_ok ? '有效' : '无'; ?></div>
+
+                <?php if ( isset( $_GET['ymwx'] ) && 'saved' === $_GET['ymwx'] ) : ?>
+                    <div class="yimai-gso-notice is-success"><p>设置已保存，缓存已重置。</p></div>
+                <?php endif; ?>
+
+                <div class="yimai-gso-stat-grid">
+                    <div class="yimai-gso-stat">
+                        <p class="yimai-gso-stat-k">公众号凭据</p>
+                        <p class="yimai-gso-stat-v <?php echo ( $app_id && $has_secret ) ? 'is-pass' : 'is-fail'; ?>">
+                            <?php echo ( $app_id && $has_secret ) ? '已配置' : '未配置'; ?>
+                        </p>
+                    </div>
+                    <div class="yimai-gso-stat">
+                        <p class="yimai-gso-stat-k">access_token 缓存</p>
+                        <p class="yimai-gso-stat-v <?php echo $token_ok ? 'is-pass' : 'is-muted'; ?>"><?php echo $token_ok ? '有效' : '无'; ?></p>
+                    </div>
+                    <div class="yimai-gso-stat">
+                        <p class="yimai-gso-stat-k">jsapi_ticket 缓存</p>
+                        <p class="yimai-gso-stat-v <?php echo $ticket_ok ? 'is-pass' : 'is-muted'; ?>"><?php echo $ticket_ok ? '有效' : '无'; ?></p>
+                    </div>
+                    <div class="yimai-gso-stat">
+                        <p class="yimai-gso-stat-k">站点域名</p>
+                        <p class="yimai-gso-stat-v"><?php echo esc_html( $host ); ?></p>
+                    </div>
                 </div>
-                <div class="ymwx-card">
-                    <div class="ymwx-card-k">jsapi_ticket 缓存</div>
-                    <div class="ymwx-card-v <?php echo $ticket_ok ? 'ok' : ''; ?>"><?php echo $ticket_ok ? '有效' : '无'; ?></div>
-                </div>
-                <div class="ymwx-card">
-                    <div class="ymwx-card-k">站点域名</div>
-                    <div class="ymwx-card-v"><?php echo esc_html( $host ); ?></div>
-                </div>
-            </div>
 
             <?php
             $err_hint = isset( $last_err['hint'] ) ? (string) $last_err['hint'] : '';
@@ -1603,287 +1596,318 @@ class YIMAI_GSO_Wechat_Share {
             $err_time = isset( $last_err['time'] ) ? (string) $last_err['time'] : '';
             ?>
             <?php if ( '' !== $err_msg ) : ?>
-                <div class="notice notice-error">
-                    <p><strong>最近一次接口错误：</strong><?php echo esc_html( '' !== $err_hint ? $err_hint : $err_msg ); ?>
-                        <br><span style="color:#64748b;">errcode <?php echo $err_code; ?> ·
-                        <?php echo esc_html( $err_msg ); ?> · <?php echo esc_html( $err_time ); ?></span>
-                    </p>
+                <div class="yimai-gso-notice is-error">
+                    <p><strong>最近一次接口错误：</strong><?php echo esc_html( '' !== $err_hint ? $err_hint : $err_msg ); ?></p>
+                    <p class="yimai-gso-wx-notice-meta">errcode <?php echo $err_code; ?> ·
+                        <?php echo esc_html( $err_msg ); ?> · <?php echo esc_html( $err_time ); ?></p>
                 </div>
             <?php endif; ?>
 
-            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="ymwx-form">
-                <input type="hidden" name="action" value="yimai_gso_wechat_save" />
-                <?php wp_nonce_field( 'yimai_gso_wechat_save' ); ?>
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                    <input type="hidden" name="action" value="yimai_gso_wechat_save" />
+                    <?php wp_nonce_field( 'yimai_gso_wechat_save' ); ?>
 
-                <h2 class="title">一、公众号与开关</h2>
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row">启用微信分享卡片</th>
-                        <td>
-                            <label><input type="checkbox" name="wechat_share_enabled" value="1" <?php checked( $enabled ); ?> /> 在微信内打开页面时接管「发送给朋友 / 分享到朋友圈」的标题、描述与缩略图</label>
-                            <p class="description">关闭后前台不输出任何微信脚本，页面行为回到现状。</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">AppID</th>
-                        <td>
-                            <input type="text" class="regular-text" name="wechat_app_id" value="<?php echo esc_attr( $app_id ); ?>" placeholder="wx1234567890abcdef" autocomplete="off" />
-                            <p class="description">公众号后台「设置与开发 → 基本配置 → 开发者ID」里的 AppID。</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">AppSecret</th>
-                        <td>
-                            <input type="text" class="regular-text" name="wechat_app_secret" value="<?php echo esc_attr( $secret ); ?>" placeholder="<?php echo $has_secret ? '已保存（留空或保持掩码则不修改）' : 'AppSecret'; ?>" autocomplete="off" />
-                            <p class="description">加密存库，页面只显示后 4 位。公众号 AppSecret 泄露后请到后台重置。</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">公众号校验文件托管</th>
-                        <td>
-                            <input type="text" class="regular-text" name="wechat_mp_verify_token" value="<?php echo esc_attr( $verify ); ?>" placeholder="例如 4QwXyz123abcDEF" />
-                            <p class="description">
-                                配置「JS接口安全域名」时微信要求根目录有 <code>MP_verify_xxxx.txt</code>。
-                                把 xxxx 部分填在这里，插件会直接托管这个文件，不用上服务器传。
-                                <?php if ( '' !== $verify ) : ?>
-                                    <br>当前应可访问：<a href="<?php echo esc_url( home_url( '/MP_verify_' . $verify . '.txt' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/MP_verify_' . $verify . '.txt' ) ); ?></a>
-                                <?php endif; ?>
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">调试角标</th>
-                        <td>
-                            <label><input type="checkbox" name="wechat_share_debug" value="1" <?php checked( $debug ); ?> /> 在微信内页面左下角显示分享状态角标（配置完记得关掉）</label>
-                        </td>
-                    </tr>
-                </table>
+                    <div class="yimai-gso-section">
+                        <div class="yimai-gso-section-head">
+                            <h2><span class="dashicons dashicons-admin-network"></span>一、公众号与开关</h2>
+                            <span class="yimai-gso-badge <?php echo ( $app_id && $has_secret ) ? 'is-pass' : 'is-warn'; ?>"><?php echo ( $app_id && $has_secret ) ? '凭据已填' : '待填凭据'; ?></span>
+                        </div>
+                        <div class="yimai-gso-section-body">
+                            <div class="yimai-gso-field">
+                                <span class="yimai-gso-field-label">启用微信分享卡片</span>
+                                <div class="yimai-gso-field-control">
+                                    <label><input type="checkbox" name="wechat_share_enabled" value="1" <?php checked( $enabled ); ?> /> 在微信内打开页面时接管「发送给朋友 / 分享到朋友圈」的标题、描述与缩略图</label>
+                                    <p class="yimai-gso-field-hint">关闭后前台不输出任何微信脚本，页面行为回到现状。</p>
+                                </div>
+                            </div>
+                            <div class="yimai-gso-field">
+                                <label class="yimai-gso-field-label" for="wechat_app_id">AppID</label>
+                                <div class="yimai-gso-field-control">
+                                    <input type="text" id="wechat_app_id" name="wechat_app_id" value="<?php echo esc_attr( $app_id ); ?>" placeholder="wx1234567890abcdef" autocomplete="off" />
+                                    <p class="yimai-gso-field-hint">公众号后台「设置与开发 → 基本配置 → 开发者ID」里的 AppID。</p>
+                                </div>
+                            </div>
+                            <div class="yimai-gso-field">
+                                <label class="yimai-gso-field-label" for="wechat_app_secret">AppSecret</label>
+                                <div class="yimai-gso-field-control">
+                                    <input type="text" id="wechat_app_secret" name="wechat_app_secret" value="<?php echo esc_attr( $secret ); ?>" placeholder="<?php echo $has_secret ? '已保存（留空或保持掩码则不修改）' : 'AppSecret'; ?>" autocomplete="off" />
+                                    <p class="yimai-gso-field-hint">加密存库，页面只显示后 4 位。公众号 AppSecret 泄露后请到后台重置。</p>
+                                </div>
+                            </div>
+                            <div class="yimai-gso-field">
+                                <label class="yimai-gso-field-label" for="wechat_mp_verify_token">公众号校验文件托管</label>
+                                <div class="yimai-gso-field-control">
+                                    <input type="text" id="wechat_mp_verify_token" name="wechat_mp_verify_token" value="<?php echo esc_attr( $verify ); ?>" placeholder="例如 4QwXyz123abcDEF" />
+                                    <p class="yimai-gso-field-hint">
+                                        配置「JS接口安全域名」时微信要求根目录有 <code>MP_verify_xxxx.txt</code>。
+                                        把 xxxx 部分填在这里，插件会直接托管这个文件，不用上服务器传。
+                                        <?php if ( '' !== $verify ) : ?>
+                                            <br>当前应可访问：<a href="<?php echo esc_url( home_url( '/MP_verify_' . $verify . '.txt' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/MP_verify_' . $verify . '.txt' ) ); ?></a>
+                                        <?php endif; ?>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="yimai-gso-field">
+                                <span class="yimai-gso-field-label">调试角标</span>
+                                <div class="yimai-gso-field-control">
+                                    <label><input type="checkbox" name="wechat_share_debug" value="1" <?php checked( $debug ); ?> /> 在微信内页面左下角显示分享状态角标（配置完记得关掉）</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                <h2 class="title">二、分享文案与封面</h2>
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row">首页分享标题</th>
-                        <td>
-                            <input type="text" class="regular-text" name="wechat_share_home_title" value="<?php echo esc_attr( $home_title ); ?>" placeholder="例如：一麦瑜伽·普拉提｜宁波高端女性瑜伽空间" />
-                            <p class="description">首页和列表页没有文章标题可用，留空则回落到站点名「<?php echo esc_html( get_bloginfo( 'name' ) ); ?>」。建议 20 字内。</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">分享封面图</th>
-                        <td>
-                            <input type="text" class="regular-text" name="wechat_share_cover" id="ymwx-cover" value="<?php echo esc_attr( $cover ); ?>" placeholder="https://<?php echo esc_attr( $host ); ?>/wp-content/uploads/...jpg" />
-                            <button type="button" class="button" id="ymwx-cover-pick">从媒体库选择</button>
-                            <p class="description">
-                                文章有特色图时优先用特色图；没有特色图（以及特色图是 WebP 时）用这张兜底。
-                                要求：JPG/PNG、≥ 500×500、单张 &lt; 300 KB、文件名用英文。
-                            </p>
-                            <?php if ( '' !== $cover ) : ?>
-                                <p><img src="<?php echo esc_url( $cover ); ?>" alt="" style="max-width:220px;border-radius:8px;border:1px solid #e2e8f0;margin-top:6px;" /></p>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">描述长度</th>
-                        <td>
-                            <input type="number" min="20" max="120" step="1" name="wechat_share_desc_len" value="<?php echo (int) $desc_len; ?>" style="width:90px;" /> 字
-                            <p class="description">微信好友卡片描述区大约显示两行，超过会被省略号截断。建议 50–70。</p>
-                        </td>
-                    </tr>
-                </table>
+                    <div class="yimai-gso-section">
+                        <div class="yimai-gso-section-head">
+                            <h2><span class="dashicons dashicons-editor-textcolor"></span>二、分享文案</h2>
+                            <span class="yimai-gso-badge is-muted">选填</span>
+                        </div>
+                        <div class="yimai-gso-section-body">
+                            <div class="yimai-gso-field">
+                                <label class="yimai-gso-field-label" for="wechat_share_home_title">首页分享标题</label>
+                                <div class="yimai-gso-field-control">
+                                    <input type="text" id="wechat_share_home_title" name="wechat_share_home_title" value="<?php echo esc_attr( $home_title ); ?>" placeholder="例如：一麦瑜伽·普拉提｜宁波高端女性瑜伽空间" />
+                                    <p class="yimai-gso-field-hint">首页和列表页没有文章标题可用，留空则回落到站点名「<?php echo esc_html( get_bloginfo( 'name' ) ); ?>」。建议 20 字内。</p>
+                                </div>
+                            </div>
+                            <div class="yimai-gso-field">
+                                <label class="yimai-gso-field-label" for="wechat_share_desc_len">描述长度</label>
+                                <div class="yimai-gso-field-control">
+                                    <div class="yimai-gso-wx-inline">
+                                        <input type="number" id="wechat_share_desc_len" class="yimai-gso-wx-num" min="20" max="120" step="1" name="wechat_share_desc_len" value="<?php echo (int) $desc_len; ?>" />
+                                        <span class="yimai-gso-wx-unit">字</span>
+                                    </div>
+                                    <p class="yimai-gso-field-hint">微信好友卡片描述区大约显示两行，超过会被省略号截断。建议 50–70。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                <p class="submit">
-                    <button type="submit" class="button button-primary">保存设置</button>
-                </p>
-            </form>
+                    <div class="yimai-gso-section">
+                        <div class="yimai-gso-section-head">
+                            <h2><span class="dashicons dashicons-format-image"></span>三、分享封面</h2>
+                        </div>
+                        <div class="yimai-gso-section-body">
+                            <div class="yimai-gso-field">
+                                <label class="yimai-gso-field-label" for="ymwx-cover">分享封面图</label>
+                                <div class="yimai-gso-field-control">
+                                    <input type="text" id="ymwx-cover" name="wechat_share_cover" value="<?php echo esc_attr( $cover ); ?>" placeholder="https://<?php echo esc_attr( $host ); ?>/wp-content/uploads/...jpg" />
+                                    <div class="yimai-gso-actions">
+                                        <button type="button" class="button" id="ymwx-cover-pick">从媒体库选择</button>
+                                    </div>
+                                    <p class="yimai-gso-field-hint">
+                                        文章有特色图时优先用特色图；没有特色图（以及特色图是 WebP 时）用这张兜底。
+                                        要求：JPG/PNG、≥ 500×500、单张 &lt; 300 KB、文件名用英文。
+                                    </p>
+                                    <?php if ( '' !== $cover ) : ?>
+                                        <p class="yimai-gso-wx-cover-preview"><img src="<?php echo esc_url( $cover ); ?>" alt="" /></p>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
 
-            <h2 class="title">三、真机诊断</h2>
-            <?php
-            // 安全域名只认「不带 www / 带 www」其中一种，写错了服务端完全看不出来，
-            // 只有真机 wx.config 会失败。这里把两种写法和生效状态摆出来，先排除这一项。
-            $bare_host = ( 0 === strpos( $host, 'www.' ) ) ? substr( $host, 4 ) : $host;
-            $report    = get_option( self::REPORT_OPTION, array() );
-            $rep_msg   = isset( $report['msg'] ) ? (string) $report['msg'] : '';
-            $rep_stat  = isset( $report['status'] ) ? (string) $report['status'] : '';
-            $rep_time  = isset( $report['time'] ) ? (string) $report['time'] : '';
-            $rep_page  = isset( $report['page'] ) ? (string) $report['page'] : '';
+                        </div>
+                    </div>
 
-            $verdict = '';
-            if ( '' !== $rep_stat ) {
-                if ( 'ready' === $rep_stat ) {
-                    $verdict = array( 'ok', '真机已就绪：wx.config 通过，分享卡片应该正常出图出标题了' );
-                } elseif ( 'boot' === $rep_stat ) {
-                    $verdict = array( 'bad', '脚本跑到了但没走完：连 SDK 都没载入成功，多看页面报错' );
-                } elseif ( 'configtimeout' === $rep_stat ) {
-                    $verdict = array( 'bad', '卡在 wx.config：10 秒内既不成功也不报错，通常是签名接口被 CDN/WAF 挡掉或超时' );
-                } elseif ( 'sdk' === $rep_stat ) {
-                    $verdict = array( 'bad', 'SDK 载入了但 wx.config 一直没回调：签名接口大概率被拦（停留在这一步本身就是证据）' );
-                } elseif ( false !== stripos( $rep_msg, 'invalid signature' ) ) {
-                    $verdict = array( 'bad', '签名不匹配：多为「JS接口安全域名」和当前访问域名不一致，或页面 URL 带参数时签名用的不是同一个 URL' );
-                } elseif ( false !== stripos( $rep_msg, 'invalid domain' ) || false !== stripos( $rep_msg, 'invalid url domain' ) ) {
-                    $verdict = array( 'bad', '域名不在公众号「JS接口安全域名」里：必须与访问域名完全一致，www 与不带 www 视为两个域名' );
-                } elseif ( false !== stripos( $rep_msg, 'permission' ) || false !== stripos( $rep_msg, 'offline' ) ) {
-                    $verdict = array( 'bad', '公众号没有 JS 接口权限：多为未完成微信认证，或该 AppID 是测试号/订阅号未认证' );
-                } elseif ( 'signfail' === $rep_stat ) {
-                    $verdict = array( 'bad', '签名接口本身失败：看上面的最近错误与「测试公众号凭据」结果' );
-                } elseif ( 'fetchfail' === $rep_stat ) {
-                    $verdict = array( 'bad', '签名接口没有响应：多为 CDN/WAF 拦截或 REST 被安全插件禁用，直接访问 /wp-json/yimai-gso/v1/wechat-jssdk 看返回' );
-                } elseif ( 'sdkfail' === $rep_stat ) {
-                    $verdict = array( 'bad', '微信 JS-SDK 两个 CDN 都载入失败：页面可能被 CSP 限制，或手机网络到 res.wx.qq.com 不通' );
-                } elseif ( 'apifail' === $rep_stat ) {
-                    $verdict = array( 'bad', 'config 通过了，但具体的分享接口调用失败（见下方明细）——多为该公众号没有对应接口权限' );
-                } elseif ( 'config:fail' === $rep_stat ) {
-                    $verdict = array( 'bad', 'wx.config 被微信拒绝：按 errMsg 逐项查安全域名 / AppID 归属账号 / 认证状态' );
-                } else {
-                    $verdict = array( 'bad', '真机报了错，见下方 errMsg' );
+                    <div class="yimai-gso-actions">
+                        <button type="submit" class="yimai-gso-btn-modern-primary">保存设置</button>
+                    </div>
+                </form>
+
+                <div class="yimai-gso-section">
+                    <div class="yimai-gso-section-head">
+                        <h2><span class="dashicons dashicons-smartphone"></span>四、真机诊断</h2>
+                    </div>
+                    <div class="yimai-gso-section-body">
+                <?php
+                // 安全域名只认「不带 www / 带 www」其中一种，写错了服务端完全看不出来，
+                // 只有真机 wx.config 会失败。这里把两种写法和生效状态摆出来，先排除这一项。
+                $bare_host = ( 0 === strpos( $host, 'www.' ) ) ? substr( $host, 4 ) : $host;
+                $report    = get_option( self::REPORT_OPTION, array() );
+                $rep_msg   = isset( $report['msg'] ) ? (string) $report['msg'] : '';
+                $rep_stat  = isset( $report['status'] ) ? (string) $report['status'] : '';
+                $rep_time  = isset( $report['time'] ) ? (string) $report['time'] : '';
+                $rep_page  = isset( $report['page'] ) ? (string) $report['page'] : '';
+
+                $verdict = '';
+                if ( '' !== $rep_stat ) {
+                    if ( 'ready' === $rep_stat ) {
+                        $verdict = array( 'ok', '真机已就绪：wx.config 通过，分享卡片应该正常出图出标题了' );
+                    } elseif ( 'boot' === $rep_stat ) {
+                        $verdict = array( 'bad', '脚本跑到了但没走完：连 SDK 都没载入成功，多看页面报错' );
+                    } elseif ( 'configtimeout' === $rep_stat ) {
+                        $verdict = array( 'bad', '卡在 wx.config：10 秒内既不成功也不报错，通常是签名接口被 CDN/WAF 挡掉或超时' );
+                    } elseif ( 'sdk' === $rep_stat ) {
+                        $verdict = array( 'bad', 'SDK 载入了但 wx.config 一直没回调：签名接口大概率被拦（停留在这一步本身就是证据）' );
+                    } elseif ( false !== stripos( $rep_msg, 'invalid signature' ) ) {
+                        $verdict = array( 'bad', '签名不匹配：多为「JS接口安全域名」和当前访问域名不一致，或页面 URL 带参数时签名用的不是同一个 URL' );
+                    } elseif ( false !== stripos( $rep_msg, 'invalid domain' ) || false !== stripos( $rep_msg, 'invalid url domain' ) ) {
+                        $verdict = array( 'bad', '域名不在公众号「JS接口安全域名」里：必须与访问域名完全一致，www 与不带 www 视为两个域名' );
+                    } elseif ( false !== stripos( $rep_msg, 'permission' ) || false !== stripos( $rep_msg, 'offline' ) ) {
+                        $verdict = array( 'bad', '公众号没有 JS 接口权限：多为未完成微信认证，或该 AppID 是测试号/订阅号未认证' );
+                    } elseif ( 'signfail' === $rep_stat ) {
+                        $verdict = array( 'bad', '签名接口本身失败：看上面的最近错误与「测试公众号凭据」结果' );
+                    } elseif ( 'fetchfail' === $rep_stat ) {
+                        $verdict = array( 'bad', '签名接口没有响应：多为 CDN/WAF 拦截或 REST 被安全插件禁用，直接访问 /wp-json/yimai-gso/v1/wechat-jssdk 看返回' );
+                    } elseif ( 'sdkfail' === $rep_stat ) {
+                        $verdict = array( 'bad', '微信 JS-SDK 两个 CDN 都载入失败：页面可能被 CSP 限制，或手机网络到 res.wx.qq.com 不通' );
+                    } elseif ( 'apifail' === $rep_stat ) {
+                        $verdict = array( 'bad', 'config 通过了，但具体的分享接口调用失败（见下方明细）——多为该公众号没有对应接口权限' );
+                    } elseif ( 'config:fail' === $rep_stat ) {
+                        $verdict = array( 'bad', 'wx.config 被微信拒绝：按 errMsg 逐项查安全域名 / AppID 归属账号 / 认证状态' );
+                    } else {
+                        $verdict = array( 'bad', '真机报了错，见下方 errMsg' );
+                    }
                 }
-            }
-            ?>
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row">安全域名该填哪个</th>
-                    <td>
-                        <p>当前站点主机名是 <code><?php echo esc_html( $host ); ?></code>。微信按「访问时的域名」逐字比对，填错一个字就报 <code>invalid signature</code>。两个都填最稳：</p>
-                        <ul style="margin-left:18px;list-style:disc;">
-                            <li><code><?php echo esc_html( $host ); ?></code>（手机实际访问的就是这个）</li>
-                            <?php if ( $bare_host !== $host ) : ?>
-                                <li><code><?php echo esc_html( $bare_host ); ?></code>（裸域，会 301 跳到 www 时用得上）</li>
-                            <?php endif; ?>
+                ?>
+                        <div class="yimai-gso-field">
+                            <span class="yimai-gso-field-label">安全域名该填哪个</span>
+                            <div class="yimai-gso-field-control">
+                                <p>当前站点主机名是 <code><?php echo esc_html( $host ); ?></code>。微信按「访问时的域名」逐字比对，填错一个字就报 <code>invalid signature</code>。两个都填最稳：</p>
+                                <ul class="yimai-gso-wx-list">
+                                    <li><code><?php echo esc_html( $host ); ?></code>（手机实际访问的就是这个）</li>
+                                    <?php if ( $bare_host !== $host ) : ?>
+                                        <li><code><?php echo esc_html( $bare_host ); ?></code>（裸域，会 301 跳到 www 时用得上）</li>
+                                    <?php endif; ?>
+                                </ul>
+                                <div class="yimai-gso-notice is-warning">
+                                    <p>如果你当初只填了 <code><?php echo esc_html( $bare_host ); ?></code>，而手机打开的是 <code><?php echo esc_html( $host ); ?></code>，JS 一定失败——但服务端测试照样全绿，这正是「测试通过但没卡片」最常见的原因。</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="yimai-gso-field">
+                            <span class="yimai-gso-field-label">最近一次真机结果</span>
+                            <div class="yimai-gso-field-control">
+                                <?php if ( '' === $rep_stat ) : ?>
+                                    <p class="yimai-gso-field-hint">还没有回传。用手机微信打开任意页面即可，回传后这里会显示结论与原始 errMsg。</p>
+                                <?php else : ?>
+                                    <div class="yimai-gso-notice <?php echo 'ok' === $verdict[0] ? 'is-success' : 'is-error'; ?>">
+                                        <p><strong><?php echo esc_html( $verdict[1] ); ?></strong></p>
+                                        <p class="yimai-gso-wx-notice-meta">status=<code><?php echo esc_html( $rep_stat ); ?></code> · <?php echo esc_html( $rep_time ); ?> · <?php echo esc_html( $rep_page ); ?></p>
+                                        <?php if ( '' !== $rep_msg && 'ok' !== $rep_msg ) : ?>
+                                            <p><code><?php echo esc_html( $rep_msg ); ?></code></p>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="yimai-gso-actions">
+                                        <button type="button" class="button" id="ymwx-clear-report">清掉这条记录</button>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div class="yimai-gso-field">
+                            <label class="yimai-gso-field-label" for="ymwx-probe-url">抓取自检（模拟微信抓一遍）</label>
+                            <div class="yimai-gso-field-control">
+                                <input type="text" id="ymwx-probe-url" value="<?php echo esc_attr( $site_home ); ?>" />
+                                <div class="yimai-gso-actions">
+                                    <button type="button" class="yimai-gso-btn-modern-primary" id="ymwx-probe">开始自检</button>
+                                </div>
+                                <p class="yimai-gso-field-hint">用微信内置浏览器 UA 真实抓取，逐项检查卡片要素。</p>
+                            </div>
+                        </div>
+
+                        <div id="ymwx-probe-result" class="yimai-gso-wx-probe-result"></div>
+                    </div>
+                </div>
+
+                <?php
+                // 签名自证：先用微信官方文档的样例参数跑一遍。拼接顺序或参数名（小写 noncestr）
+                // 一旦被改动，样例立刻对不上——算法错时真机 wx.config 只会静默失败，肉眼很难定位。
+                $sample_ticket = 'sM4AOVdWfPE4DxkXGEs8VMCPGGVi4C3VM0P37wVUCFvkVAy_90u5h9nbSlYy3-Sl-HhTdfl2fzFy1AOcHKP7qg';
+                $sample_nonce  = 'Wm3WZYTPz0wzccnW';
+                $sample_ts     = 1414587457;
+                $sample_url    = 'http://mp.weixin.qq.com?params=value';
+                $sample_expect = '0f9de62fce790f9a083d5c99e95740ceb90c27ed';
+                $sample_hash   = sha1( 'jsapi_ticket=' . $sample_ticket . '&noncestr=' . $sample_nonce . '&timestamp=' . $sample_ts . '&url=' . $sample_url );
+                $sample_ok     = hash_equals( $sample_expect, $sample_hash );
+
+                $sign_ticket = $ticket_ok ? (string) get_transient( self::TICKET_TRANSIENT ) : '';
+                $sign_nonce  = 'Wm3faQg7kP2zR9Tx';
+                $sign_ts     = 1700000000;
+                $sign_url    = $site_home;
+                $sign_hash   = ( '' !== $sign_ticket ) ? sha1( 'jsapi_ticket=' . $sign_ticket . '&noncestr=' . $sign_nonce . '&timestamp=' . $sign_ts . '&url=' . $sign_url ) : '';
+                ?>
+                <div class="yimai-gso-section">
+                    <div class="yimai-gso-section-head">
+                        <h2><span class="dashicons dashicons-editor-code"></span>五、签名算法自证</h2>
+                        <span class="yimai-gso-badge <?php echo $sample_ok ? 'is-pass' : 'is-fail'; ?>"><?php echo $sample_ok ? '算法通过' : '算法不符'; ?></span>
+                    </div>
+                    <div class="yimai-gso-section-body">
+                        <div class="yimai-gso-kv">
+                            <div class="yimai-gso-kv-k">官方样例</div>
+                            <div class="yimai-gso-kv-v yimai-gso-wx-stack">
+                                <?php if ( $sample_ok ) : ?>
+                                    <p class="yimai-gso-wx-verdict is-pass">通过</p>
+                                    <p class="yimai-gso-field-hint">用微信文档的样例 ticket / noncestr / timestamp / url 算出的 sha1 与文档给出的 <code><?php echo esc_html( $sample_expect ); ?></code> 一致，拼接顺序与参数名正确。</p>
+                                <?php else : ?>
+                                    <p class="yimai-gso-wx-verdict is-fail">不通过</p>
+                                    <p class="yimai-gso-field-hint">实得 <code><?php echo esc_html( $sample_hash ); ?></code>，预期 <code><?php echo esc_html( $sample_expect ); ?></code>。</p>
+                                <?php endif; ?>
+                            </div>
+                            <div class="yimai-gso-kv-k">当前站点实算</div>
+                            <div class="yimai-gso-kv-v yimai-gso-wx-stack">
+                                <?php if ( $ticket_ok ) : ?>
+                                    <p><code>jsapi_ticket=<?php echo esc_html( substr( $sign_ticket, 0, 8 ) . '…' ); ?>&amp;noncestr=<?php echo esc_html( $sign_nonce ); ?>&amp;timestamp=<?php echo (int) $sign_ts; ?>&amp;url=<?php echo esc_html( $sign_url ); ?></code></p>
+                                    <p><code class="yimai-gso-wx-hash"><?php echo esc_html( $sign_hash ); ?></code></p>
+                                    <p class="yimai-gso-field-hint">接口每次请求都会生成新的 noncestr 与 timestamp，并带上请求方真实 URL 参与签名。</p>
+                                <?php else : ?>
+                                    <p class="yimai-gso-field-hint">先点上面的「测试公众号凭据」拿到 ticket，这里会给出真实拼接串。</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="yimai-gso-section">
+                    <div class="yimai-gso-section-head">
+                        <h2><span class="dashicons dashicons-admin-settings"></span>六、公众号后台需要配的三件事</h2>
+                    </div>
+                    <div class="yimai-gso-section-body">
+                        <ol class="yimai-gso-wx-list">
+                            <li><strong>JS接口安全域名</strong>：公众号后台 → 设置与开发 → 公众号设置 → 功能设置 → JS接口安全域名，填 <code><?php echo esc_html( $host ); ?></code>（不带 https://），按提示把校验文件放到根目录（上面第一栏可代管）。</li>
+                            <li><strong>IP 白名单</strong>：设置与开发 → 基本配置 → IP白名单，加入本服务器出口 IP。不加会报 <code>errcode 40164</code>。</li>
+                            <li><strong>认证状态</strong>：JS-SDK 分享接口需要已认证的服务号/订阅号；未认证会报 <code>errcode 48001</code>。</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="yimai-gso-section">
+                    <div class="yimai-gso-section-head">
+                        <h2><span class="dashicons dashicons-warning"></span>七、常见错误码</h2>
+                    </div>
+                    <div class="yimai-gso-section-body">
+                        <div class="yimai-gso-table-wrap">
+                            <table class="yimai-gso-table">
+                                <thead>
+                                    <tr><th class="is-nowrap">errcode</th><th>含义与处理</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td class="is-nowrap">40001</td><td>AppSecret 错，或 access_token 被别处刷新失效 —— 保存后点「清除缓存」再测</td></tr>
+                                    <tr><td class="is-nowrap">40013</td><td>AppID 格式不对（应为 wx 开头的 18 位）</td></tr>
+                                    <tr><td class="is-nowrap">40125</td><td>AppSecret 无效，去后台重置后重新填写</td></tr>
+                                    <tr><td class="is-nowrap">40164</td><td>服务器出口 IP 不在白名单 —— 报错信息里会带出真实 IP</td></tr>
+                                    <tr><td class="is-nowrap">48001</td><td>公众号没有该接口权限（多为未认证）</td></tr>
+                                    <tr><td class="is-nowrap">45009</td><td>当日接口调用次数用尽</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="yimai-gso-section">
+                    <div class="yimai-gso-section-head">
+                        <h2><span class="dashicons dashicons-info-outline"></span>八、生效范围与缓存说明</h2>
+                    </div>
+                    <div class="yimai-gso-section-body">
+                        <ul class="yimai-gso-wx-list">
+                            <li><strong>微信内转发/分享</strong>：脚本实时取签名，改完设置立即生效（无需清缓存）。</li>
+                            <li><strong>把链接粘贴到聊天窗口</strong>：走微信服务端抓取，微信会把抓取结果缓存数小时到数天。改完 meta 后旧链接可能仍是旧卡片，换一个带参数的链接（如 <code>?v=2</code>）即可验证新结果。</li>
+                            <li>iOS 微信签名用的是「进入页面时的首个 URL」，插件已在 head 最前面记录，主题改地址栏也不会影响。</li>
                         </ul>
-                        <p class="description" style="color:#b45309;">如果你当初只填了 <code><?php echo esc_html( $bare_host ); ?></code>，而手机打开的是 <code><?php echo esc_html( $host ); ?></code>，JS 一定失败——但服务端测试照样全绿，这正是「测试通过但没卡片」最常见的原因。</p>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">最近一次真机结果</th>
-                    <td>
-                        <?php if ( '' === $rep_stat ) : ?>
-                            <span class="description">还没有回传。用手机微信打开任意页面即可，回传后这里会显示结论与原始 errMsg。</span>
-                        <?php else : ?>
-                            <p><strong style="color:<?php echo 'ok' === $verdict[0] ? '#15803d' : '#b91c1c'; ?>;"><?php echo esc_html( $verdict[1] ); ?></strong></p>
-                            <p class="description">status=<code><?php echo esc_html( $rep_stat ); ?></code> · <?php echo esc_html( $rep_time ); ?> · <?php echo esc_html( $rep_page ); ?></p>
-                            <?php if ( '' !== $rep_msg && 'ok' !== $rep_msg ) : ?>
-                                <p><code style="word-break:break-all;"><?php echo esc_html( $rep_msg ); ?></code></p>
-                            <?php endif; ?>
-                            <p><button type="button" class="button" id="ymwx-clear-report">清掉这条记录</button></p>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            </table>
+                    </div>
+                </div>
 
-            <h2 class="title">四、连通性测试</h2>
-            <p>
-                <button type="button" class="button" id="ymwx-test-token">测试公众号凭据</button>
-                <button type="button" class="button" id="ymwx-clear-cache">清除 token / ticket 缓存</button>
-                <span id="ymwx-token-result" style="margin-left:10px;"></span>
-            </p>
-
-            <h2 class="title">五、抓取自检（模拟微信抓一遍）</h2>
-            <p>
-                <input type="text" class="regular-text" id="ymwx-probe-url" value="<?php echo esc_attr( $site_home ); ?>" style="width:420px;" />
-                <button type="button" class="button button-primary" id="ymwx-probe">开始自检</button>
-                <span class="description">用微信内置浏览器 UA 真实抓取，逐项检查卡片要素。</span>
-            </p>
-            <div id="ymwx-probe-result"></div>
-
-            <?php
-            // 签名自证：先用微信官方文档的样例参数跑一遍。拼接顺序或参数名（小写 noncestr）
-            // 一旦被改动，样例立刻对不上——算法错时真机 wx.config 只会静默失败，肉眼很难定位。
-            $sample_ticket = 'sM4AOVdWfPE4DxkXGEs8VMCPGGVi4C3VM0P37wVUCFvkVAy_90u5h9nbSlYy3-Sl-HhTdfl2fzFy1AOcHKP7qg';
-            $sample_nonce  = 'Wm3WZYTPz0wzccnW';
-            $sample_ts     = 1414587457;
-            $sample_url    = 'http://mp.weixin.qq.com?params=value';
-            $sample_expect = '0f9de62fce790f9a083d5c99e95740ceb90c27ed';
-            $sample_hash   = sha1( 'jsapi_ticket=' . $sample_ticket . '&noncestr=' . $sample_nonce . '&timestamp=' . $sample_ts . '&url=' . $sample_url );
-            $sample_ok     = hash_equals( $sample_expect, $sample_hash );
-
-            $sign_ticket = $ticket_ok ? (string) get_transient( self::TICKET_TRANSIENT ) : '';
-            $sign_nonce  = 'Wm3faQg7kP2zR9Tx';
-            $sign_ts     = 1700000000;
-            $sign_url    = $site_home;
-            $sign_hash   = ( '' !== $sign_ticket ) ? sha1( 'jsapi_ticket=' . $sign_ticket . '&noncestr=' . $sign_nonce . '&timestamp=' . $sign_ts . '&url=' . $sign_url ) : '';
-            ?>
-            <h2 class="title">六、签名算法自证</h2>
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row">官方样例</th>
-                    <td>
-                        <?php if ( $sample_ok ) : ?>
-                            <strong style="color:#15803d;">通过</strong>
-                            <p class="description">用微信文档的样例 ticket / noncestr / timestamp / url 算出的 sha1 与文档给出的 <code><?php echo esc_html( $sample_expect ); ?></code> 一致，拼接顺序与参数名正确。</p>
-                        <?php else : ?>
-                            <strong style="color:#b91c1c;">不通过</strong>
-                            <p class="description">实得 <code><?php echo esc_html( $sample_hash ); ?></code>，预期 <code><?php echo esc_html( $sample_expect ); ?></code>。</p>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">当前站点实算</th>
-                    <td>
-                        <?php if ( $ticket_ok ) : ?>
-                            <code style="word-break:break-all;">jsapi_ticket=<?php echo esc_html( substr( $sign_ticket, 0, 8 ) . '…' ); ?>&amp;noncestr=<?php echo esc_html( $sign_nonce ); ?>&amp;timestamp=<?php echo (int) $sign_ts; ?>&amp;url=<?php echo esc_html( $sign_url ); ?></code>
-                            <p style="margin-top:6px;"><code style="word-break:break-all;color:#15803d;"><?php echo esc_html( $sign_hash ); ?></code></p>
-                            <p class="description">接口每次请求都会生成新的 noncestr 与 timestamp，并带上请求方真实 URL 参与签名。</p>
-                        <?php else : ?>
-                            <span class="description">先点上面的「测试公众号凭据」拿到 ticket，这里会给出真实拼接串。</span>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            </table>
-
-            <hr style="margin:28px 0;" />
-
-            <h2 class="title">七、公众号后台需要配的三件事</h2>
-            <ol style="max-width:900px;line-height:2;color:#334155;">
-                <li><strong>JS接口安全域名</strong>：公众号后台 → 设置与开发 → 公众号设置 → 功能设置 → JS接口安全域名，填 <code><?php echo esc_html( $host ); ?></code>（不带 https://），按提示把校验文件放到根目录（上面第一栏可代管）。</li>
-                <li><strong>IP 白名单</strong>：设置与开发 → 基本配置 → IP白名单，加入本服务器出口 IP。不加会报 <code>errcode 40164</code>。</li>
-                <li><strong>认证状态</strong>：JS-SDK 分享接口需要已认证的服务号/订阅号；未认证会报 <code>errcode 48001</code>。</li>
-            </ol>
-
-            <h2 class="title">八、常见错误码</h2>
-            <table class="widefat striped" style="max-width:900px;">
-                <thead><tr><th style="width:110px;">errcode</th><th>含义与处理</th></tr></thead>
-                <tbody>
-                    <tr><td>40001</td><td>AppSecret 错，或 access_token 被别处刷新失效 —— 保存后点「清除缓存」再测</td></tr>
-                    <tr><td>40013</td><td>AppID 格式不对（应为 wx 开头的 18 位）</td></tr>
-                    <tr><td>40125</td><td>AppSecret 无效，去后台重置后重新填写</td></tr>
-                    <tr><td>40164</td><td>服务器出口 IP 不在白名单 —— 报错信息里会带出真实 IP</td></tr>
-                    <tr><td>48001</td><td>公众号没有该接口权限（多为未认证）</td></tr>
-                    <tr><td>45009</td><td>当日接口调用次数用尽</td></tr>
-                </tbody>
-            </table>
-
-            <h2 class="title">九、生效范围与缓存说明</h2>
-            <ul style="max-width:900px;line-height:2;color:#334155;">
-                <li><strong>微信内转发/分享</strong>：脚本实时取签名，改完设置立即生效（无需清缓存）。</li>
-                <li><strong>把链接粘贴到聊天窗口</strong>：走微信服务端抓取，微信会把抓取结果缓存数小时到数天。改完 meta 后旧链接可能仍是旧卡片，换一个带参数的链接（如 <code>?v=2</code>）即可验证新结果。</li>
-                <li>iOS 微信签名用的是「进入页面时的首个 URL」，插件已在 head 最前面记录，主题改地址栏也不会影响。</li>
-            </ul>
+            </div>
         </div>
-
-        <style>
-            .ymwx-cards{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0 8px;}
-            .ymwx-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;min-width:180px;}
-            .ymwx-card-k{font-size:12px;color:#64748b;margin-bottom:6px;}
-            .ymwx-card-v{font-size:15px;font-weight:600;color:#0f172a;}
-            .ymwx-card-v.ok{color:#15803d;}
-            .ymwx-card-v.bad{color:#b91c1c;}
-            .ymwx-form h2.title{margin-top:28px;}
-            #ymwx-probe-result{margin-top:8px;}
-            .ymwx-result{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;}
-            .ymwx-preview{width:320px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fafafa;}
-            .ymwx-preview img{width:100%;height:170px;object-fit:cover;display:block;background:#eef2f7;}
-            .ymwx-preview .t{padding:10px 12px;font-size:14px;font-weight:600;color:#111;line-height:1.5;}
-            .ymwx-preview .d{padding:0 12px 8px;font-size:12px;color:#64748b;line-height:1.6;max-height:56px;overflow:hidden;}
-            .ymwx-preview .h{padding:0 12px 12px;font-size:11px;color:#94a3b8;}
-            .ymwx-checks{flex:1;min-width:320px;}
-            .ymwx-check{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px dashed #eef2f7;font-size:13px;}
-            .ymwx-check:last-child{border-bottom:0;}
-            .ymwx-dot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;margin-top:6px;}
-            .ymwx-dot.pass{background:#16a34a;}
-            .ymwx-dot.warn{background:#f59e0b;}
-            .ymwx-dot.fail{background:#dc2626;}
-            .ymwx-check b{font-weight:600;color:#1e293b;min-width:150px;display:inline-block;}
-            .ymwx-check span{color:#64748b;word-break:break-all;}
-        </style>
 
         <script>
         (function () {
@@ -1913,14 +1937,14 @@ class YIMAI_GSO_Wechat_Share {
                 tokenBtn.addEventListener('click', function () {
                     var out = document.getElementById('ymwx-token-result');
                     out.textContent = '测试中…';
-                    out.style.color = '#64748b';
+                    out.className = 'yimai-gso-wx-inline-result is-muted';
                     post('yimai_gso_wechat_test_token', {}, function (res) {
                         if (res && res.success) {
                             out.textContent = '✓ ' + res.data.message + '（' + res.data.tokenMasked + '）';
-                            out.style.color = '#15803d';
+                            out.className = 'yimai-gso-wx-inline-result is-ok';
                         } else {
                             out.textContent = '✗ ' + ((res && res.data && res.data.message) || '失败');
-                            out.style.color = '#b91c1c';
+                            out.className = 'yimai-gso-wx-inline-result is-bad';
                         }
                     });
                 });
@@ -1932,7 +1956,9 @@ class YIMAI_GSO_Wechat_Share {
                     var out = document.getElementById('ymwx-token-result');
                     post('yimai_gso_wechat_clear_cache', {}, function (res) {
                         out.textContent = (res && res.success) ? '✓ ' + res.data.message : '✗ 失败';
-                        out.style.color = (res && res.success) ? '#15803d' : '#b91c1c';
+                        out.className = (res && res.success)
+                            ? 'yimai-gso-wx-inline-result is-ok'
+                            : 'yimai-gso-wx-inline-result is-bad';
                     });
                 });
             }
@@ -1963,24 +1989,29 @@ class YIMAI_GSO_Wechat_Share {
             if (probeBtn) {
                 probeBtn.addEventListener('click', function () {
                     var box = document.getElementById('ymwx-probe-result');
-                    box.innerHTML = '<p style="color:#64748b;">抓取中，通常需要 3–8 秒…</p>';
+                    box.innerHTML = '<p class="yimai-gso-wx-loading">抓取中，通常需要 3–8 秒…</p>';
                     post('yimai_gso_wechat_probe', { url: document.getElementById('ymwx-probe-url').value }, function (res) {
                         if (!res || !res.success) {
-                            box.innerHTML = '<div class="notice notice-error"><p>' + ((res && res.data && res.data.message) || '抓取失败') + '</p></div>';
+                            box.innerHTML = '<div class="yimai-gso-notice is-error"><p>' + ((res && res.data && res.data.message) || '抓取失败') + '</p></div>';
                             return;
                         }
                         var d = res.data;
-                        var html = '<div class="ymwx-result">';
-                        html += '<div class="ymwx-preview">';
-                        html += d.preview.img ? '<img src="' + d.preview.img + '" alt="" />' : '<div style="height:170px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px;">无缩略图</div>';
-                        html += '<div class="t">' + escapeHtml(d.preview.title) + '</div>';
-                        html += '<div class="d">' + escapeHtml(d.preview.desc) + '</div>';
-                        html += '<div class="h">' + escapeHtml(d.preview.host) + '</div>';
-                        html += '</div><div class="ymwx-checks">';
+                        var html = '<div class="yimai-gso-wx-result">';
+                        html += '<div class="yimai-gso-preview-card">';
+                        html += d.preview.img
+                            ? '<div class="yimai-gso-preview-card-media"><img src="' + d.preview.img + '" alt="" /></div>'
+                            : '<div class="yimai-gso-preview-card-media is-empty"><span>无缩略图</span></div>';
+                        html += '<p class="yimai-gso-preview-card-title">' + escapeHtml(d.preview.title) + '</p>';
+                        html += '<p class="yimai-gso-preview-card-desc">' + escapeHtml(d.preview.desc) + '</p>';
+                        html += '<p class="yimai-gso-preview-card-meta">' + escapeHtml(d.preview.host) + '</p>';
+                        html += '</div>';
+                        html += '<ul class="yimai-gso-wx-checks">';
                         d.checks.forEach(function (c) {
-                            html += '<div class="ymwx-check"><i class="ymwx-dot ' + c.status + '"></i><div><b>' + escapeHtml(c.label) + '</b><span>' + escapeHtml(c.note) + '</span></div></div>';
+                            // c.status 只有 pass / warn / fail 三种，这里再兜一层，避免异常值拼进 class
+                            var st = (c.status === 'pass' || c.status === 'fail') ? c.status : 'warn';
+                            html += '<li class="yimai-gso-wx-check"><i class="yimai-gso-wx-check-dot is-' + st + '"></i><div class="yimai-gso-wx-check-body"><strong>' + escapeHtml(c.label) + '</strong><span>' + escapeHtml(c.note) + '</span></div></li>';
                         });
-                        html += '</div></div>';
+                        html += '</ul></div>';
                         box.innerHTML = html;
                     });
                 });

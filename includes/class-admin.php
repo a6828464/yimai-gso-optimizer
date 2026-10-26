@@ -282,6 +282,27 @@ class YIMAI_GSO_Admin {
             $this->get_asset_version( 'admin/css/panels.css' )
         );
 
+        // v2.10.0 统一组件层：后台从此只有一套设计语言（indigo 变量 + 卡片化 + 782 断点）。
+        // 依赖 'yimai-gso-admin' 而不是 'yimai-gso-panels'：组件层的职责是叠加在
+        // admin.css 的 :root 变量之上，同时必须排在 panels.css 之后才能覆盖历史面板样式；
+        // 只依赖 admin.css 时 WP 仍按 enqueue 顺序输出，效果一致，且不会与 panels.css 的
+        // 依赖关系耦合（panels.css 将来若拆分也不影响这里）。
+        wp_enqueue_style(
+            'yimai-gso-components',
+            YIMAI_GSO_PLUGIN_URL . 'admin/css/components.css',
+            array( 'yimai-gso-admin' ),
+            $this->get_asset_version( 'admin/css/components.css' )
+        );
+
+        // 页面级响应式覆盖层：由 responsive-dev 往里填老页面的移动端补丁。
+        // 必须排在 components.css 之后 —— 它是最后一层，负责修组件库覆盖不到的老结构。
+        wp_enqueue_style(
+            'yimai-gso-responsive',
+            YIMAI_GSO_PLUGIN_URL . 'admin/css/responsive.css',
+            array( 'yimai-gso-admin' ),
+            $this->get_asset_version( 'admin/css/responsive.css' )
+        );
+
         // 仪表盘 v5 Chart.js
         wp_enqueue_script(
             'yimai-gso-chartjs',

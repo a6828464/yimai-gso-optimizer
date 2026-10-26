@@ -1,0 +1,978 @@
+/* ==========================================================================
+   一麦GSO双擎优化 · 响应式覆盖层（responsive.css）  since 2.10.0
+   --------------------------------------------------------------------------
+   本文件只做一件事：把「老页面」（admin.css / panels.css 里已经存在、
+   但还没搬进组件库的结构）在手机上救回来。新页面用 components.css 的组件写，
+   不该出现在这里。
+
+   谁负责什么：
+   - components.css   组件级响应式（.yimai-gso-page / -field / -actions /
+                      -table / -stat-grid 等）。这些组件在手机上长什么样
+                      已经在那边定死，本文件不重复定义。
+   - responsive.css   页面级响应式（老页面的私有类、内联样式页面、
+                      历史遗留的 .ymwx-* 迁移期补丁）。
+
+   加载顺序：admin.css → panels.css → components.css → responsive.css
+   本文件永远最后生效；同选择器、同权重时以本文件为准。
+   这既是能力也是风险 —— 在这里写一条宽泛选择器就能把组件层打回原形，
+   所以每条规则都限定在「老页面专属类」上，禁止写通用元素选择器。
+
+   断点（全项目只允许这四档）：
+     1200px  桌面窄屏：多列栅格收敛
+      960px  中屏：页头换行、留白收紧
+      782px  WordPress 后台移动端分界（WP 自己在这一档折叠左侧菜单），
+             老页面塌成单列、按钮全宽、表格横滑、字号 ≥14px、点击区 ≥44px
+      480px  小屏手机：再压一档留白、六列/四列改两列
+
+   375px 验收硬指标（改任何一档都要重新过一遍）：
+     [ ] 页面没有横向滚动条（document.documentElement.scrollWidth <= 375）
+     [ ] 表格装在横滑容器里，列文字不换行成渣
+     [ ] 表单 label 在上、输入框在下、输入框占满宽度
+     [ ] 可点目标高度 ≥44px
+     [ ] 所有正文/说明字号 ≥14px
+     [ ] 没有任何 position:fixed 浮层挡住内容
+
+   !important 的使用纪律：
+   本文件里带 !important 的规则只有三类，别的都不许加 ——
+     ① admin.css 原声明本身带 !important（不加强度根本覆盖不了）；
+     ② 目标元素的样式来自「页面内联 <style> 块」，它在文档里排在本文件之后
+        （.ymwx-* / .yimai-kb-* 两个页面），不加 !important 会被反杀；
+     ③ 目标元素的样式来自 style="" 内联属性（CSS 只能靠 !important 覆盖）。
+   每处 !important 旁边都写了属于哪一类。
+   ========================================================================== */
+
+/* ==========================================================================
+   §0 断点常量
+   --------------------------------------------------------------------------
+   媒体查询里不能用 var()，所以下面这些变量只是「一处看到全部断点」的
+   参考值，@media 里必须重复字面值。改断点 = 改这里 + 改所有 @media + 改
+   components.css 里的同名变量，三处必须同步。
+   ========================================================================== */
+:root {
+    --yimai-gso-bp-xl: 1200px;
+    --yimai-gso-bp-lg: 960px;
+    --yimai-gso-bp-md: 782px;
+    --yimai-gso-bp-sm: 480px;
+
+    /* 移动端验收阈值，供 clamp()/calc() 或后续 JS 读取 */
+    --yimai-gso-min-font: 14px;
+    --yimai-gso-tap: 44px;
+}
+
+/* ==========================================================================
+   §1 页面壳层（wrap / main-content / 侧边栏）
+   --------------------------------------------------------------------------
+   为什么这里只管 main-content 不管 wrap：
+   wrap 的 padding 已在 components.css §14 ① 条覆盖（它必须与 admin.css
+   的 body.wp-admin .yimai-gso-wrap（0,2,1）同权重同 !important 才赢），
+   本文件再写一遍就是两处打架。
+
+   main-content 是另一个元素：admin.css 3002 行 padding:24px 32px，
+   panels.css 275 行在 ≤960 又写了一遍 20px。375px 上「wrap 14px × 2」
+   加上「main-content 20px × 2」再扣掉面板内边距，正文只剩不到 300px。
+   所以这一档必须把 main-content 也收到 12px。
+   ========================================================================== */
+
+/* ---- ≤1200 ---- */
+
+/* ---- ≤960 ---- */
+@media (max-width: 960px) {
+    /* 中间态不用收到最紧，留 16px 给平板好看 */
+    .yimai-gso-center-wrap .yimai-gso-main-content {
+        padding: 16px 20px;
+    }
+}
+
+/* ---- ≤782 ---- */
+@media (max-width: 782px) {
+    /* 选中器前缀 .yimai-gso-center-wrap 是为了压过 panels.css 275 行的
+       .yimai-gso-main-content（0,1,0）—— 同为 782/960 档时靠权重胜出，
+       不依赖加载顺序之外的任何东西。 */
+    .yimai-gso-center-wrap .yimai-gso-main-content {
+        padding: 12px;
+    }
+
+    /* 老页面的正文继承的是 body.wp-admin 的 13px，375px 上看不动。
+       在这里抬到 14px，等于给「所有没有显式字号的老文本」一次性兜底；
+       显式写了 11/12/13px 的另外在 §9 用小字兜底规则处理。 */
+    .yimai-gso-main-content {
+        font-size: 14px;
+    }
+
+    /* 侧边栏在 ≤960 已经变成顶部横排（panels.css 245 行），
+       但那一档只写了 min-width:120px，没管触控高度和字号：
+       375px 上按钮只有 ~40px 高、13px 字，属于「能看不能点」。 */
+    .yimai-gso-sidebar-nav {
+        gap: 8px;
+        padding: 10px 12px;
+    }
+
+    .yimai-gso-sidebar-tab {
+        min-height: var(--yimai-gso-tap);
+        font-size: 14px;
+        padding: 10px 12px;
+    }
+
+    .yimai-gso-sidebar-tab .dashicons {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+    }
+
+    .yimai-gso-sidebar-group-label {
+        font-size: 14px;
+        min-height: 36px;
+    }
+
+    /* 品牌头在手机上占掉半屏，收一档内边距（不改字号，字号本来就够） */
+    .yimai-gso-sidebar-header {
+        padding: 14px 16px;
+    }
+
+    /* 品牌副标题原 12px，属于「要读的说明文字」，抬到 14px */
+    .yimai-gso-sidebar-brand-text p {
+        font-size: 14px;
+    }
+
+    /* 分享卡片页（.ymwx-wrap）和品牌资料页（.yimai-knowledge-wrap）没有
+       yimai-gso-wrap 这个类，吃不到上面的壳层修复，只能在这里单独对齐。
+       WP 后台给 .wrap 的默认外边距在手机端是「左 2px / 右 10px」，
+       左右不对称且贴边，这里统一成 14px，和其它页面一致。 */
+    body.wp-admin .ymwx-wrap,
+    body.wp-admin .yimai-knowledge-wrap {
+        /* max-width 必须 !important：.yimai-knowledge-wrap{max-width:1320px}
+           写在页面内联 <style> 里，排在本文档之后（纪律 ②）。
+           下面四条不需要 !important —— WP 核心的 .wrap 外边距没有 !important，
+           本选择器（0,2,1）本来就赢。 */
+        max-width: 100% !important;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 14px;
+        padding-right: 14px;
+        box-sizing: border-box;
+    }
+}
+
+/* ---- ≤480 ---- */
+
+/* ==========================================================================
+   §2 页头与标题（老页面：h1 + 说明 + 按钮挤在一行）
+   --------------------------------------------------------------------------
+   .yimai-gso-page-card-header（紫色渐变页头）admin.css 4318 已经处理过
+   竖排，这里不再重复。剩下两处是页头下面的「标签条」和「统计小条」。
+   ========================================================================== */
+
+/* ---- ≤1200 ---- */
+
+/* ---- ≤960 ---- */
+@media (max-width: 960px) {
+    /* 设置页 7 个子标签（AI配置/配图/发布/GEO/品牌/爬虫/作者）在 ≤960
+       会折成两行，但 flex-wrap 折出来的行高只有 40px 左右，手指点不准。 */
+    .yimai-gso-settings-tabs {
+        gap: 2px;
+        margin-bottom: 16px;
+    }
+
+    .yimai-gso-settings-tab {
+        min-height: var(--yimai-gso-tap);
+        font-size: 14px;
+        padding: 8px 12px;
+    }
+}
+
+/* ---- ≤782 ---- */
+@media (max-width: 782px) {
+    /* 老页面的页内小标题（面板里的 h2/h3）在手机上保持 16px，
+       但不许再带上下大留白 —— 手机滚一屏只能看到两个标题很浪费。 */
+    .yimai-gso-main-content .yimai-gso-panel > h2,
+    .yimai-gso-main-content .yimai-gso-panel > h3 {
+        font-size: 16px;
+        margin-bottom: 12px;
+    }
+
+    /* 404 页的子标签条是 inline-flex + nowrap，375px 上「统计概览 /
+       重定向管理 / 自定义 404」三块加起来 440px 直接顶出屏幕。
+       改成可横滑的整宽条（不是隐藏，功能全在，只是可以左右滑）。 */
+    .yimai-gso-404-sub-tabs {
+        display: flex;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 10px;
+    }
+
+    .yimai-gso-404-sub-tab {
+        min-height: var(--yimai-gso-tap);
+        font-size: 14px;
+        padding: 10px 14px;
+    }
+}
+
+/* ---- ≤480 ---- */
+
+/* ==========================================================================
+   §3 卡片与栅格（老页面：.yimai-gso-panel、.yimai-gso-form-row、
+   dashboard v4/v5 卡片墙）
+   --------------------------------------------------------------------------
+   这一节只列「查过确实没有手机档」的栅格。已经自带 782/768/900 档的
+   （.yimai-gso-layout / -dashboard-* / -d4-* / -seo-push-stats-row /
+   -404-stats-overview / -link-stats-grid）不在这里重复，避免两处打架。
+   ========================================================================== */
+
+/* ---- ≤1200 ---- */
+@media (max-width: 1200px) {
+    /* 栅格子项默认 min-width:auto（= min-content），只要里面有一个宽东西
+       （长标题、pre、按钮组）就会把整列撑宽，溢出到面板外面。
+       .yimai-gso-layout 两列在 ≤1200 已塌成一列，这里补上「子项可以比
+      内容窄」的许可，让文字自己换行而不是把页面顶宽。 */
+    .yimai-gso-layout > *,
+    .yimai-gso-single-layout > * {
+        min-width: 0;
+    }
+
+    /* admin.css 5319 行（≤1024 档）给栅格里的面板写了
+       「width:100% !important」，面板本身是 content-box，于是 100% 撑的是
+       内容盒，再叠加 14px×2 内边距 + 2px 边框，面板比栅格宽 30px，
+       整块挤出内容区（375px 实测溢出 30px，页面底部出现横向滚动）。
+       这里把宽度交还给栅格拉伸，并强制 border-box —— 原声明带 !important，
+       所以这一条也必须 !important（纪律 ①）。
+       放在 ≤1200 而不是 ≤782：admin.css 那条是 ≤1024 生效的，只在手机上修
+       会让 783~1024 一段继续溢出（实测 800px 时溢 10px、内容区内部溢 30px）。 */
+    .yimai-gso-layout > .yimai-gso-panel {
+        width: auto !important;
+        box-sizing: border-box !important;
+    }
+
+}
+
+/* ---- ≤960 ---- */
+@media (max-width: 960px) {
+    /* 图片库顶部 4 张统计卡（flex:1 无换行）：375px 上每张只剩 70px，
+       图标 + 数字 + 标签全部挤成一列竖字。两列两行。 */
+    .yimai-gso-ilib-stats-row {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .yimai-gso-ilib-stat-card {
+        flex: 1 1 calc(50% - 5px);
+        min-width: 0;
+    }
+}
+
+/* ---- ≤782 ---- */
+@media (max-width: 782px) {
+    /* 面板内边距 24px 在 375px 上等于左右各切掉 24px（正文只剩 279px）。
+       收到 14px，与 components.css 的 --yimai-gso-gap-lg 口径一致。 */
+    .yimai-gso-panel {
+        padding: 14px;
+        border-radius: 12px;
+    }
+
+    /* 表单控件默认按 size 属性给一个 min-content 宽度，放在 flex/grid 里
+       会顶宽父级（实测输入框把面板顶出 4px、把内容区顶出 18px）。 */
+    .yimai-gso-main-content input,
+    .yimai-gso-main-content select,
+    .yimai-gso-main-content textarea {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    /* 「参数设置」两列表单（单篇生成 / 批量生成 / 改写都在用）：
+       admin.css 168 行写死 1fr 1fr，无手机档。375px 上每个输入框 145px，
+       关键词输入框连 placeholder 都显示不全。塌成单列。 */
+    .yimai-gso-form-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    /* 永动发布 v3（apv3）表单栅格，同样写死两列且无手机档 */
+    .apv3-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    /* 详情弹窗里的两列键值（.yimai-gso-detail-grid）：640px 弹窗在手机上
+       是 90vw=337px，两列每列 160px，label 与值上下错位看不清。 */
+    .yimai-gso-detail-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    /* 仪表盘 v5 快捷入口写死 6 列且 768 档没管它：375px 上每个入口 45px 宽，
+       图标和文字互相压。三列是 375px 下还能看清图标的最低限度。 */
+    .yimai-gso-d5-quick-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    /* 仪表盘 v5 快捷入口按钮本身是「图标在上、文字在下」的竖排，
+       列变窄后固定高度会把文字裁掉。 */
+    .yimai-gso-d5-quick-btn {
+        min-height: 76px;
+        padding: 10px 6px;
+        font-size: 14px;
+    }
+
+    /* v5 里一圈 11~12px 的说明文字（KPI 标签、趋势、健康度明细、刷新时间）
+       在手机上属于正文，统一抬到 14px。数字本身（-value）不动。 */
+    .yimai-gso-d5-kpi-label,
+    .yimai-gso-d5-kpi-trend,
+    .yimai-gso-d5-health-item-detail,
+    .yimai-gso-d5-health-refresh,
+    .yimai-gso-d5-chart-title {
+        font-size: 14px;
+    }
+
+    /* 图表头的「7天 / 30天」分段控件：11px 字 + 4px 内边距 = 24px 高，
+       手指点不中。抬到 44px，并允许它掉到标题下一行。 */
+    .yimai-gso-d5-chart-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .yimai-gso-d5-chart-tab {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: var(--yimai-gso-tap);
+        padding: 0 14px;
+        font-size: 14px;
+    }
+
+    /* 图片库统计卡的 12px 标签、404 统计卡的 12px 标签、图片卡的 13px 标题：
+       都是用户要读的正文，一起抬到 14px。 */
+    .yimai-gso-ilib-stat-label,
+    .yimai-gso-404-stat-label {
+        font-size: 14px;
+    }
+
+    .yimai-gso-ilib-stat-value,
+    .yimai-gso-404-stat-value {
+        font-size: 22px;
+    }
+
+    .ilib-card-info,
+    .yimai-gso-ilib-grid {
+        font-size: 14px;
+    }
+
+    /* 品牌资料页（llms-txt 面板）有一个内联 style 写死的
+       display:grid;grid-template-columns:1fr 300px —— 300px 侧栏在 375px 上
+       吃掉全部可用宽度，1fr 那一栏被压成 7px，内容整块溢出。
+       属于「内联样式」类覆盖，必须 !important（否则被 style="" 反杀）。 */
+    .yimai-gso-main-content .yimai-gso-layout[style*="grid-template-columns"] {
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 14px !important;
+    }
+
+    /* 仪表盘 v4 趋势柱状图 6 列，列内 min-width:0 已经写了，
+       但 10px 的轴标签 nowrap 在 375px 上会顶出去。标签降到 11px
+       并允许它自己那格不必撑开（不改结构，不改柱宽）。 */
+    .yimai-gso-dashboard-bars {
+        gap: 4px;
+    }
+
+    .yimai-gso-dashboard-axis-label {
+        font-size: 14px;
+    }
+}
+
+/* ---- ≤480 ---- */
+@media (max-width: 480px) {
+    /* 快捷入口再降一档：390px 以下三列也有点挤，两列更好点 */
+    .yimai-gso-d5-quick-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* v5 健康度网格在 768 档是两列，375px 上每个格子 150px、
+       里面还有进度条 + 两行 11px 小字，看不清。压成一列。 */
+    .yimai-gso-d5-health-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    /* v5 KPI 卡片在 768 档是两列；KPI 数字字体大，两列到 375px 时
+       数字会换行成两个。给卡片一个最小可读宽度。 */
+    .yimai-gso-d5-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    /* 图片库统计卡保持两列（≤960 已经是两列）：一张卡只有「图标 + 数字 +
+       四个字标签」，375px 上 155px 宽完全放得下，改成一行一张会白占 4 屏高。 */
+    .yimai-gso-ilib-stat-card {
+        flex: 1 1 calc(50% - 5px);
+    }
+}
+
+/* ==========================================================================
+   §4 表格（老页面里没有包 .yimai-gso-table-wrap 的裸 <table>）
+   --------------------------------------------------------------------------
+   现状：全插件 PHP 里 0 处使用 .yimai-gso-table-wrap（t1 只定义了组件，
+   老页面还没搬）。桌面端靠表格自己 width:100% 撑着，375px 上 6~8 列的
+   表格把 min-content 撑到 700px 以上，整页横向滚动。
+
+   修法分两层，顺序很重要：
+   ① 主修：把「横滑」交给表格的父容器（.yimai-gso-panel /
+      .yimai-gso-404-table-wrap / .yimai-gso-seo-push-section-body /
+      .yimai-gso-settings-section 都在白名单里），表格自己恢复 table 布局
+      并给 min-width:560px —— 列宽按内容分配，不会把中文挤成一列竖字。
+   ② 兜底：万一有表格落在白名单之外的容器里，退回「表格自己当滚动容器」
+      （display:block + overflow-x:auto）。这种写法列会被压扁，所以只当
+      兜底，并在 docs/移动端修复记录.md 里标了「需要补 wrapper 的清单」。
+
+   为什么不直接全用 ②：display:block 时表格的 min-content 是「最宽单词」，
+   中文可以逐字换行，于是表格不会横向滚动、而是把「文章标题」列压到 50px、
+   一个字一行 —— 数字上没溢出，肉眼上完全没法用。
+   等 PHP 里把 .yimai-gso-table-wrap 补齐之后，本节 ① ② 都可以整段删除。
+   ========================================================================== */
+
+/* ---- ≤1200 ---- */
+@media (max-width: 1200px) {
+    /* ① 主修的第一步：先把「能横滑的父容器」准备好。
+       只在内容真的超宽时才出现滚动条，窄表格不受影响。
+       为什么从 1200 就开始：1024px 下内容区只剩约 584px（160px 菜单 +
+       240px 侧栏 + 内边距），6 列老表格 min-content 约 700px，实测
+       1024px 时内容区内部横向滚动了 145px。 */
+    .yimai-gso-main-content .yimai-gso-panel,
+    .yimai-gso-main-content .yimai-gso-404-table-wrap,
+    .yimai-gso-main-content .yimai-gso-seo-push-section-body,
+    .yimai-gso-main-content .yimai-gso-settings-section {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ② 兜底：没被上面四个容器包住的表格，自己当滚动容器 */
+    .yimai-gso-main-content table.widefat,
+    .yimai-gso-main-content table.wp-list-table,
+    .yimai-gso-main-content table.yimai-gso-404-data-table {
+        display: block;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ① 主修的第二步：白名单容器里的表格恢复成真正的表格盒。
+       min-width 取 720px，是量出来的：375px 下 6 列老表格（勾选/标题/
+       评分/状态/时间/操作）在 560px 时「标题」列只有 76px ≈ 每行 5 个字，
+       一条 28 字的中文标题折成 6 行；720px 时标题列 146px ≈ 每行 10 字，
+       折 3 行，同时整表仍在 748px 以内，滑动一次就能看完。
+       父容器在 ≤1200 档已经能横滑，超出的宽度只会变成容器内滚动条。
+       用后代选择器（不是 > 直接子元素）：永动发布「分类体检」的表格是
+       JS 动态拼出来塞进面板里的，选不到的话就落回 display:block 兜底。 */
+    .yimai-gso-main-content .yimai-gso-panel table.widefat,
+    .yimai-gso-main-content .yimai-gso-panel table.wp-list-table,
+    .yimai-gso-main-content .yimai-gso-404-table-wrap > table,
+    .yimai-gso-main-content .yimai-gso-seo-push-section-body table,
+    .yimai-gso-main-content .yimai-gso-settings-section table.widefat {
+        display: table;
+        overflow: visible;
+        min-width: 720px;
+        table-layout: auto;
+    }
+
+}
+
+/* ---- ≤960 ---- */
+/* 表格的横滑与最小宽度在 ≤1200 档一次配好（1024px 就会溢出），
+   这一档不重复。 */
+
+/* ---- ≤782 ---- */
+@media (max-width: 782px) {
+    /* 表格正文 13px → 14px（验收：正文 ≥14px）。
+       只动单元格，不动表头（表头由 §4 末条统一抬到 14px）。 */
+    .yimai-gso-main-content table.widefat td,
+    .yimai-gso-main-content table.wp-list-table td,
+    .yimai-gso-main-content table.yimai-gso-404-data-table td {
+        font-size: 14px;
+    }
+
+    .yimai-gso-main-content table.widefat th,
+    .yimai-gso-main-content table.wp-list-table th,
+    .yimai-gso-main-content table.yimai-gso-404-data-table th {
+        font-size: 14px;
+        /* 表头是短标签（时间/状态/操作人），nowrap 才能一眼扫完；
+           单元格正文不 nowrap，长标题照常换行，不会被压成竖排字。 */
+        white-space: nowrap;
+    }
+
+    /* WP 的 .wp-list-table.fixed 用 table-layout:fixed + width:100%，
+       在 375px 上会把 6 列平分成每列 50px，标题和操作按钮叠在一起。 */
+    .yimai-gso-main-content table.wp-list-table.fixed {
+        table-layout: auto;
+        width: 100%;
+    }
+
+    /* 单元格里的「操作」按钮列现在是 25px 高的 .button-small，
+       手机上点不中；高度由 §6 统一抬到 44px，这里只保证小列不被挤没。 */
+    .yimai-gso-main-content table.widefat td .button,
+    .yimai-gso-main-content table.wp-list-table td .button {
+        white-space: nowrap;
+    }
+
+    /* 404 页的表格已经有 .yimai-gso-404-table-wrap（admin.css 8348 行
+       overflow-x:auto），但没给最小高度和惯性滚动，iOS 上滑不动感很黏。 */
+    .yimai-gso-404-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* llms-txt / 作者档案页里的 WP 原生 .form-table：WP 自己在 782 档会
+       把 th/td 变成块级，但 admin.css 660 行的
+       .yimai-gso-settings-section .form-table th{width:180px}（0,2,1）
+       权重更高，会把 th 顶回 180px。这里显式压回去。 */
+    .yimai-gso-settings-section .form-table th,
+    .yimai-gso-settings-section .form-table td {
+        display: block;
+        width: auto;
+        padding: 6px 0;
+    }
+
+    .yimai-gso-settings-section .form-table th {
+        font-size: 14px;
+    }
+
+    /* 表格里 12px 的次要文字（时间、命中数）抬到 14px */
+    .yimai-gso-main-content table.widefat .description,
+    .yimai-gso-main-content table.widefat small {
+        font-size: 14px;
+    }
+
+    /* SEO 推送页表格上方的「全选 / 已选 N 篇 / 批量推送」选择条，
+       原字号 13px（.yimai-gso-sp-select-bar），抬到 14px */
+    .yimai-gso-sp-select-bar {
+        font-size: 14px;
+    }
+
+    /* WP 原生 .form-table 的表头（品牌资料页两行设置项）默认 13px，
+       而且上面那条 .yimai-gso-settings-section 前缀的规则管不到它 */
+    .yimai-gso-main-content .form-table th,
+    .yimai-gso-main-content .form-table td {
+        font-size: 14px;
+    }
+}
+
+/* ---- ≤480 ---- */
+@media (max-width: 480px) {
+    /* 勾选框列（40px / 36px）在 375px 上占了太多，收窄一点 */
+    .yimai-gso-main-content table.widefat th:first-child,
+    .yimai-gso-main-content table.widefat td:first-child {
+        padding-left: 8px;
+        padding-right: 4px;
+    }
+}
+
+/* ==========================================================================
+   §5 表单（老页面：固定宽度的 input/select、内联 style 写死的宽度）
+   --------------------------------------------------------------------------
+   两类问题：
+   ① 字号：13px 的说明文字在手机上要眯眼（验收 ≥14px）；
+   ② 宽度：几十处 style="width:150px" / min-width:340px 的
+      .yimai-gso-form-group 在 375px 上和邻居挤成一行，必然溢出。
+   ========================================================================== */
+
+/* ---- ≤1200 ---- */
+
+/* ---- ≤960 ---- */
+@media (max-width: 960px) {
+    /* 搜索/筛选框写死 min-width:180px，flex 换行后一半宽一半窄，
+       手机上直接铺满一行更好按 */
+    .yimai-gso-filter-row input[type="search"] {
+        min-width: 0;
+        flex: 1 1 100%;
+    }
+}
+
+/* ---- ≤782 ---- */
+@media (max-width: 782px) {
+    /* 老页面的说明文字（.yimai-gso-form-group small / .description /
+       .yimai-gso-field-group small）是 12px，手机上一行能塞 30 个字，
+       但看不清。统一抬到 14px。 */
+    .yimai-gso-main-content .yimai-gso-form-group small,
+    .yimai-gso-main-content .yimai-gso-form-group .description,
+    .yimai-gso-main-content .yimai-gso-field-group small,
+    .yimai-gso-main-content .yimai-gso-field-hint {
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    /* 内联写死的 width/min-width（style="width:150px"、
+       style="flex:1;min-width:340px" 等 20 余处）：必须 !important，
+       因为目标值来自 style="" 内联属性（!important 使用纪律 ③）。
+       只清宽度，不动 flex 比例，桌面端完全不受影响。 */
+    .yimai-gso-main-content .yimai-gso-form-group[style] {
+        width: auto !important;
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
+    }
+
+    /* 图片库工具栏右侧：搜索框 160px + 分组 130px + 排序 120px 三个
+       内联宽度挤在一行（.yimai-gso-ilib-toolbar-right 没有 flex-wrap），
+       375px 上整条 430px 横着顶出屏幕。改成每个控件独占一行。 */
+    .yimai-gso-ilib-toolbar-left,
+    .yimai-gso-ilib-toolbar-right {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .yimai-gso-ilib-toolbar-right > input,
+    .yimai-gso-ilib-toolbar-right > select {
+        width: 100% !important; /* 纪律 ③：内联 style="width:160px" */
+        max-width: 100%;
+    }
+
+    /* SEO 推送页的筛选下拉 min-width:160px，两列时第二列被挤到下一行,
+       且跟按钮不对齐。铺满一行。 */
+    .yimai-gso-seo-push-filter-group,
+    .yimai-gso-seo-push-filter-group select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    /* 输入框/下拉在 iOS 上只要 font-size < 16px，获得焦点就会自动放大
+       整个页面（用户体感是「页面被拽了一下」）。16px 是 Safari 的硬门槛，
+       和「正文 ≥14px」并不冲突：正文 14，可输入控件 16。 */
+    .yimai-gso-main-content input[type="text"],
+    .yimai-gso-main-content input[type="url"],
+    .yimai-gso-main-content input[type="password"],
+    .yimai-gso-main-content input[type="search"],
+    .yimai-gso-main-content input[type="number"],
+    .yimai-gso-main-content input[type="email"],
+    .yimai-gso-main-content input[type="tel"],
+    .yimai-gso-main-content select {
+        font-size: 16px;
+    }
+
+    /* 勾选框所在整行做成 44px 的点击区（勾选框本身也放大到 18px） */
+    .yimai-gso-main-content .yimai-gso-form-group > label,
+    .yimai-gso-main-content .yimai-gso-field-group > label {
+        min-height: 28px;
+        font-size: 14px;
+    }
+
+    .yimai-gso-main-content .yimai-gso-form-group label > input[type="checkbox"],
+    .yimai-gso-main-content .yimai-gso-form-group label > input[type="radio"] {
+        width: 18px;
+        height: 18px;
+        min-width: 18px;
+        min-height: 18px;
+        margin-right: 6px;
+    }
+}
+
+/* ---- ≤480 ---- */
+
+/* ==========================================================================
+   §6 按钮与操作区（老页面：.yimai-gso-btn-modern-* 短按钮、工具条不换行）
+   --------------------------------------------------------------------------
+   WP 后台在 782 档把 .button 定成 40px 高，项目验收口径是 44px。
+   .yimai-gso-btn-modern-* 更麻烦：admin.css 用
+   「.wp-core-ui .yimai-gso-wrap .xxx」(0,3,0) + min-height:auto !important
+   钉死，所以这一小段必须同权重 + !important（纪律 ①）。
+   ========================================================================== */
+
+/* ---- ≤1200 ---- */
+
+/* ---- ≤960 ---- */
+
+/* ---- ≤782 ---- */
+@media (max-width: 782px) {
+    /* WP 原生按钮：高度、字号、内边距三件套一起抬。
+       display:inline-flex 是为了让图标和文字垂直居中（WP 自己用 line-height 凑，
+       字号一改就歪）。 */
+    .yimai-gso-wrap .button,
+    .yimai-gso-main-content .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: var(--yimai-gso-tap);
+        padding: 0 14px;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+
+    /* 表格行内的小按钮（.button-small）同理，但允许换行内的紧凑宽度 */
+    .yimai-gso-main-content .button-small {
+        padding: 0 10px;
+        font-size: 14px;
+    }
+
+    /* 老页面的主力按钮（上传图片 / 开始生成 / 批量分析…） */
+    .yimai-gso-btn-modern-primary,
+    .yimai-gso-btn-modern-secondary,
+    .yimai-gso-btn-modern-danger,
+    .yimai-gso-btn-activate,
+    .yimai-gso-btn-danger {
+        min-height: var(--yimai-gso-tap) !important; /* 纪律 ① */
+        padding: 0 16px !important;
+        font-size: 14px !important;
+    }
+
+    /* 弹窗右上角的关闭按钮原尺寸 32×32，手机上点不中 */
+    .yimai-gso-modal-close,
+    .yimai-gso-404-modal-close {
+        width: var(--yimai-gso-tap);
+        height: var(--yimai-gso-tap);
+        min-width: var(--yimai-gso-tap);
+        min-height: var(--yimai-gso-tap);
+        font-size: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* 404 页自有按钮 .yimai-gso-404-btn 是 12px 字 + 34.8px 高，
+       既难点也看不清；弹窗底部「取消 / 导入」就是它。 */
+    .yimai-gso-404-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: var(--yimai-gso-tap);
+        padding: 0 16px;
+        font-size: 14px;
+    }
+
+    /* 内容改写页两个「文字按钮」（✕ 清空 / 填入示例）是内联 11px、
+       高度 18px，属于全站最小的可点目标。ID 是稳定的，直接按 ID 兜住。 */
+    #yimai-gso-rw-paste-clear,
+    #yimai-gso-rw-paste-sample {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: var(--yimai-gso-tap);
+        min-width: 64px;
+        padding: 0 12px;
+        font-size: 14px !important; /* 纪律 ③：目标值来自 style="" */
+    }
+
+    /* 表格行内按钮（.button-small）原来 26~36px，是移动端最常点错的地方。
+       这一条必须排在通用 .button 规则之后，否则会被 44px 覆盖后又压回 36px。 */
+    .yimai-gso-main-content .button-small,
+    .yimai-gso-h-actions .button {
+        min-height: var(--yimai-gso-tap);
+        padding: 0 12px;
+        font-size: 14px;
+    }
+
+    /* 内容卡片底部的操作条（编辑/删除/查看）在没有 flex-wrap 的老卡片里
+       会挤出卡片；允许换行，但不隐藏任何一个按钮。 */
+    .yimai-gso-h-actions,
+    .yimai-gso-detail-actions,
+    .yimai-gso-history-header-actions,
+    .yimai-gso-panel-actions,
+    .yimai-gso-titles-actions {
+        flex-wrap: wrap;
+    }
+}
+
+/* ---- ≤480 ---- */
+@media (max-width: 480px) {
+    /* 375px 上「主按钮 + 次按钮」横排只剩一半宽度，字被压成两行。
+       整宽竖排是唯一不牺牲文案的做法。 */
+    .yimai-gso-btn-modern-primary,
+    .yimai-gso-btn-modern-secondary,
+    .yimai-gso-btn-modern-danger,
+    .yimai-gso-btn-activate,
+    .yimai-gso-btn-danger {
+        width: 100% !important; /* 纪律 ① */
+    }
+
+    .yimai-gso-panel-actions > *,
+    .yimai-gso-titles-actions > * {
+        width: 100%;
+        margin: 0 0 8px;
+    }
+
+    .yimai-gso-panel-actions,
+    .yimai-gso-titles-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* ==========================================================================
+   §7 微信分享卡片页 .ymwx-*（迁移期补丁）
+   --------------------------------------------------------------------------
+   这个页面的样式来自 class-wechat-share.php 里的一段内联 <style>，它排在
+   本文件之后（文档顺序靠后），同权重平局时它是赢家 —— 所以本节的覆盖
+   全部带 !important（纪律 ②）。等 share-ui-dev 把它整体搬进 .yimai-gso-*
+   组件库后，本节整段删除。
+
+   具体崩点（375px 实测）：
+   - .ymwx-result 是 flex + 16px 内边距，里面 .ymwx-preview 固定 320px、
+     .ymwx-checks 又有 min-width:320px → 两块都放不下，整页横向滚动。
+   - .ymwx-check b 固定 min-width:150px，检查项说明只剩 130px 一列字。
+   ========================================================================== */
+
+/* ---- ≤1200 ---- */
+
+/* ---- ≤960 ---- */
+
+/* ---- ≤782 ---- */
+@media (max-width: 782px) {
+    .ymwx-result {
+        padding: 12px !important;
+        gap: 14px !important;
+    }
+
+    .ymwx-preview {
+        width: 100% !important;
+        max-width: 320px;
+        margin: 0 auto;
+    }
+
+    .ymwx-checks {
+        flex: 1 1 100% !important;
+        min-width: 0 !important;
+    }
+
+    /* 检查项：标签与说明上下堆叠，「b 150px」的定宽在小屏上等于把
+       说明文字挤成一条竖线 */
+    .ymwx-check {
+        flex-wrap: wrap;
+        font-size: 14px !important;
+        padding: 8px 0;
+    }
+
+    .ymwx-check b {
+        min-width: 0 !important;
+        width: 100%;
+        font-size: 14px;
+    }
+
+    .ymwx-check span {
+        font-size: 14px;
+        word-break: break-word;
+    }
+
+    .ymwx-card {
+        min-width: 0 !important;
+        flex: 1 1 100%;
+        font-size: 14px;
+    }
+
+    .ymwx-card-k,
+    .ymwx-preview .d,
+    .ymwx-preview .h {
+        font-size: 14px !important;
+    }
+
+    .ymwx-preview .t {
+        font-size: 15px !important;
+    }
+}
+
+/* ---- ≤480 ---- */
+
+/* ==========================================================================
+   §8 公众号同步页（新增页）
+   --------------------------------------------------------------------------
+   该页由 sync-ui-dev 用组件库直接搭，本分区保持为空。
+   只有当组件库覆盖不到「页面专属结构」时才往这里加规则，并且选择器必须
+   以页面容器开头，禁止影响其它页面。
+   ========================================================================== */
+
+/* ---- ≤1200 ---- */
+
+/* ---- ≤960 ---- */
+
+/* ---- ≤782 ---- */
+
+/* ---- ≤480 ---- */
+
+/* ==========================================================================
+   §9 历史遗留：面板内部固定宽度元素
+   --------------------------------------------------------------------------
+   admin.css / panels.css 里写死 width / min-width 的元素在 375px 上必然
+   溢出。集中在这里修，方便一眼看全，也方便将来 PHP 补了类名后逐条删。
+   ========================================================================== */
+
+/* ---- ≤1200 ---- */
+
+/* ---- ≤960 ---- */
+
+/* ---- ≤782 ---- */
+@media (max-width: 782px) {
+    /* 404 导入弹窗：.yimai-gso-404-modal-box 写死 width:520px，
+       在 337px 宽的弹窗层里直接溢出（关闭按钮跑出屏幕，用户只能刷新）。 */
+    .yimai-gso-404-modal-box {
+        width: auto;
+        max-width: calc(100vw - 24px);
+        max-height: 85vh;
+    }
+
+    /* 图片库提示条（.ilib-toast）固定在 right:30px + bottom:30px，
+       文字一长就顶到左边看不见，且会挡住右下角的分页按钮。 */
+    .ilib-toast {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        text-align: center;
+        max-width: none;
+        font-size: 14px;
+    }
+
+    /* 内容改写页「原文 | 改写结果」双栏是内联 style 写死的
+       display:flex;gap:16px;min-height:460px，两栏各 flex:1;min-width:0，
+       375px 上每栏 145px，textarea 里一行 8 个字。
+       这里按内联样式特征选中它（内联值没法用类名，只能用属性选择器），
+       改竖排。PHP 里补一个类名后这条可删。 */
+    .yimai-gso-main-content div[style*="min-height:460px"][style*="display:flex"] {
+        flex-direction: column !important; /* 纪律 ③ */
+        gap: 12px !important;
+        min-height: 0 !important;
+    }
+
+    .yimai-gso-main-content div[style*="min-height:460px"][style*="display:flex"] > div {
+        min-height: 240px;
+    }
+
+    /* 小字兜底：老页面里几十处内联 style="font-size:11px/12px/13px" 的说明、
+       计数、状态文字，散在各个 PHP 里改不过来。这里按属性前缀一次性兜到
+       14px（纪律 ③：内联值只能靠 !important）。只作用于插件内容区，
+       而且只匹配「显式写小了」的元素，没写 font-size 的走 §1 的继承 14px。 */
+    .yimai-gso-main-content [style*="font-size:11px"],
+    .yimai-gso-main-content [style*="font-size:12px"],
+    .yimai-gso-main-content [style*="font-size:13px"] {
+        font-size: 14px !important;
+    }
+}
+
+/* ---- ≤1200 ---- */
+@media (max-width: 1200px) {
+    /* 品牌资料页（class-knowledge-center.php 里的内联样式）
+       .yimai-kb-stats 是 repeat(5, minmax(120px, 1fr)) —— 5 列最少要 648px，
+       375px 上溢出 260px，是这一页横向滚动的唯一原因。
+       用 auto-fit 而不是写死列数：容器多宽就排几列（375→2 列、618→4 列），
+       以后再改版式也不会重新溢出。
+       为什么从 1200 起：这一页的容器 = 视口 - 160px 菜单 - 外边距，800px
+       时只剩 618px，5 列 648px 仍然溢出 10px；auto-fit 在任何宽度都自洽。
+       内联 <style> 在文档里排在本文件之后，必须 !important（纪律 ②）。 */
+    .yimai-kb-stats {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+        gap: 10px !important;
+    }
+
+    .yimai-kb-stats > div {
+        padding: 12px !important;
+    }
+
+    .yimai-kb-stats strong {
+        font-size: 22px !important;
+    }
+
+    .yimai-kb-stats span {
+        font-size: 14px !important;
+    }
+}
+
+/* ---- ≤480 ---- */
+@media (max-width: 480px) {
+    /* 手机上固定两列：auto-fit 在 375px 恰好也是两列，但显式写死可以避免
+       以后把 minmax 调大后变成三列（1fr 三列在 375px 只能放 100px 宽的卡） */
+    .yimai-kb-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}

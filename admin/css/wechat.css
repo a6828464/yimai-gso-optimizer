@@ -1,0 +1,302 @@
+/* ==========================================================================
+   一麦GSO双擎优化 · 微信分享卡片页（wechat.css）  since 2.10.0
+   --------------------------------------------------------------------------
+   本文件只装「这一页才有」的东西：
+     1) 抓取自检的结果区（.yimai-gso-wx-result）：左边手机分享卡、右边诊断条目
+     2) 页头「测试公众号凭据 / 清除缓存」的行内结果（#ymwx-token-result）
+     3) 封面缩略图、描述长度输入框、说明清单等零碎排版
+
+   通用件（页头 / 状态卡 / 区块 / 字段 / 徽章 / 表格 / 提示条 / 操作区 / 预览卡）
+   一律来自 components.css：本文件不重写、不复制它们的值，也不给它们加「全局副作用」，
+   所有新增选择器都带 -wx- 段或限定在本页的结构里。
+
+   加载：只在 yimai-gso-wechat 页入队（见 YIMAI_GSO_Wechat_Share::enqueue_admin_assets），
+   依赖 yimai-gso-components，因此输出顺序在 components.css 之后 —— 需要压过
+   admin.css 里历史 !important 的少数规则（如现代按钮的 44px 触控高度）才压得住。
+
+   断点与全站一致，只有 1200 / 960 / 782 / 480 四档；782 是 WP 后台折叠菜单的同一档。
+   ========================================================================== */
+
+/* ==========================================================================
+   §1 页头：凭据测试 / 清缓存的行内结果
+   --------------------------------------------------------------------------
+   JS 只改 textContent 与 class（is-muted / is-ok / is-bad），不再逐次写内联色值，
+   这样状态色统一走令牌，深色/主题调整时不用回来改 JS。
+   ========================================================================== */
+#ymwx-token-result.yimai-gso-wx-inline-result {
+    min-width: 0;
+    font-size: var(--yimai-gso-font-base);
+    line-height: 1.5;
+    color: var(--yimai-gso-text-muted);
+    overflow-wrap: anywhere;
+}
+
+/* 没有结果时不占位：空 span 留着会在 .yimai-gso-actions 里多吃一个 gap */
+#ymwx-token-result.yimai-gso-wx-inline-result:empty {
+    display: none;
+}
+
+#ymwx-token-result.is-ok { color: var(--yimai-gso-success-ink); }
+#ymwx-token-result.is-bad { color: var(--yimai-gso-danger-ink); }
+#ymwx-token-result.is-muted { color: var(--yimai-gso-text-muted); }
+
+/* ==========================================================================
+   §2 提示条 / 清单里的副行与列表
+   --------------------------------------------------------------------------
+   .yimai-gso-notice 只负责提示条本体，errcode · errmsg · 时间那种「第二行小字」
+   是分享页独有的排版，放这里；字号直接给 14px，省掉一条移动端媒体查询。
+   ========================================================================== */
+.yimai-gso-wx-notice-meta {
+    color: var(--yimai-gso-text-muted);
+    font-size: var(--yimai-gso-font-base);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.yimai-gso-wx-list {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--yimai-gso-text-muted);
+}
+
+/* WP 后台的 list-style 会被主题/插件改，显式写死才不会在某个环境里掉成无项目符号 */
+ul.yimai-gso-wx-list { list-style: disc; }
+ol.yimai-gso-wx-list { list-style: decimal; }
+
+.yimai-gso-wx-list > li {
+    margin: 0 0 var(--yimai-gso-gap-sm);
+    line-height: var(--yimai-gso-line-height);
+    overflow-wrap: anywhere;
+}
+
+.yimai-gso-wx-list > li:last-child {
+    margin-bottom: 0;
+}
+
+.yimai-gso-wx-list > li strong {
+    color: var(--yimai-gso-text);
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   §3 字段内的零碎：描述长度的数字框、封面缩略图
+   ========================================================================== */
+.yimai-gso-wx-inline {
+    display: flex;
+    align-items: center;
+    gap: var(--yimai-gso-gap-sm);
+    min-width: 0;
+}
+
+/* 为什么要在 field 里破例写宽度：.yimai-gso-field-control 的控件是 width:100%，
+   而描述长度只有 2~3 位数，拉满一行既难看也让「字」这个单位跑得很远。
+   这里必须带 [type="number"]：组件层的 .yimai-gso-field-control input[type="number"]
+   权重是 (0,2,1)，只写两个类 (0,2,0) 是压不过的（属性选择器算一个类级）。 */
+.yimai-gso-field-control input[type="number"].yimai-gso-wx-num {
+    flex: 0 0 auto;
+    width: 100px;
+    max-width: 100%;
+}
+
+.yimai-gso-wx-unit {
+    font-size: var(--yimai-gso-font-base);
+    color: var(--yimai-gso-text-muted);
+}
+
+.yimai-gso-wx-cover-preview {
+    margin: var(--yimai-gso-gap-sm) 0 0;
+}
+
+.yimai-gso-wx-cover-preview img {
+    display: block;
+    width: 100%;
+    max-width: 220px;
+    height: auto;
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: var(--yimai-gso-radius-sm);
+    background: var(--yimai-gso-bg);
+}
+
+/* ==========================================================================
+   §4 签名自证区的两行小结构
+   ========================================================================== */
+/* kv 的值列里要塞「结论 + 代码 + 说明」三段，用纵向 flex 代替默认 p 外边距 */
+.yimai-gso-wx-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--yimai-gso-gap-xs);
+    min-width: 0;
+}
+
+.yimai-gso-wx-stack > p {
+    margin: 0;
+}
+
+.yimai-gso-wx-verdict {
+    font-weight: 700;
+}
+
+.yimai-gso-wx-verdict.is-pass { color: var(--yimai-gso-success-ink); }
+.yimai-gso-wx-verdict.is-fail { color: var(--yimai-gso-danger-ink); }
+
+.yimai-gso-wx-hash {
+    color: var(--yimai-gso-success-ink);
+    overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   §5 抓取自检结果：左卡右列表
+   --------------------------------------------------------------------------
+   原来这里是 .ymwx-result（flex + wrap）+ .ymwx-preview（写死 width:320px），
+   320px + 页面留白在 375px 屏上必然横向溢出。改成 grid：
+   桌面 320px + 1fr（和 .yimai-gso-preview-card 的 max-width 对齐），
+   782 以下直接塌成一列，预览卡铺满，不再需要任何内联宽度。
+   ========================================================================== */
+.yimai-gso-wx-probe-result {
+    margin-top: var(--yimai-gso-gap-lg);
+}
+
+/* 没点过自检时不留一条空白带 */
+.yimai-gso-wx-probe-result:empty {
+    display: none;
+}
+
+.yimai-gso-wx-loading {
+    margin: 0;
+    font-size: var(--yimai-gso-font-base);
+    color: var(--yimai-gso-text-muted);
+}
+
+.yimai-gso-wx-result {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    align-items: start;
+    gap: var(--yimai-gso-gap-xl);
+    min-width: 0;
+    padding: var(--yimai-gso-gap-lg);
+    background: var(--yimai-gso-card);
+    border: 1px solid var(--yimai-gso-border);
+    border-radius: var(--yimai-gso-radius);
+    box-shadow: var(--yimai-gso-shadow-sm);
+}
+
+/* 抓不到 og:image 时的占位：保持和 -media 一样高，右侧列表不会跟着跳 */
+.yimai-gso-preview-card-media.is-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--yimai-gso-gray-light);
+    font-size: var(--yimai-gso-font-base);
+}
+
+.yimai-gso-wx-checks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
+.yimai-gso-wx-check {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--yimai-gso-gap-sm);
+    padding: var(--yimai-gso-gap-sm) 0;
+    border-bottom: 1px dashed var(--yimai-gso-border);
+}
+
+.yimai-gso-wx-check:first-child { padding-top: 0; }
+.yimai-gso-wx-check:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+/* 状态点：8px 圆点，只有颜色表达 pass / warn / fail */
+.yimai-gso-wx-check-dot {
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    margin-top: 7px;
+    border-radius: 50%;
+    background: var(--yimai-gso-gray-light);
+}
+
+.yimai-gso-wx-check-dot.is-pass { background: var(--yimai-gso-success); }
+.yimai-gso-wx-check-dot.is-warn { background: var(--yimai-gso-warning); }
+.yimai-gso-wx-check-dot.is-fail { background: var(--yimai-gso-danger); }
+
+/* 标签与说明上下排：375px 上并排会把说明挤成每行两三个字 */
+.yimai-gso-wx-check-body {
+    min-width: 0;
+    font-size: var(--yimai-gso-font-base);
+    line-height: 1.6;
+}
+
+.yimai-gso-wx-check-body strong {
+    display: block;
+    font-weight: 600;
+    color: var(--yimai-gso-text);
+}
+
+.yimai-gso-wx-check-body span {
+    display: block;
+    color: var(--yimai-gso-text-muted);
+    overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   §6 响应式：1200 / 960 / 782 / 480
+   ========================================================================== */
+@media (max-width: 1200px) {
+    .yimai-gso-wx-result {
+        gap: var(--yimai-gso-gap-lg);
+    }
+}
+
+@media (max-width: 960px) {
+    /* 内容区变窄时先缩预览列，仍然保持一行，避免过早塌成单列 */
+    .yimai-gso-wx-result {
+        grid-template-columns: 280px minmax(0, 1fr);
+    }
+}
+
+/* 782 是 WP 后台折叠菜单的同一档：这一档起布局必须和菜单一起变 */
+@media (max-width: 782px) {
+    .yimai-gso-wx-result {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--yimai-gso-gap-lg);
+        padding: var(--yimai-gso-gap-md);
+    }
+
+    /* 诊断列表吃满整行；预览卡在组件层已经 max-width:100% */
+    .yimai-gso-wx-checks {
+        width: 100%;
+    }
+
+    /* 页头竖排后结果文字是独立一行，不再和按钮挤在同一个居中的 flex 行里 */
+    #ymwx-token-result.yimai-gso-wx-inline-result {
+        width: 100%;
+    }
+
+    /* 现代按钮的 44px 触控高度：
+       admin.css 用「.wp-core-ui .yimai-gso-wrap .yimai-gso-btn-modern-*」(0,3,0)
+       声明 min-height:auto !important，components.css 的 (0,2,0) !important 压不过，
+       实际高度只有 ~41px。这里补一条三类目选择器（(0,3,0)）并靠后加载胜出。
+       页面里不要再给这些按钮写内联 height / width，否则又被顶上去了。 */
+    .yimai-gso-page .yimai-gso-actions > .yimai-gso-btn-modern-primary,
+    .yimai-gso-page .yimai-gso-actions > .yimai-gso-btn-modern-secondary {
+        width: 100% !important;
+        min-height: var(--yimai-gso-tap) !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* 小屏上说明清单的缩进收一点，正文才有足够行长 */
+    .yimai-gso-wx-list {
+        padding-left: 18px;
+    }
+
+    /* 预览卡的封面在组件层已降到 140px，这里只把两栏间距再压一档 */
+    .yimai-gso-wx-check {
+        gap: var(--yimai-gso-gap-xs);
+    }
+}

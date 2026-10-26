@@ -11,6 +11,8 @@
  *  - 旧前缀 cron 任务清理，新任务由各模块自行重新注册
  *
  * 迁移幂等：完成后写入 yimai_gso_db_version，不会重复执行。
+ * 2.5.0 起新增第 6 步：建「公众号草稿箱同步」队列表（dbDelta，可重复执行），
+ * 老站点升级不走插件激活钩子，这张表只能在这里补建。
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -18,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class YIMAI_GSO_DB_Migration {
 
-	const DB_VERSION    = '2.4.0';
+	const DB_VERSION    = '2.5.0';
 	const VERSION_OPTION = 'yimai_gso_db_version';
 
 	/** 旧前缀自定义数据表（wpaip_ → yimai_gso_） */
@@ -170,6 +172,21 @@ class YIMAI_GSO_DB_Migration {
 		}
 		foreach ( array_unique( $legacy_hooks ) as $hook ) {
 			wp_clear_scheduled_hook( $hook );
+		}
+
+		// 6. 公众号草稿箱同步队列表（2.5.0 新增）。
+		// 为什么放在这里而不是各模块自己判版本号：全插件只认一个 yimai_gso_db_version，
+		// 再造一套「模块级版本号」会出现「版本号写了但表没建好」的半升级状态。
+		// 建表失败要落进 $errors：下方的版本号写入正是靠它来决定要不要重试。
+		if ( class_exists( 'YIMAI_GSO_Wechat_Publisher' ) ) {
+			if ( ! YIMAI_GSO_Wechat_Publisher::create_table() ) {
+				$errors[] = sprintf(
+					'公众号草稿箱队列表创建失败：%s%s（%s）',
+					$wpdb->prefix,
+					'yimai_gso_wx_jobs',
+					$wpdb->last_error ? $wpdb->last_error : '未知数据库错误'
+				);
+			}
 		}
 
 		// D2：仅在关键步骤全部成功时才记录版本号，否则保留旧值以便下次重试。

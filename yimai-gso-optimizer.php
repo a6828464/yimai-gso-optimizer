@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.9.19
+ * Version: 2.10.0
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.9.19' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.10.0' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -140,6 +140,18 @@ require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-l5-dashboard.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-ai-platform-registry.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-ai-platform-adapter.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-seo-geo-bridge.php';
+// 公众号 API 共享层必须排在 class-wechat-share.php 之前：后者的 get_access_token() 已转调本类
+require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-wechat-api.php';
+// 正文渲染器只依赖上面的 API 层（图片转存）与 WP 的 DOM/图片编辑器，无其它前置
+require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-wechat-renderer.php';
+// 草稿箱同步队列：只依赖 API 层 + 渲染器 + Settings，require 后立刻挂钩子
+// （发布入队 / cron 出队）。这里不跑任何队列逻辑，普通请求零额外开销。
+require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-wechat-publisher.php';
+YIMAI_GSO_Wechat_Publisher::init();
+// 同步功能的后台界面（子菜单 / 编辑页 metabox / 列表列 / 三个 AJAX）。
+// 纯界面层，只消费上面 Publisher 的静态方法；init() 只挂钩子，不做任何查询。
+require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-wechat-publisher-admin.php';
+YIMAI_GSO_Wechat_Publisher_Admin::init();
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-wechat-share.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-admin.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-updater.php';
@@ -1176,6 +1188,12 @@ class YIMAI_GSO_Plugin {
             YIMAI_GSO_Knowledge_Center::create_tables();
         }
 
+        // 公众号草稿箱同步队列表：激活时先建好，避免激活后第一篇自动同步因缺表失败。
+        // 老站点升级不走激活钩子，由 class-migration.php 的版本升级补建（同一份 dbDelta SQL）。
+        if ( class_exists( 'YIMAI_GSO_Wechat_Publisher' ) ) {
+            YIMAI_GSO_Wechat_Publisher::create_table();
+        }
+
         flush_rewrite_rules();
     }
 
@@ -1212,6 +1230,11 @@ class YIMAI_GSO_Plugin {
             'yimai_gso_generate_sitemap',       // 每日重复事件，最需要清除
         ) as $cron_hook ) {
             wp_clear_scheduled_hook( $cron_hook );
+        }
+
+        // 公众号草稿箱同步队列：停用后 hook 没有监听者，留着只会每 5 分钟空触发一次
+        if ( class_exists( 'YIMAI_GSO_Wechat_Publisher' ) ) {
+            YIMAI_GSO_Wechat_Publisher::unschedule();
         }
 
         // 清理 transient 缓存
