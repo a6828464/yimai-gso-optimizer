@@ -899,7 +899,10 @@ class YIMAI_GSO_Wechat_Share {
 
     // 3) 配置并覆盖分享卡片
     // 真机结果回传：失败原因只在客户端 errMsg 里，服务端推不出来
+    // 真机结果回传：失败原因只在客户端 errMsg 里，服务端推不出来。
+    // 只在强制调试（?ymwxdebug=1 或后台开关）时发，避免每个访客都写库。
     function report(status, msg) {
+        if (!isDebug()) { return; }
         try {
             var xhr = new XMLHttpRequest();
             xhr.open('POST', REPORT, true);
@@ -951,7 +954,9 @@ class YIMAI_GSO_Wechat_Share {
     }
 
     loadSdk(function () {
+        report('sdk', 'ok');
         fetchConfig(function (cfg) {
+            if (!cfg) { report('fetchfail', '签名接口无响应或超时'); }
             apply(cfg);
         });
     });
