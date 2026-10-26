@@ -921,7 +921,7 @@ class YIMAI_GSO_Wechat_Share {
         if (!cfg || !cfg.ok) {
             log('未启用或签名失败：', cfg && cfg.message);
             badge('分享卡片未生效：' + ((cfg && cfg.message) || '签名失败'), '#b91c1c');
-            report('signfail', (cfg && cfg.message) || '签名失败');
+            settle('signfail', (cfg && cfg.message) || '签名失败');
             return;
         }
 
@@ -960,20 +960,34 @@ class YIMAI_GSO_Wechat_Share {
             if (failures.length) {
                 log('部分分享接口失败', failures);
                 badge('分享接口失败：' + failures.join(' | '), '#f59e0b');
-                report('apifail', failures.join(' | '));
+                settle('apifail', failures.join(' | '));
             } else {
                 log('分享卡片已就绪', appMsg);
                 badge('分享卡片已就绪 ✓', '#15803d');
-                report('ready', 'ok');
+                settle('ready', 'ok');
             }
         });
 
         window.wx.error(function (res) {
             log('wx.config 失败', res);
             badge('wx.config 失败：' + (res && res.errMsg), '#b91c1c');
-            report('error', (res && res.errMsg) || 'unknown');
+            settle('error', (res && res.errMsg) || 'unknown');
         });
     }
+
+    // 脚本跑到这里本身就是一条信息：能上报说明页面、脚本、REST 都通
+    report('boot', 'start');
+
+    var settled = false;
+    function settle(status, msg) {
+        settled = true;
+        report(status, msg);
+    }
+    // 超时兜底：wx.config 既不 ready 也不 error 时，10 秒后把「卡在 config」上报出去，
+    // 否则页面静默停住，后台只能看到 boot，看不出到底断在哪
+    setTimeout(function () {
+        if (!settled) { settle('configtimeout', 'wx.config 10 秒内无 ready 也无 error'); }
+    }, 10000);
 
     loadSdk(function () {
         report('sdk', 'ok');
@@ -1551,6 +1565,10 @@ class YIMAI_GSO_Wechat_Share {
             if ( '' !== $rep_stat ) {
                 if ( 'ready' === $rep_stat ) {
                     $verdict = array( 'ok', '真机已就绪：wx.config 通过，分享卡片应该正常出图出标题了' );
+                } elseif ( 'boot' === $rep_stat ) {
+                    $verdict = array( 'bad', '脚本跑到了但没走完：连 SDK 都没载入成功，多看页面报错' );
+                } elseif ( 'configtimeout' === $rep_stat ) {
+                    $verdict = array( 'bad', '卡在 wx.config：10 秒内既不成功也不报错，通常是签名接口被 CDN/WAF 挡掉或超时' );
                 } elseif ( 'sdk' === $rep_stat ) {
                     $verdict = array( 'bad', 'SDK 载入了但 wx.config 一直没回调：签名接口大概率被拦（停留在这一步本身就是证据）' );
                 } elseif ( false !== stripos( $rep_msg, 'invalid signature' ) ) {
