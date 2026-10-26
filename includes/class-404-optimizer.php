@@ -407,6 +407,11 @@ class YIMAI_GSO_404_Optimizer {
             $redirects = array();
         }
 
+        // ★ 2.9.11：源与目标同址的规则不该写进服务器配置。
+        //   nginx 的 `rewrite ^/x$ https://host/x permanent;` 会在这里空转成无限 301，
+        //   请求根本到不了 PHP，插件内的短路也就没机会执行。
+        $is_self = self::is_self_redirect( $from_path, $to_url );
+
         $exists = false;
         foreach ( $redirects as $i => $r ) {
             if ( self::normalize_redirect_source( $r['source'] ?? '' ) === $from_path ) {
@@ -428,6 +433,10 @@ class YIMAI_GSO_404_Optimizer {
             );
         }
         update_option( 'yimai_gso_404_redirects', $redirects, false );
+
+        if ( $is_self ) {
+            return false;
+        }
 
         // 尝试写入 .htaccess / Nginx 配置（best-effort，真正的跳转由 WP 内部钩子保证）
         $server_result = self::write_server_redirect( $from_path, $to_url );
@@ -781,10 +790,58 @@ class YIMAI_GSO_404_Optimizer {
                 : ( $request_path === $source_path );
 
             if ( $match ) {
+                // ★ 修复（2.9.11）：源与目标指向同一个地址时必须放行，否则浏览器
+                //   ERR_TOO_MANY_REDIRECTS。自动应用重定向建议会把「当前 URL」建成
+                //   source，而 target 又正好是它自己（/archives/1287 → /archives/1287），
+                //   WP 内部钩子对这个匹配无能为力，只能靠这里短路。
+                if ( self::is_self_redirect( $source, (string) ( $r['target'] ?? '' ) ) ) {
+                    continue;
+                }
                 wp_redirect( $r['target'], 301 );
                 exit;
             }
         }
+    }
+
+    /**
+     * 判断一条重定向是否指向自己（忽略协议、主机、结尾斜杠、查询串顺序）
+     *
+     * @param string $source 已规范化的源（路径，可能带查询串）
+     * @param string $target 目标（可能是完整 URL 或路径）
+     * @return bool
+     */
+    private static function is_self_redirect( $source, $target ) {
+        if ( '' === $source || '' === $target ) {
+            return false;
+        }
+
+        $normalize = function ( $url ) {
+            $url = trim( (string) $url );
+            // 相对地址补上站点主机，才能和绝对地址同口径比较
+            if ( 0 === strpos( $url, '/' ) ) {
+                $url = home_url( $url );
+            }
+            $parts = wp_parse_url( $url );
+            if ( empty( $parts['host'] ) ) {
+                return '';
+            }
+            $path = isset( $parts['path'] ) ? untrailingslashit( $parts['path'] ) : '';
+            if ( '' === $path ) {
+                $path = '/';
+            }
+            // 统一去掉 www. 前缀再比，避免 www / 裸域互相跳
+            $host = strtolower( $parts['host'] );
+            if ( 0 === strpos( $host, 'www.' ) ) {
+                $host = substr( $host, 4 );
+            }
+            $query = isset( $parts['query'] ) ? '?' . $parts['query'] : '';
+            return $host . $path . $query;
+        };
+
+        $a = $normalize( $source );
+        $b = $normalize( $target );
+
+        return ( '' !== $a && $a === $b );
     }
 
     /**

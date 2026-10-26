@@ -17,7 +17,7 @@
  *      卡片预览、公众号安全域名验证文件托管、错误码速查。
  *
  * @package 一麦GSO SEO-GEO
- * @since 2.9.9
+ * @since 2.9.9（2.9.11 增补真机诊断与重定向死循环识别）
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -28,11 +28,19 @@ class YIMAI_GSO_Wechat_Share {
 
     const REST_NAMESPACE = 'yimai-gso/v1';
     const REST_ROUTE     = '/wechat-jssdk';
+    const REPORT_ROUTE   = '/wechat-jssdk-report';
 
     const TOKEN_TRANSIENT  = 'yimai_gso_wx_access_token';
     const TICKET_TRANSIENT = 'yimai_gso_wx_jsapi_ticket';
     const LOCK_TRANSIENT   = 'yimai_gso_wx_token_lock';
     const ERROR_OPTION     = 'yimai_gso_wx_last_error';
+
+    /**
+     * 真机上报：wx.config / wx.ready / wx.error 的真实结果都写到这个 option。
+     * 微信的失败原因（invalid signature / invalid domain / the permission value is offline
+     * verifying 等）只在客户端 errMsg 里，服务端凭空推不出来，这是唯一可靠的取证点。
+     */
+    const REPORT_OPTION = 'yimai_gso_wx_client_report';
     const LIBRARY_TRANSIENT = 'yimai_gso_wx_fallback_image';
 
     /** access_token 有效期 7200 秒，缓存留 200 秒余量 */
@@ -561,6 +569,41 @@ class YIMAI_GSO_Wechat_Share {
                 ),
             )
         );
+
+        register_rest_route(
+            self::REST_NAMESPACE,
+            self::REPORT_ROUTE,
+            array(
+                'methods'             => 'POST',
+                'callback'            => array( $this, 'rest_report' ),
+                'permission_callback' => '__return_true',
+            )
+        );
+    }
+
+    /**
+     * 真机回传 wx.config 结果：写入 option + 错误日志，后台面板直接展示
+     */
+    public function rest_report( WP_REST_Request $request ) {
+        $status = sanitize_text_field( (string) $request->get_param( 'status' ) );
+        $msg    = sanitize_text_field( (string) $request->get_param( 'msg' ) );
+        $page   = esc_url_raw( (string) $request->get_param( 'page' ) );
+        $ua     = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( (string) $_SERVER['HTTP_USER_AGENT'], 0, 300 ) : '';
+
+        $report = array(
+            'status' => $status,
+            'msg'    => $msg,
+            'page'   => $page,
+            'ua'     => $ua,
+            'time'   => current_time( 'mysql' ),
+        );
+        update_option( self::REPORT_OPTION, $report, false );
+
+        if ( 'ready' !== $status ) {
+            yimai_gso_debug_log( '微信分享卡片真机失败：' . $msg . ' @ ' . $page );
+        }
+
+        return rest_ensure_response( array( 'ok' => true ) );
     }
 
     /**
@@ -750,9 +793,9 @@ class YIMAI_GSO_Wechat_Share {
             return;
         }
 
-        $rest  = rest_url( self::REST_NAMESPACE . self::REST_ROUTE );
-        $debug = ( 1 === (int) YIMAI_GSO_Settings::get( 'wechat_share_debug', 0 ) );
-
+        $rest   = rest_url( self::REST_NAMESPACE . self::REST_ROUTE );
+        $report = rest_url( self::REST_NAMESPACE . self::REPORT_ROUTE );
+        $debug  = ( 1 === (int) YIMAI_GSO_Settings::get( 'wechat_share_debug', 0 ) );
         $js_api = array(
             'updateAppMessageShareData',
             'updateTimelineShareData',
@@ -768,6 +811,7 @@ class YIMAI_GSO_Wechat_Share {
     if (ua.indexOf('MicroMessenger') === -1) { return; }
 
     var REST = <?php echo wp_json_encode( $rest ); ?>;
+    var REPORT = <?php echo wp_json_encode( $report ); ?>;
     var DEBUG = <?php echo $debug ? 'true' : 'false'; ?>;
     var JS_API = <?php echo wp_json_encode( $js_api ); ?>;
     var initUrl = (window.__ymWxInitUrl || location.href).split('#')[0];
@@ -786,9 +830,10 @@ class YIMAI_GSO_Wechat_Share {
         if (!el) {
             el = document.createElement('div');
             el.id = 'ymwx-debug-badge';
-            el.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:2147483647;padding:4px 8px;'
-                + 'border-radius:6px;font-size:12px;line-height:1.4;color:#fff;opacity:.86;'
-                + 'font-family:-apple-system,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.25);';
+            el.style.cssText = 'position:fixed;left:8px;bottom:8px;right:8px;z-index:2147483647;'
+                + 'padding:6px 10px;border-radius:6px;font-size:12px;line-height:1.5;color:#fff;opacity:.92;'
+                + 'font-family:-apple-system,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.25);'
+                + 'white-space:pre-wrap;word-break:break-all;';
             document.body.appendChild(el);
         }
         el.style.background = color || '#111';
@@ -830,10 +875,23 @@ class YIMAI_GSO_Wechat_Share {
     }
 
     // 3) 配置并覆盖分享卡片
+    // 真机结果回传：失败原因只在客户端 errMsg 里，服务端推不出来
+    function report(status, msg) {
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', REPORT, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+            xhr.send('status=' + encodeURIComponent(status)
+                + '&msg=' + encodeURIComponent(msg || '')
+                + '&page=' + encodeURIComponent(initUrl));
+        } catch (e) {}
+    }
+
     function apply(cfg) {
         if (!cfg || !cfg.ok) {
             log('未启用或签名失败：', cfg && cfg.message);
             badge('分享卡片未生效：' + ((cfg && cfg.message) || '签名失败'), '#b91c1c');
+            report('signfail', (cfg && cfg.message) || '签名失败');
             return;
         }
 
@@ -859,11 +917,13 @@ class YIMAI_GSO_Wechat_Share {
 
             log('分享卡片已就绪', appMsg);
             badge('分享卡片已就绪 ✓', '#15803d');
+            report('ready', 'ok');
         });
 
         window.wx.error(function (res) {
             log('wx.config 失败', res);
             badge('wx.config 失败：' + (res && res.errMsg), '#b91c1c');
+            report('error', (res && res.errMsg) || 'unknown');
         });
     }
 
@@ -973,6 +1033,11 @@ class YIMAI_GSO_Wechat_Share {
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
+        $target = isset( $_POST['target'] ) ? sanitize_text_field( wp_unslash( $_POST['target'] ) ) : '';
+        if ( 'report' === $target ) {
+            delete_option( self::REPORT_OPTION );
+            wp_send_json_success( array( 'message' => '已清除真机诊断记录' ) );
+        }
         delete_transient( self::TOKEN_TRANSIENT );
         delete_transient( self::TICKET_TRANSIENT );
         delete_transient( self::LIBRARY_TRANSIENT );
@@ -1031,13 +1096,17 @@ class YIMAI_GSO_Wechat_Share {
 
         $res = wp_remote_get( $url, array(
             'timeout'     => 20,
-            'redirection' => 5,
+            'redirection' => 10,
             'user-agent'  => $ua,
             'headers'     => array( 'Accept' => 'text/html,application/xhtml+xml' ),
         ) );
 
         if ( is_wp_error( $res ) ) {
-            wp_send_json_error( array( 'message' => '抓取失败：' . $res->get_error_message() ) );
+            $msg = $res->get_error_message();
+            $hint = ( false !== stripos( $msg, 'redirect' ) )
+                ? '：跳到上限仍未落地，基本可以确定存在指向自己的 301 规则（404 模块里 source 与 target 相同）'
+                : '';
+            wp_send_json_error( array( 'message' => '抓取失败' . $hint . '（' . $msg . '）' ) );
         }
 
         $code  = (int) wp_remote_retrieve_response_code( $res );
@@ -1045,9 +1114,14 @@ class YIMAI_GSO_Wechat_Share {
         $ctype = (string) wp_remote_retrieve_header( $res, 'content-type' );
 
         // 重定向后的最终地址（http→https、去 www 之类会被记录，便于判断是否抓到了别的页面）
+        // http_response 多跳时是数组，取最后一跳；单跳时是对象。
         $final_url = $url;
-        if ( isset( $res['http_response'] ) && is_object( $res['http_response'] ) ) {
-            $obj = $res['http_response']->get_response_object();
+        $http_resp = isset( $res['http_response'] ) ? $res['http_response'] : null;
+        if ( is_array( $http_resp ) && ! empty( $http_resp ) ) {
+            $http_resp = end( $http_resp );
+        }
+        if ( is_object( $http_resp ) && method_exists( $http_resp, 'get_response_object' ) ) {
+            $obj = $http_resp->get_response_object();
             if ( is_object( $obj ) && ! empty( $obj->url ) ) {
                 $final_url = (string) $obj->url;
             }
@@ -1110,6 +1184,19 @@ class YIMAI_GSO_Wechat_Share {
             'HTTP ' . $code . ( $ctype ? '（' . $ctype . '）' : '' )
                 . ( $final_url !== $url ? '，重定向到 ' . $final_url : '' )
         );
+
+        // 301 指回自己：微信抓取器跟到上限就放弃，卡片自然什么都没有
+        $self_loop = ( $code >= 300 && $code < 400
+            && untrailingslashit( $final_url ) === untrailingslashit( $url ) );
+        if ( $self_loop ) {
+            $checks[] = self::check(
+                '未陷入重定向死循环',
+                false,
+                'URL 301 跳回了自己（x-redirect-by: ' . (string) wp_remote_retrieve_header( $res, 'x-redirect-by' ) . '）'
+                    . '，微信抓到上限就放弃。多为 404 模块里有一条 source 与 target 相同的重定向规则',
+                'fail'
+            );
+        }
 
         $title_len = mb_strlen( $title );
         $checks[] = self::check(
@@ -1399,14 +1486,75 @@ class YIMAI_GSO_Wechat_Share {
                 </p>
             </form>
 
-            <h2 class="title">三、连通性测试</h2>
+            <h2 class="title">三、真机诊断</h2>
+            <?php
+            // 安全域名只认「不带 www / 带 www」其中一种，写错了服务端完全看不出来，
+            // 只有真机 wx.config 会失败。这里把两种写法和生效状态摆出来，先排除这一项。
+            $bare_host = ( 0 === strpos( $host, 'www.' ) ) ? substr( $host, 4 ) : $host;
+            $report    = get_option( self::REPORT_OPTION, array() );
+            $rep_msg   = isset( $report['msg'] ) ? (string) $report['msg'] : '';
+            $rep_stat  = isset( $report['status'] ) ? (string) $report['status'] : '';
+            $rep_time  = isset( $report['time'] ) ? (string) $report['time'] : '';
+            $rep_page  = isset( $report['page'] ) ? (string) $report['page'] : '';
+
+            $verdict = '';
+            if ( '' !== $rep_stat ) {
+                if ( 'ready' === $rep_stat ) {
+                    $verdict = array( 'ok', '真机已就绪：wx.config 通过，分享卡片应该正常出图出标题了' );
+                } elseif ( false !== stripos( $rep_msg, 'invalid signature' ) ) {
+                    $verdict = array( 'bad', '签名不匹配：多为「JS接口安全域名」和当前访问域名不一致，或页面 URL 带参数时签名用的不是同一个 URL' );
+                } elseif ( false !== stripos( $rep_msg, 'invalid domain' ) || false !== stripos( $rep_msg, 'invalid url domain' ) ) {
+                    $verdict = array( 'bad', '域名不在公众号「JS接口安全域名」里：必须与访问域名完全一致，www 与不带 www 视为两个域名' );
+                } elseif ( false !== stripos( $rep_msg, 'permission' ) || false !== stripos( $rep_msg, 'offline' ) ) {
+                    $verdict = array( 'bad', '公众号没有 JS 接口权限：多为未完成微信认证，或该 AppID 是测试号/订阅号未认证' );
+                } elseif ( false !== stripos( $rep_msg, 'signfail' ) ) {
+                    $verdict = array( 'bad', '签名接口本身失败：看上面的最近错误与「测试公众号凭据」结果' );
+                } elseif ( false !== stripos( $rep_msg, 'config:fail' ) ) {
+                    $verdict = array( 'bad', 'wx.config 被微信拒绝：按 errMsg 逐项查安全域名 / AppID 归属账号 / 认证状态' );
+                } else {
+                    $verdict = array( 'bad', '真机报了错，见下方 errMsg' );
+                }
+            }
+            ?>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">安全域名该填哪个</th>
+                    <td>
+                        <p>当前站点主机名是 <code><?php echo esc_html( $host ); ?></code>。微信按「访问时的域名」逐字比对，填错一个字就报 <code>invalid signature</code>。两个都填最稳：</p>
+                        <ul style="margin-left:18px;list-style:disc;">
+                            <li><code><?php echo esc_html( $host ); ?></code>（手机实际访问的就是这个）</li>
+                            <?php if ( $bare_host !== $host ) : ?>
+                                <li><code><?php echo esc_html( $bare_host ); ?></code>（裸域，会 301 跳到 www 时用得上）</li>
+                            <?php endif; ?>
+                        </ul>
+                        <p class="description" style="color:#b45309;">如果你当初只填了 <code><?php echo esc_html( $bare_host ); ?></code>，而手机打开的是 <code><?php echo esc_html( $host ); ?></code>，JS 一定失败——但服务端测试照样全绿，这正是「测试通过但没卡片」最常见的原因。</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">最近一次真机结果</th>
+                    <td>
+                        <?php if ( '' === $rep_stat ) : ?>
+                            <span class="description">还没有回传。用手机微信打开任意页面即可，回传后这里会显示结论与原始 errMsg。</span>
+                        <?php else : ?>
+                            <p><strong style="color:<?php echo 'ok' === $verdict[0] ? '#15803d' : '#b91c1c'; ?>;"><?php echo esc_html( $verdict[1] ); ?></strong></p>
+                            <p class="description">status=<code><?php echo esc_html( $rep_stat ); ?></code> · <?php echo esc_html( $rep_time ); ?> · <?php echo esc_html( $rep_page ); ?></p>
+                            <?php if ( '' !== $rep_msg && 'ok' !== $rep_msg ) : ?>
+                                <p><code style="word-break:break-all;"><?php echo esc_html( $rep_msg ); ?></code></p>
+                            <?php endif; ?>
+                            <p><button type="button" class="button" id="ymwx-clear-report">清掉这条记录</button></p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
+
+            <h2 class="title">四、连通性测试</h2>
             <p>
                 <button type="button" class="button" id="ymwx-test-token">测试公众号凭据</button>
                 <button type="button" class="button" id="ymwx-clear-cache">清除 token / ticket 缓存</button>
                 <span id="ymwx-token-result" style="margin-left:10px;"></span>
             </p>
 
-            <h2 class="title">四、抓取自检（模拟微信抓一遍）</h2>
+            <h2 class="title">五、抓取自检（模拟微信抓一遍）</h2>
             <p>
                 <input type="text" class="regular-text" id="ymwx-probe-url" value="<?php echo esc_attr( $site_home ); ?>" style="width:420px;" />
                 <button type="button" class="button button-primary" id="ymwx-probe">开始自检</button>
@@ -1431,7 +1579,7 @@ class YIMAI_GSO_Wechat_Share {
             $sign_url    = $site_home;
             $sign_hash   = ( '' !== $sign_ticket ) ? sha1( 'jsapi_ticket=' . $sign_ticket . '&noncestr=' . $sign_nonce . '&timestamp=' . $sign_ts . '&url=' . $sign_url ) : '';
             ?>
-            <h2 class="title">五、签名算法自证</h2>
+            <h2 class="title">六、签名算法自证</h2>
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row">官方样例</th>
@@ -1461,14 +1609,14 @@ class YIMAI_GSO_Wechat_Share {
 
             <hr style="margin:28px 0;" />
 
-            <h2 class="title">公众号后台需要配的三件事</h2>
+            <h2 class="title">七、公众号后台需要配的三件事</h2>
             <ol style="max-width:900px;line-height:2;color:#334155;">
                 <li><strong>JS接口安全域名</strong>：公众号后台 → 设置与开发 → 公众号设置 → 功能设置 → JS接口安全域名，填 <code><?php echo esc_html( $host ); ?></code>（不带 https://），按提示把校验文件放到根目录（上面第一栏可代管）。</li>
                 <li><strong>IP 白名单</strong>：设置与开发 → 基本配置 → IP白名单，加入本服务器出口 IP。不加会报 <code>errcode 40164</code>。</li>
                 <li><strong>认证状态</strong>：JS-SDK 分享接口需要已认证的服务号/订阅号；未认证会报 <code>errcode 48001</code>。</li>
             </ol>
 
-            <h2 class="title">常见错误码</h2>
+            <h2 class="title">八、常见错误码</h2>
             <table class="widefat striped" style="max-width:900px;">
                 <thead><tr><th style="width:110px;">errcode</th><th>含义与处理</th></tr></thead>
                 <tbody>
@@ -1481,7 +1629,7 @@ class YIMAI_GSO_Wechat_Share {
                 </tbody>
             </table>
 
-            <h2 class="title">生效范围与缓存说明</h2>
+            <h2 class="title">九、生效范围与缓存说明</h2>
             <ul style="max-width:900px;line-height:2;color:#334155;">
                 <li><strong>微信内转发/分享</strong>：脚本实时取签名，改完设置立即生效（无需清缓存）。</li>
                 <li><strong>把链接粘贴到聊天窗口</strong>：走微信服务端抓取，微信会把抓取结果缓存数小时到数天。改完 meta 后旧链接可能仍是旧卡片，换一个带参数的链接（如 <code>?v=2</code>）即可验证新结果。</li>
@@ -1563,6 +1711,15 @@ class YIMAI_GSO_Wechat_Share {
                     post('yimai_gso_wechat_clear_cache', {}, function (res) {
                         out.textContent = (res && res.success) ? '✓ ' + res.data.message : '✗ 失败';
                         out.style.color = (res && res.success) ? '#15803d' : '#b91c1c';
+                    });
+                });
+            }
+
+            var clearReport = document.getElementById('ymwx-clear-report');
+            if (clearReport) {
+                clearReport.addEventListener('click', function () {
+                    post('yimai_gso_wechat_clear_cache', { target: 'report' }, function () {
+                        window.location.reload();
                     });
                 });
             }
