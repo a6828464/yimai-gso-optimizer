@@ -2438,7 +2438,10 @@ class YIMAI_GSO_Admin {
     /**
      * 渲染更新日志面板，直接读取插件包内的 CHANGELOG.md。
      */
-    private function render_changelog_panel( $active_tab ) {
+    /**
+     * 解析插件包内的 CHANGELOG.md，返回版本块数组。
+     */
+    private function get_changelog_releases() {
         $path     = YIMAI_GSO_PLUGIN_DIR . 'CHANGELOG.md';
         $contents = file_exists( $path ) ? file( $path, FILE_IGNORE_NEW_LINES ) : array();
         $releases = array();
@@ -2469,15 +2472,17 @@ class YIMAI_GSO_Admin {
                 'items'   => array( '当前版本更新日志文件暂不可读，请检查插件包是否完整。' ),
             );
         }
+        return $releases;
+    }
+
+    /**
+     * 输出更新日志列表（可嵌入其他面板复用）。
+     */
+    private function render_changelog_block( $releases = null ) {
+        if ( null === $releases ) {
+            $releases = $this->get_changelog_releases();
+        }
         ?>
-        <div class="yimai-gso-main-panel <?php echo $active_tab === 'changelog' ? 'active' : ''; ?>" data-tab="changelog">
-            <div class="yimai-gso-page-card-header">
-                <div class="yimai-gso-card-icon"><span class="dashicons dashicons-clipboard"></span></div>
-                <div class="yimai-gso-card-body">
-                    <h2 class="yimai-gso-card-title">更新日志</h2>
-                    <p class="yimai-gso-card-desc">查看一麦GSO双擎优化的版本变更、问题修复和兼容性说明</p>
-                </div>
-            </div>
             <div class="yimai-gso-changelog-list">
                 <?php foreach ( $releases as $index => $release ) : ?>
                     <section class="yimai-gso-changelog-release <?php echo 0 === $index ? 'is-current' : ''; ?>">
@@ -2493,8 +2498,126 @@ class YIMAI_GSO_Admin {
                     </section>
                 <?php endforeach; ?>
             </div>
+        <?php
+    }
+
+    /**
+     * 渲染更新日志面板（保留旧路由兼容；侧边栏入口已合并进「在线更新」）。
+     */
+    private function render_changelog_panel( $active_tab ) {
+        $releases = $this->get_changelog_releases();
+        ?>
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'changelog' ? 'active' : ''; ?>" data-tab="changelog">
+            <div class="yimai-gso-page-card-header">
+                <div class="yimai-gso-card-icon"><span class="dashicons dashicons-clipboard"></span></div>
+                <div class="yimai-gso-card-body">
+                    <h2 class="yimai-gso-card-title">更新日志</h2>
+                    <p class="yimai-gso-card-desc">查看一麦GSO双擎优化的版本变更、问题修复和兼容性说明</p>
+                </div>
+            </div>
+            <?php $this->render_changelog_block( $releases ); ?>
         </div>
         <?php
+    }
+
+    /**
+     * 渲染使用教程面板（读取插件包内 docs/使用教程.md，简易 Markdown 渲染）
+     */
+    private function render_tutorial_panel( $active_tab ) {
+        $path  = YIMAI_GSO_PLUGIN_DIR . 'docs/使用教程.md';
+        $lines = file_exists( $path ) ? file( $path, FILE_IGNORE_NEW_LINES ) : array();
+        ?>
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'tutorial' ? 'active' : ''; ?>" data-tab="tutorial">
+            <div class="yimai-gso-page-card-header">
+                <div class="yimai-gso-card-icon"><span class="dashicons dashicons-book"></span></div>
+                <div class="yimai-gso-card-body">
+                    <h2 class="yimai-gso-card-title">使用教程</h2>
+                    <p class="yimai-gso-card-desc">从配置到发布的完整操作说明；对应插件包内的 docs/使用教程.md</p>
+                </div>
+            </div>
+            <div class="yimai-gso-tutorial-body">
+                <?php if ( empty( $lines ) ) : ?>
+                    <p>教程文件暂不可读（docs/使用教程.md 缺失），请重新上传完整插件包。</p>
+                <?php else : ?>
+                    <?php echo $this->render_simple_markdown( implode( "\n", $lines ) ); ?>
+                <?php endif; ?>
+            </div>
+            <style>
+                .yimai-gso-tutorial-body{background:#fff;border:1px solid #dcdcde;border-radius:6px;padding:22px 26px;line-height:1.85;font-size:14px;color:#1d2327;max-width:960px}
+                .yimai-gso-tutorial-body h1{font-size:22px;margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid #2271b1}
+                .yimai-gso-tutorial-body h2{font-size:18px;margin:26px 0 10px;color:#2271b1}
+                .yimai-gso-tutorial-body h3{font-size:15px;margin:18px 0 8px}
+                .yimai-gso-tutorial-body ul,.yimai-gso-tutorial-body ol{margin:8px 0 14px;padding-left:22px}
+                .yimai-gso-tutorial-body li{margin-bottom:5px}
+                .yimai-gso-tutorial-body code{background:#f0f0f1;padding:1px 6px;border-radius:3px;font-size:12.5px}
+                .yimai-gso-tutorial-body pre{background:#1d2327;color:#f0f0f1;padding:12px 14px;border-radius:6px;overflow:auto;font-size:12.5px;line-height:1.6}
+                .yimai-gso-tutorial-body pre code{background:none;color:inherit;padding:0}
+                .yimai-gso-tutorial-body strong{color:#0f172a}
+            </style>
+        </div>
+        <?php
+    }
+
+    /**
+     * 极简 Markdown 渲染（标题/列表/代码块/粗体/段落），内容来自插件自带文件，仍先做转义。
+     */
+    private function render_simple_markdown( $md ) {
+        $md    = str_replace( array( "\r\n", "\r" ), "\n", (string) $md );
+        $lines = explode( "\n", $md );
+        $html  = '';
+        $in_code = false;
+        $in_list = false;
+        $para = array();
+
+        $flush_para = function () use ( &$para, &$html ) {
+            if ( ! empty( $para ) ) {
+                $text = esc_html( implode( ' ', $para ) );
+                $text = preg_replace( '/\*\*([^*]+)\*\*/u', '<strong>$1</strong>', $text );
+                $text = preg_replace( '/`([^`]+)`/u', '<code>$1</code>', $text );
+                $html .= '<p>' . $text . '</p>';
+                $para  = array();
+            }
+        };
+
+        foreach ( $lines as $line ) {
+            if ( preg_match( '/^```/', $line ) ) {
+                $flush_para();
+                if ( $in_list ) { $html .= '</ul>'; $in_list = false; }
+                if ( $in_code ) { $html .= '</code></pre>'; $in_code = false; }
+                else { $html .= '<pre><code>'; $in_code = true; }
+                continue;
+            }
+            if ( $in_code ) {
+                $html .= esc_html( $line ) . "\n";
+                continue;
+            }
+            if ( '' === trim( $line ) ) {
+                $flush_para();
+                if ( $in_list ) { $html .= '</ul>'; $in_list = false; }
+                continue;
+            }
+            if ( preg_match( '/^(#{1,4})\s+(.+)$/u', $line, $m ) ) {
+                $flush_para();
+                if ( $in_list ) { $html .= '</ul>'; $in_list = false; }
+                $level = strlen( $m[1] );
+                $html .= '<h' . $level . '>' . esc_html( trim( $m[2] ) ) . '</h' . $level . '>';
+                continue;
+            }
+            if ( preg_match( '/^\s*[-*]\s+(.+)$/u', $line, $m ) ) {
+                $flush_para();
+                if ( ! $in_list ) { $html .= '<ul>'; $in_list = true; }
+                $item = esc_html( trim( $m[1] ) );
+                $item = preg_replace( '/\*\*([^*]+)\*\*/u', '<strong>$1</strong>', $item );
+                $item = preg_replace( '/`([^`]+)`/u', '<code>$1</code>', $item );
+                $html .= '<li>' . $item . '</li>';
+                continue;
+            }
+            $para[] = trim( $line );
+        }
+        $flush_para();
+        if ( $in_list ) { $html .= '</ul>'; }
+        if ( $in_code ) { $html .= '</code></pre>'; }
+        return $html;
     }
 
     /**
@@ -2530,6 +2653,16 @@ class YIMAI_GSO_Admin {
                 <p>更新插件需要管理员权限（manage_options）。</p>
                 <?php endif; ?>
             </div>
+
+            <!-- 版本更新日志（原独立菜单已合并到这里） -->
+            <div class="yimai-gso-page-card-header" style="margin-top:24px">
+                <div class="yimai-gso-card-icon"><span class="dashicons dashicons-clipboard"></span></div>
+                <div class="yimai-gso-card-body">
+                    <h2 class="yimai-gso-card-title">版本更新日志</h2>
+                    <p class="yimai-gso-card-desc">查看一麦GSO双擎优化的版本变更、问题修复和兼容性说明</p>
+                </div>
+            </div>
+            <?php $this->render_changelog_block(); ?>
         </div>
         <?php
     }
@@ -2673,6 +2806,10 @@ class YIMAI_GSO_Admin {
 
         // 获取当前激活的标签（默认 dashboard）
         $active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'dashboard';
+        // 兼容旧书签/链接：更新日志已合并进「在线更新」
+        if ( 'changelog' === $active_tab ) {
+            $active_tab = 'updater';
+        }
 
         // 获取需要的数据
         $default_category = YIMAI_GSO_Settings::get( 'default_category', 1 );
@@ -3400,13 +3537,9 @@ class YIMAI_GSO_Admin {
                             <span class="dashicons dashicons-admin-settings"></span>
                             <span>基础设置</span>
                         </button>
-                        <span class="yimai-gso-sidebar-link">
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'tutorial' ? 'active' : ''; ?>" data-tab="tutorial">
                             <span class="dashicons dashicons-book"></span>
                             <span>使用教程</span>
-                        </span>
-                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'changelog' ? 'active' : ''; ?>" data-tab="changelog">
-                            <span class="dashicons dashicons-clipboard"></span>
-                            <span>更新日志</span>
                         </button>
                         <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'updater' ? 'active' : ''; ?>" data-tab="updater">
                             <span class="dashicons dashicons-update"></span>
@@ -3580,6 +3713,9 @@ class YIMAI_GSO_Admin {
             <?php $this->render_changelog_panel( $active_tab ); ?>
 
             <!-- ==================== 在线更新 ==================== -->
+            <!-- ==================== 使用教程 ==================== -->
+            <?php $this->render_tutorial_panel( $active_tab ); ?>
+
             <?php $this->render_updater_panel( $active_tab ); ?>
 
 

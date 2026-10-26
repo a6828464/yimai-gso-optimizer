@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.9.5
+ * Version: 2.9.6
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.9.5' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.9.6' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -1267,6 +1267,9 @@ class YIMAI_GSO_Plugin {
 
         $title   = sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) );
         $content = wp_kses_post( wp_unslash( $_POST['content'] ?? '' ) );
+        if ( class_exists( 'YIMAI_GSO_Publisher' ) ) {
+            $content = YIMAI_GSO_Publisher::normalize_table_styles( $content );
+        }
         $status  = sanitize_key( $_POST['status'] ?? 'draft' );
         if ( ! in_array( $status, array( 'draft', 'publish', 'pending' ), true ) ) $status = 'draft';
         if ( 'publish' === $status && ! current_user_can( 'publish_posts' ) ) $status = 'pending';

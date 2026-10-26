@@ -222,6 +222,7 @@ class YIMAI_GSO_Publisher {
         $title        = $this->sanitize_article_title( $title );
         // 使用 wp_kses_post 过滤HTML：允许正常标签（img/a/p/h1-h6等），禁止危险标签（script/iframe/on*事件）
         $content      = wp_kses_post( $data['content'] ?? '' );
+        $content      = self::normalize_table_styles( $content );
         $excerpt      = sanitize_textarea_field( $data['excerpt'] ?? '' );
         $category_id  = absint( $data['category_id'] ?? get_option( 'yimai_gso_default_category', 1 ) );
         $tags         = sanitize_text_field( $data['tags'] ?? '' );
@@ -580,10 +581,49 @@ class YIMAI_GSO_Publisher {
      * }
      * @return array|WP_Error
      */
+    /**
+     * 给正文表格补内联样式（主题通常不给文章内 table 加边框，导致表格「没有框」）。
+     * 只补缺失的样式，不覆盖已有的自定义样式。
+     */
+    public static function normalize_table_styles( $content ) {
+        if ( ! is_string( $content ) || false === stripos( $content, '<table' ) ) {
+            return $content;
+        }
+        $base = 'border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;';
+
+        $content = preg_replace_callback( '/<table\b([^>]*)>/i', function ( $m ) use ( $base ) {
+            $attrs = $m[1];
+            if ( preg_match( '/style\s*=\s*(["\x27])(.*?)\1/is', $attrs ) ) {
+                $attrs = preg_replace( '/style\s*=\s*(["\x27])(.*?)\1/is', 'style="' . $base . '$2"', $attrs, 1 );
+            } else {
+                $attrs .= ' style="' . $base . '"';
+            }
+            return '<table' . $attrs . '>';
+        }, $content );
+
+        foreach ( array( 'th', 'td' ) as $cell ) {
+            $extra = ( 'th' === $cell )
+                ? 'border:1px solid #d9d9d9;padding:8px 10px;background:#f6f7f7;text-align:left;font-weight:600;'
+                : 'border:1px solid #d9d9d9;padding:8px 10px;';
+            $content = preg_replace_callback( '/<' . $cell . '\b([^>]*)>/i', function ( $m ) use ( $extra, $cell ) {
+                $attrs = $m[1];
+                if ( preg_match( '/style\s*=\s*(["\x27])(.*?)\1/is', $attrs ) ) {
+                    $attrs = preg_replace( '/style\s*=\s*(["\x27])(.*?)\1/is', 'style="' . $extra . '$2"', $attrs, 1 );
+                } else {
+                    $attrs .= ' style="' . $extra . '"';
+                }
+                return '<' . $cell . $attrs . '>';
+            }, $content );
+        }
+
+        return $content;
+    }
+
     public function publish_single( $params = array() ) {
         $title = sanitize_text_field( $params['title'] ?? '' );
         // 使用 wp_kses_post 过滤HTML，防止XSS但保留正常标签
         $content = wp_kses_post( $params['content'] ?? '' );
+        $content = self::normalize_table_styles( $content );
         $excerpt = sanitize_textarea_field( $params['excerpt'] ?? '' );
         $category = absint( $params['category'] ?? 0 );
         $tags = sanitize_text_field( $params['tags'] ?? '' );

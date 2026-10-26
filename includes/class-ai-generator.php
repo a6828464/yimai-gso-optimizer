@@ -206,6 +206,11 @@ class YIMAI_GSO_AI_Generator {
         //   结尾只剩提问或半句话时自动续写（最多 2 轮）。
         $article = $this->maybe_continue_content( $article, $word_count, $sys_prompt, $user_message );
 
+        // 表格补内联样式：主题通常不给文章内 table 加边框，导致表格「没有框」
+        if ( ! empty( $article['content'] ) && class_exists( 'YIMAI_GSO_Publisher' ) ) {
+            $article['content'] = YIMAI_GSO_Publisher::normalize_table_styles( $article['content'] );
+        }
+
         return $article;
     }
 
@@ -1303,6 +1308,11 @@ class YIMAI_GSO_AI_Generator {
         //   表现为最后一个小标题只有提问、问题没有答案，或正文停在半句话。
         //   这里检测并续写（最多 2 轮），保证文章完整再返回。
         $article = $this->maybe_continue_content( $article, $word_count, $system_content ?? '', $user_message );
+
+        // 表格补内联样式（预览与发布都有边框）
+        if ( ! empty( $article['content'] ) && class_exists( 'YIMAI_GSO_Publisher' ) ) {
+            $article['content'] = YIMAI_GSO_Publisher::normalize_table_styles( $article['content'] );
+        }
 
         // 安全：移除 AI 生成的正文中的 <img> 标签（防止外部图片被下载）
         if ( ! empty( $article['content'] ) && is_string( $article['content'] ) ) {
