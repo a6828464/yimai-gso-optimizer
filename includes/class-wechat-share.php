@@ -113,10 +113,14 @@ class YIMAI_GSO_Wechat_Share {
             $thumb_id = (int) get_post_thumbnail_id( $post_id );
             $mime     = (string) get_post_mime_type( $thumb_id );
             $is_svg   = ( 'image/svg+xml' === $mime );
-            // 特色图是 WebP 但后台配了封面兜底时，优先用封面（安卓微信对 WebP 缩略图支持不稳）
-            $prefer_cover_over_webp = ( 'image/webp' === $mime && $has_cover );
-            if ( $thumb_id && ! $is_svg && ! $prefer_cover_over_webp ) {
-                $src = wp_get_attachment_image_src( $thumb_id, 'full' );
+            // 两种情况宁可换用后台封面：① WebP——安卓微信分享卡片不显示；
+            // ② 竖图——卡片缩略图是近方形框，1000×1500 这类竖图会被裁掉上下。
+            $is_tall  = self::is_tall_image( $thumb_id );
+            $prefer_cover = $has_cover && ( 'image/webp' === $mime || $is_tall );
+            if ( $thumb_id && ! $is_svg && ! $prefer_cover ) {
+                // 微信缩略图是近方形的裁切框：优先挑横向/近方形、体积可控的尺寸，
+                // 只有竖版原图可用时才退回 full（竖图会被裁掉上下，主体只剩中间一条）。
+                $src = self::pick_share_size( $thumb_id );
                 if ( $src ) {
                     $out['url']    = $src[0];
                     $out['width']  = (int) $src[1];
@@ -281,6 +285,53 @@ class YIMAI_GSO_Wechat_Share {
         }
 
         return $rebuilt;
+    }
+
+    /**
+     * 判断附件是否为明显竖图（高 > 宽 × 1.15）
+     */
+    private static function is_tall_image( $attachment_id ) {
+        $meta = wp_get_attachment_metadata( $attachment_id );
+        if ( ! is_array( $meta ) || empty( $meta['width'] ) || empty( $meta['height'] ) ) {
+            return false;
+        }
+        return ( (float) $meta['height'] > (float) $meta['width'] * 1.15 );
+    }
+
+    /**
+     * 从附件里挑一个适合做分享缩略图的尺寸
+     *
+     * 微信卡片缩略图是近方形框：竖图（如 1000×1500）会被裁掉上下，主体只剩中间一条。
+     * 所以在可用尺寸里优先横图/近方图，其次才退回原图；同时避开过大的文件。
+     *
+     * @param int $attachment_id
+     * @return array|false wp_get_attachment_image_src() 结构
+     */
+    private static function pick_share_size( $attachment_id ) {
+        $full = wp_get_attachment_image_src( $attachment_id, 'full' );
+        if ( ! $full ) {
+            return false;
+        }
+
+        $best  = $full;
+        $score = -1;
+
+        foreach ( array( 'large', 'medium_large', 'medium' ) as $size ) {
+            $src = wp_get_attachment_image_src( $attachment_id, $size );
+            if ( ! $src || $src[1] < 300 || $src[2] < 200 ) {
+                continue;
+            }
+            // 宽高比越接近 1.2:1 越好；竖图按 1/ratio 折算，明显吃亏
+            $ratio = $src[1] / max( 1, $src[2] );
+            $s     = ( $ratio >= 1 ) ? ( 1.2 / $ratio ) : ( $ratio / 1.2 );
+            $s    -= ( $src[1] > 2000 ) ? 0.15 : 0;
+            if ( $s > $score ) {
+                $score = $s;
+                $best  = $src;
+            }
+        }
+
+        return $best;
     }
 
     private static function guess_mime_from_url( $url ) {
