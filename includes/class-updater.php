@@ -3,7 +3,8 @@
  * 插件在线更新（对齐主题 inc/updater.php 的双平台模式）
  *
  * 发布渠道：Gitee 主仓库 + GitHub 镜像，双平台 auto-latest Release 由 tools/release.sh 刷新。
- * 更新包：GitHub codeload main 分支归档优先（内容实时生成，无 CDN 旧包问题）；Gitee Release 附件兜底。
+ * 更新检查/更新包下载：Gitee 优先（国内服务器稳定），GitHub 直连 + github.shunan.fun 反代兜底；
+ * 上次成功通道自动提升优先级（记忆效应），失败信息逐通道透出便于诊断。
  * 清单：双平台 Release 附件 yimai-gso-optimizer-manifest.json（请求带时间戳穿 CDN 缓存）。
  *
  * 环境约束（与主题一致，2026-09 探测测试服务器得出）：
@@ -30,16 +31,22 @@ class YIMAI_GSO_Updater {
 		add_action( 'wp_ajax_yimai_gso_update_run', array( __CLASS__, 'ajax_run' ) );
 	}
 
-	/** 各发布渠道的清单与包地址 */
+	/** 各发布渠道的清单与包地址（Gitee 优先：国内服务器访问 Gitee 稳定，GitHub 常被墙/超时） */
 	public static function sources() {
 		return array(
+			'gitee'  => array(
+				'manifest' => 'https://gitee.com/' . self::GITEE_REPO . '/releases/download/auto-latest/' . self::MANIFEST_NAME,
+				'package'  => 'https://gitee.com/' . self::GITEE_REPO . '/releases/download/auto-latest/' . self::PACKAGE_NAME,
+			),
 			'github' => array(
 				'manifest' => 'https://github.com/' . self::GITHUB_REPO . '/releases/download/auto-latest/' . self::MANIFEST_NAME,
 				'package'  => 'https://codeload.github.com/' . self::GITHUB_REPO . '/zip/refs/heads/main',
 			),
-			'gitee'  => array(
-				'manifest' => 'https://gitee.com/' . self::GITEE_REPO . '/releases/download/auto-latest/' . self::MANIFEST_NAME,
-				'package'  => 'https://gitee.com/' . self::GITEE_REPO . '/releases/download/auto-latest/' . self::PACKAGE_NAME,
+			// 用户自建 Cloudflare 反代（github.shunan.fun → github.com）：
+			// 国内服务器直连 GitHub 被 DNS 污染/阻断时的第三通道，Release 资产与直连同源
+			'github_mirror' => array(
+				'manifest' => 'https://github.shunan.fun/' . self::GITHUB_REPO . '/releases/download/auto-latest/' . self::MANIFEST_NAME,
+				'package'  => 'https://github.shunan.fun/' . self::GITHUB_REPO . '/releases/download/auto-latest/' . self::PACKAGE_NAME,
 			),
 		);
 	}
@@ -55,19 +62,56 @@ class YIMAI_GSO_Updater {
 		return array();
 	}
 
-	/** 拉取远端更新清单（时间戳破 CDN 缓存），成功返回清单数组，失败返回 null */
-	private static function fetch_manifest( &$source_used = null ) {
-		foreach ( self::sources() as $source => $urls ) {
+	/**
+	 * 拉取远端更新清单（时间戳破 CDN 缓存），成功返回清单数组，失败返回 null
+	 *
+	 * 修复「一直走 GitHub 渠道导致国内环境检查失败」：
+	 * - 通道顺序 Gitee 优先（国内稳定），上次成功来源进一步提升优先级（记忆效应）
+	 * - 逐通道记录具体错误（域名 + HTTP 状态/超时原因），失败信息可诊断而不是笼统的「均不可达」
+	 */
+	private static function fetch_manifest( &$source_used = null, &$errors = null ) {
+		$sources = self::sources();
+
+		// 记忆效应：上次成功取到清单的通道排最前（服务器环境对某个通道友好就持续用它）
+		$last_ok = get_transient( 'yimai_gso_update_manifest_source' );
+		if ( is_string( $last_ok ) && isset( $sources[ $last_ok ] ) && 'gitee' !== $last_ok ) {
+			$sources = array( $last_ok => $sources[ $last_ok ] ) + $sources;
+		}
+
+		if ( is_array( $errors ) ) {
+			$errors = array();
+		}
+
+		foreach ( $sources as $source => $urls ) {
 			// 时间戳破缓存：GitHub/Gitee 对同名 Release 资产有 CDN 缓存，重建同名 Release 后可能仍吐旧文件
 			$url = $urls['manifest'] . ( strpos( $urls['manifest'], '?' ) === false ? '?' : '&' ) . 't=' . time();
-			$resp = wp_remote_get( $url, array( 'timeout' => 12, 'headers' => array( 'Accept' => 'application/json' ) ) );
-			if ( is_wp_error( $resp ) || 200 !== (int) wp_remote_retrieve_response_code( $resp ) ) {
+			$resp = wp_remote_get( $url, array( 'timeout' => 10, 'headers' => array( 'Accept' => 'application/json' ) ) );
+			if ( is_wp_error( $resp ) ) {
+				if ( is_array( $errors ) ) {
+					$errors[] = $source . '：' . $resp->get_error_message();
+				}
+				continue;
+			}
+			$code = (int) wp_remote_retrieve_response_code( $resp );
+			if ( 200 !== $code ) {
+				if ( is_array( $errors ) ) {
+					$errors[] = $source . '：HTTP ' . $code;
+				}
 				continue;
 			}
 			$json = json_decode( wp_remote_retrieve_body( $resp ), true );
 			if ( is_array( $json ) && ! empty( $json['version'] ) ) {
 				$source_used = $source;
+				set_transient( 'yimai_gso_update_manifest_source', $source, DAY_IN_SECONDS );
+				set_transient( 'yimai_gso_update_last_check', array(
+					'time'   => current_time( 'mysql' ),
+					'remote' => $json,
+					'source' => $source,
+				), HOUR_IN_SECONDS );
 				return $json;
+			}
+			if ( is_array( $errors ) ) {
+				$errors[] = $source . '：清单格式异常（version 字段缺失）';
 			}
 		}
 		return null;
@@ -75,13 +119,23 @@ class YIMAI_GSO_Updater {
 
 	/** 后台「检查更新」：拉远端清单，与当前 YIMAI_GSO_VERSION 比较 */
 	public static function check( &$source_used = null ) {
-		$remote = self::fetch_manifest( $source_used );
+		$errors = null;
+		$remote = self::fetch_manifest( $source_used, $errors );
 
 		if ( empty( $remote ) ) {
+			// 双平台全挂时，把上次成功检查的缓存信息一并返回：既给用户「远端当前是什么版本」
+			// 的参考，也把每个通道的具体失败原因透出来（此前只有笼统的「均不可达」，无法诊断）
+			$message = '无法获取远端版本信息，请稍后重试。';
+			if ( is_array( $errors ) ) {
+				$message .= ' 各通道结果：' . implode( '；', $errors ) . '。';
+			}
+			$last_check = get_transient( 'yimai_gso_update_last_check' );
+
 			return array(
-				'ok'      => false,
-				'message' => '无法获取远端版本信息（Gitee / GitHub 均不可达），请稍后重试。',
-				'local'   => array( 'version' => YIMAI_GSO_VERSION ),
+				'ok'         => false,
+				'message'    => $message,
+				'local'      => array( 'version' => YIMAI_GSO_VERSION ),
+				'last_check' => is_array( $last_check ) ? $last_check : null,
 			);
 		}
 
@@ -100,26 +154,36 @@ class YIMAI_GSO_Updater {
 		}
 	}
 
-	/** 下载更新包到临时文件，GitHub codeload 优先、Gitee 兜底，返回 [文件, 来源] */
-	private static function download_package( $dest ) {
-		foreach ( self::sources() as $source => $urls ) {
+	/** 下载更新包到临时文件，Gitee 优先、GitHub 兜底，返回 [文件, 来源] */
+	private static function download_package( $dest, array &$errors = array() ) {
+		$sources = self::sources();
+
+		// 与清单同源的通道优先（清单在哪取到说明那条路通，包走同一条成功率最高）
+		$last_ok = get_transient( 'yimai_gso_update_manifest_source' );
+		if ( is_string( $last_ok ) && isset( $sources[ $last_ok ] ) && 'gitee' !== $last_ok ) {
+			$sources = array( $last_ok => $sources[ $last_ok ] ) + $sources;
+		}
+
+		foreach ( $sources as $source => $urls ) {
 			$url = $urls['package'] . ( strpos( $urls['package'], '?' ) === false ? '?' : '&' ) . 't=' . time();
 			$resp = wp_remote_get( $url, array(
 				'timeout'    => 240,
 				'user-agent' => 'YimaiGSO-Updater/1.0',
 			) );
 			if ( is_wp_error( $resp ) ) {
+				$errors[] = $source . '：' . $resp->get_error_message();
 				continue;
 			}
 			$code = wp_remote_retrieve_response_code( $resp );
 			$body = wp_remote_retrieve_body( $resp );
 			if ( 200 !== (int) $code || strlen( $body ) < 1024 ) {
+				$errors[] = $source . '：HTTP ' . $code . '（' . strlen( $body ) . ' 字节）';
 				continue;
 			}
 			file_put_contents( $dest, $body );
 			return array( $dest, $source );
 		}
-		throw new RuntimeException( '更新包下载失败（Gitee 与 GitHub 均不可达），请检查服务器外网后重试。' );
+		throw new RuntimeException( '更新包下载失败：' . ( $errors ? implode( '；', $errors ) : '所有通道均不可达' ) . '。请检查服务器外网后重试。' );
 	}
 
 	/**
@@ -319,12 +383,14 @@ class YIMAI_GSO_Updater {
 			$manifest_source = null;
 			$manifest        = self::fetch_manifest( $manifest_source );
 
-			list( $zipfile, $source ) = self::download_package( get_temp_dir() . 'yimai-gso-' . bin2hex( random_bytes( 4 ) ) . '.zip' );
+			$download_errors = array();
+			list( $zipfile, $source ) = self::download_package( get_temp_dir() . 'yimai-gso-' . bin2hex( random_bytes( 4 ) ) . '.zip', $download_errors );
 			$log[] = '更新包下载完成（来源：' . $source . '，' . round( filesize( $zipfile ) / 1024 ) . ' KB）';
 
-			// 包完整性：清单提供 sha256 且包来自同一静态附件渠道（Gitee Release）时强制比对。
+			// 包完整性：清单提供 sha256 且包来自同一静态附件渠道（Gitee / 镜像 Release 附件）时强制比对。
 			// GitHub codeload 归档由平台实时生成、分支推进后字节会变，无法预发布哈希，跳过比对。
-			if ( is_array( $manifest ) && ! empty( $manifest['sha256'] ) && 'gitee' === $source && 'gitee' === $manifest_source ) {
+			$static_channels = array( 'gitee', 'github_mirror' );
+			if ( is_array( $manifest ) && ! empty( $manifest['sha256'] ) && in_array( $source, $static_channels, true ) && $manifest_source === $source ) {
 				$actual = hash_file( 'sha256', $zipfile );
 				if ( ! hash_equals( (string) $manifest['sha256'], (string) $actual ) ) {
 					throw new RuntimeException( '更新包 sha256 校验失败，已中止安装（包可能被篡改或下载不完整）。' );

@@ -37,14 +37,20 @@
 		if (!data || !data.ok) {
 			$('#yimai-gso-updater-status').text(data && data.message ? '（' + data.message + '）' : '（检查失败）');
 			log(data && data.message ? [data.message] : null);
+			// 双通道全挂时，展示上次成功检查到的远端信息（1 小时缓存）作参考
+			if (data && data.last_check) {
+				var lc = data.last_check;
+				log(['上次成功检查（' + lc.time + '，来源 ' + lc.source + '）：远端 v' + (lc.remote && lc.remote.version)]);
+			}
 			return;
 		}
 		var remote = data.remote || {};
+		var srcLabel = { gitee: 'Gitee', github: 'GitHub', github_mirror: 'GitHub 反代' }[data.source] || data.source;
 		if (data.up_to_date) {
-			$('#yimai-gso-updater-status').text('（已是最新版本，远端 v' + remote.version + '）');
+			$('#yimai-gso-updater-status').text('（已是最新版本，远端 v' + remote.version + ' · 经 ' + srcLabel + '）');
 			$('#yimai-gso-updater-run').hide();
 		} else {
-			$('#yimai-gso-updater-status').text('（发现新版本 v' + remote.version + '）');
+			$('#yimai-gso-updater-status').text('（发现新版本 v' + remote.version + ' · 经 ' + srcLabel + '）');
 			$('#yimai-gso-updater-run').show();
 		}
 		if (remote.notes && remote.notes.length) {
