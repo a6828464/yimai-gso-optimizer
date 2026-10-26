@@ -574,11 +574,24 @@ class YIMAI_GSO_Wechat_Share {
             self::REST_NAMESPACE,
             self::REPORT_ROUTE,
             array(
-                'methods'             => 'POST',
-                'callback'            => array( $this, 'rest_report' ),
-                'permission_callback' => '__return_true',
+                array(
+                    'methods'             => 'POST',
+                    'callback'            => array( $this, 'rest_report' ),
+                    'permission_callback' => '__return_true',
+                ),
+                array(
+                    // GET：读回最近一次真机结果，方便排障时不进后台也能看到
+                    'methods'             => 'GET',
+                    'callback'            => array( $this, 'rest_report_read' ),
+                    'permission_callback' => '__return_true',
+                ),
             )
         );
+    }
+
+    public function rest_report_read() {
+        $report = get_option( self::REPORT_OPTION, array() );
+        return rest_ensure_response( is_array( $report ) ? $report : array() );
     }
 
     /**
@@ -824,8 +837,18 @@ class YIMAI_GSO_Wechat_Share {
         }
     }
 
+    /**
+     * 带 ?ymwxdebug=1 时强制显示角标
+     *
+     * 配置期不想为了看一眼状态反复去后台开关，直接在手机上手改地址栏加参数即可；
+     * 也让「到底跑没跑到这一步」在真机上一眼可见。
+     */
+    function isDebug() {
+        return DEBUG || /[?&]ymwxdebug=1/.test(location.search);
+    }
+
     function badge(text, color) {
-        if (!DEBUG || !document.body) { return; }
+        if (!isDebug() || !document.body) { return; }
         var el = document.getElementById('ymwx-debug-badge');
         if (!el) {
             el = document.createElement('div');
