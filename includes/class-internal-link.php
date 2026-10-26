@@ -224,6 +224,9 @@ class YIMAI_GSO_Internal_Link {
 
         $new_content = self::insert_links( $content, $title, $tags, $post_id, $context );
 
+        // 文末所属分类导航（独立于智能内链总开关，可单独关闭）
+        $new_content = self::append_category_nav( $new_content, $post_id );
+
         // 只有内容确实变化时才更新
         if ( $new_content !== $content ) {
             wp_update_post( array(
@@ -243,6 +246,57 @@ class YIMAI_GSO_Internal_Link {
      * @param int $post_id 文章ID
      * @return string
      */
+    /**
+     * 在正文末尾追加「所属分类」导航链接，指向分类归档页。
+     *
+     * 作用：把文章权重导向分类页（分类页是可被收录、可排名的落地页），
+     * 同时给读者一个「继续看同类内容」的入口。
+     *
+     * 规则：独立开关（internal_link_category_nav，默认开）；已存在则跳过（幂等）；
+     * 跳过「未分类」与文章数不足 2 的分类（避免自我循环）。
+     */
+    private static function append_category_nav( $content, $post_id ) {
+        if ( 1 !== (int) self::get_setting( 'internal_link_category_nav', 1 ) ) {
+            return $content;
+        }
+
+        $content = (string) $content;
+        if ( '' === trim( $content ) || false !== strpos( $content, 'yimai-category-nav' ) ) {
+            return $content;
+        }
+
+        $post_id = absint( $post_id );
+        if ( $post_id < 1 ) {
+            return $content;
+        }
+
+        $categories = wp_get_post_categories( $post_id, array( 'fields' => 'all' ) );
+        if ( empty( $categories ) || is_wp_error( $categories ) ) {
+            return $content;
+        }
+
+        foreach ( $categories as $category ) {
+            if ( (int) $category->term_id === 1 || (int) $category->count < 2 ) {
+                continue;
+            }
+
+            $url = get_category_link( $category->term_id );
+            if ( is_wp_error( $url ) || '' === (string) $url ) {
+                continue;
+            }
+
+            $nav = sprintf(
+                '<p class="yimai-category-nav" style="margin:28px 0 0;padding:12px 16px;background:#f6f7f7;border-left:3px solid #A9795F;border-radius:0 6px 6px 0;font-size:14px;line-height:1.7;color:#50575e">本文属于「<a href="%s" style="color:#8a5a42;text-decoration:underline;text-underline-offset:2px">%s</a>」分类，可查看该分类下的全部同类文章。</p>',
+                esc_url( $url ),
+                esc_html( $category->name )
+            );
+
+            return rtrim( $content ) . "\n" . $nav;
+        }
+
+        return $content;
+    }
+
     private static function get_post_tags_string( $post_id ) {
         $tags = wp_get_post_tags( $post_id, array( 'fields' => 'names' ) );
         if ( is_wp_error( $tags ) || empty( $tags ) ) {

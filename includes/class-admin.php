@@ -473,6 +473,7 @@ class YIMAI_GSO_Admin {
         if ( $this->can_edit_feature( 'smart_internal_links_basic' ) ) {
             update_option( 'yimai_gso_internal_link_enabled', isset( $_POST['yimai_gso_internal_link_enabled'] ) ? 1 : 0 );
             update_option( 'yimai_gso_internal_link_max', max( 1, min( 10, absint( $_POST['yimai_gso_internal_link_max'] ?? 3 ) ) ) );
+            update_option( 'yimai_gso_internal_link_category_nav', isset( $_POST['yimai_gso_internal_link_category_nav'] ) ? 1 : 0 );
         }
 
         if ( $this->can_edit_feature( 'smart_internal_links_scope' ) ) {
@@ -725,6 +726,14 @@ class YIMAI_GSO_Admin {
                                 <label>每篇最大内链数</label>
                                 <input type="number" name="yimai_gso_internal_link_max" min="1" max="10" value="<?php echo esc_attr( $max_links ); ?>">
                                 <small>建议 2-5 条，过高容易影响阅读和自然度。</small>
+                            </div>
+                            <div class="yimai-gso-form-group">
+                                <label class="yimai-gso-toggle">
+                                    <input type="checkbox" name="yimai_gso_internal_link_category_nav" value="1" <?php checked( 1, (int) YIMAI_GSO_Settings::get( 'internal_link_category_nav', 1 ) ); ?>>
+                                    <span class="yimai-gso-toggle-switch"></span>
+                                    <span class="yimai-gso-toggle-text">文末追加所属分类链接</span>
+                                </label>
+                                <small>文章末尾自动加一条「本文属于『XX』分类，查看同类文章」的链接，指向分类归档页——分类页本身可被收录和排名，也能让站内权重向分类页集中。文章数不足 2 的分类与「未分类」会自动跳过。</small>
                             </div>
                         </div>
                     </div>
