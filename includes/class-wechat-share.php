@@ -58,6 +58,7 @@ class YIMAI_GSO_Wechat_Share {
 
     private function __construct() {
         add_action( 'init', array( $this, 'maybe_serve_verify_file' ), 1 );
+        add_action( 'after_setup_theme', array( $this, 'register_share_size' ) );
         add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
         add_filter( 'rest_post_dispatch', array( $this, 'disable_rest_cache' ), 10, 3 );
         add_action( 'wp_head', array( $this, 'output_head_bootstrap' ), 0 );
@@ -93,6 +94,16 @@ class YIMAI_GSO_Wechat_Share {
     /* ==================== 分享内容与封面 ==================== */
 
     /**
+     * 注册分享专用裁切尺寸（4:3，800×600）
+     *
+     * 站点特色图普遍是 1000×1500 竖版，而微信卡片缩略图是近方形框，竖图上下会被裁掉。
+     * 有 WP 自己按裁切位置生成一版横向图，就能既保留文章相关性、又不被裁。
+     */
+    public function register_share_size() {
+        add_image_size( 'yimai-gso-share', 800, 600, true );
+    }
+
+    /**
      * 解析分享封面图（JS-SDK 缩略图与 og:image 共用同一份结果，避免两处不一致）
      *
      * 微信分享缩略图的硬性要求：绝对 URL、JPG/PNG、建议 ≥ 300×300、文件名尽量 ASCII。
@@ -113,13 +124,11 @@ class YIMAI_GSO_Wechat_Share {
             $thumb_id = (int) get_post_thumbnail_id( $post_id );
             $mime     = (string) get_post_mime_type( $thumb_id );
             $is_svg   = ( 'image/svg+xml' === $mime );
-            // 两种情况宁可换用后台封面：① WebP——安卓微信分享卡片不显示；
-            // ② 竖图——卡片缩略图是近方形框，1000×1500 这类竖图会被裁掉上下。
-            $is_tall  = self::is_tall_image( $thumb_id );
-            $prefer_cover = $has_cover && ( 'image/webp' === $mime || $is_tall );
+            // 只有 WebP 才让位封面（安卓微信分享卡片不显示 WebP）。
+            // 竖图不再让位——pick_share_size() 会现场裁一张 4:3 横图，
+            // 既避免被卡片裁掉上下，又能保留文章相关性。
+            $prefer_cover = ( $has_cover && 'image/webp' === $mime );
             if ( $thumb_id && ! $is_svg && ! $prefer_cover ) {
-                // 微信缩略图是近方形的裁切框：优先挑横向/近方形、体积可控的尺寸，
-                // 只有竖版原图可用时才退回 full（竖图会被裁掉上下，主体只剩中间一条）。
                 $src = self::pick_share_size( $thumb_id );
                 if ( $src ) {
                     $out['url']    = $src[0];
@@ -288,14 +297,60 @@ class YIMAI_GSO_Wechat_Share {
     }
 
     /**
-     * 判断附件是否为明显竖图（高 > 宽 × 1.15）
+     * 确保附件存在 4:3 分享裁图，没有就现场裁一版并记入元数据
+     *
+     * 微信卡片缩略图是近方形框，站点特色图多为 1000×1500 竖版，直接用会被裁掉上下。
+     * 这里按中心裁 800×600，既守住卡片比例，又保留文章配图的相关性。
+     *
+     * @param int $attachment_id
+     * @return array|false
      */
-    private static function is_tall_image( $attachment_id ) {
-        $meta = wp_get_attachment_metadata( $attachment_id );
-        if ( ! is_array( $meta ) || empty( $meta['width'] ) || empty( $meta['height'] ) ) {
+    private static function ensure_share_size( $attachment_id ) {
+        $cached = wp_get_attachment_image_src( $attachment_id, 'yimai-gso-share' );
+        if ( $cached && $cached[1] >= 300 && $cached[2] >= 200 ) {
+            return $cached;
+        }
+
+        $file = get_attached_file( $attachment_id );
+        if ( ! $file || ! file_exists( $file ) ) {
             return false;
         }
-        return ( (float) $meta['height'] > (float) $meta['width'] * 1.15 );
+
+        // 只处理位图；SVG 没 GD 尺寸概念
+        $mime = (string) get_post_mime_type( $attachment_id );
+        if ( '' === $mime || 0 === strpos( $mime, 'image/svg' ) ) {
+            return false;
+        }
+
+        $editor = wp_get_image_editor( $file );
+        if ( is_wp_error( $editor ) ) {
+            return false;
+        }
+
+        $editor->resize( 800, 600, true );
+        $target = dirname( $file ) . '/' . pathinfo( $file, PATHINFO_FILENAME ) . '-share.jpg';
+        $saved  = $editor->save( $target, 'image/jpeg' );
+        if ( is_wp_error( $saved ) || empty( $saved['path'] ) ) {
+            return false;
+        }
+
+        $meta = wp_get_attachment_metadata( $attachment_id );
+        if ( ! is_array( $meta ) ) {
+            $meta = array();
+        }
+        if ( ! isset( $meta['sizes'] ) || ! is_array( $meta['sizes'] ) ) {
+            $meta['sizes'] = array();
+        }
+        $meta['sizes']['yimai-gso-share'] = array(
+            'file'      => wp_basename( $saved['path'] ),
+            'width'     => (int) $saved['width'],
+            'height'    => (int) $saved['height'],
+            'mime-type' => 'image/jpeg',
+        );
+        wp_update_attachment_metadata( $attachment_id, $meta );
+
+        $src = wp_get_attachment_image_src( $attachment_id, 'yimai-gso-share' );
+        return ( $src && $src[1] >= 300 ) ? $src : false;
     }
 
     /**
@@ -308,6 +363,14 @@ class YIMAI_GSO_Wechat_Share {
      * @return array|false wp_get_attachment_image_src() 结构
      */
     private static function pick_share_size( $attachment_id ) {
+        // 首选专用裁切尺寸：正好是 4:3，且是 WP 按中心裁出来的，竖图也不会缺主体。
+        // 历史附件没有这个尺寸（add_image_size 只对之后上传的生效），现场补裁一版并记进
+        // 附件元数据，之后就走缓存。
+        $share = self::ensure_share_size( $attachment_id );
+        if ( $share ) {
+            return $share;
+        }
+
         $full = wp_get_attachment_image_src( $attachment_id, 'full' );
         if ( ! $full ) {
             return false;
