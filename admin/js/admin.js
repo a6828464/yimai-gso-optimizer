@@ -4887,6 +4887,21 @@ function esc(s) {
     function renderSingleResult(data) {
         var $container = $('#yimai-gso-single-results').empty();
 
+        // ── 内容有效性拦截：模型输出被截断/仍是 JSON 骨架时，不要把它当文章渲染 ──
+        var rawContent = (data && data.content ? String(data.content) : '').trim();
+        var looksLikeJson = /^\s*\{\s*$|^\s*\{\s*"/.test(rawContent) || /^\s*"(?:title|excerpt|content)"\s*:/.test(rawContent);
+        if (!rawContent || looksLikeJson) {
+            $container.append(
+                '<div class="notice notice-error" style="margin:0;padding:12px 14px;">' +
+                '<p style="margin:0 0 6px;"><strong>生成失败：模型返回的内容不完整</strong></p>' +
+                '<p style="margin:0;color:#50575e;">模型在输出 JSON 的中途被截断，没有拿到正文。可以：① 直接重试一次；② 在「设置 → AI配置」换成支持长输出的模型（推荐 DeepSeek）；③ 把目标字数调小（如 800 字）再试。</p>' +
+                (rawContent ? '<details style="margin-top:8px;"><summary style="cursor:pointer;color:#2271b1;">查看模型原始返回（' + rawContent.length + ' 字符）</summary><pre style="white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;background:#f6f7f7;padding:10px;margin-top:6px;font-size:11px;">' + $('<div>').text(rawContent.substring(0, 2000)).html() + '</pre></details>' : '') +
+                '</div>'
+            );
+            $('#yimai-gso-single-copy-btn').hide();
+            return;
+        }
+
         // 标题
         if (data.title) {
             var $titleBox = $('<div class="yimai-gso-rewrite-title-box">')

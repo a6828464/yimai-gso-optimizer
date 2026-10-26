@@ -113,6 +113,16 @@ class YIMAI_GSO_AI_Generator {
             }
         }
 
+        // 兜底修复：很多中转网关/免费模型不返回 finish_reason，输出中途断掉却仍报 'stop'。
+        // 只要 JSON 解析失败，就无条件尝试一次「补全截断 JSON」，不再只依赖 finish_reason。
+        if ( ( ! is_array( $article ) || empty( $article['title'] ) ) ) {
+            $repaired = $this->try_repair_truncated_json( $content_clean ?? $content );
+            if ( is_array( $repaired ) && ! empty( $repaired['title'] ) ) {
+                $article      = $repaired;
+                $is_truncated = true;
+            }
+        }
+
         // 最终检查：JSON 解析失败或内容无效时走 fallback
         if ( ! is_array( $article ) || empty( $article['title'] ) ) {
             // 从原始内容中提取纯文本内容作为兜底
@@ -126,6 +136,15 @@ class YIMAI_GSO_AI_Generator {
                 return new WP_Error(
                     'prompt_echo',
                     'AI 未返回有效 JSON 且疑似回显提示词，已拒绝生成。请检查模型是否可用或稍后重试。'
+                );
+            }
+
+            // 防护：提取不到正文（空，或仍是 JSON 骨架）时明确报错，
+            // 不再把 JSON 片段当文章返回——那会让前端显示乱码、字数统计失真、HTML 预览空白。
+            if ( mb_strlen( trim( (string) $safe_content ) ) < 20 ) {
+                return new WP_Error(
+                    'ai_truncated',
+                    '模型输出不完整（疑似在 JSON 中途被截断），未能提取正文。请重试；若反复出现，请在「设置 → AI配置」改用支持长输出的模型（推荐 DeepSeek），或把目标字数调小。'
                 );
             }
 
@@ -532,33 +551,76 @@ class YIMAI_GSO_AI_Generator {
         if ( ! is_string( $content ) || trim( $content ) === '' ) {
             return '';
         }
-        // 如果内容包含 JSON 结构，尝试提取 content 字段的值
+
+        // ① 完整闭合的 content 字段
         if ( preg_match( '/"content"\s*:\s*"((?:[^"\\\\]|\\\\.)*)"/s', $content, $matches ) ) {
-            // 找到了 content 字段，解码转义字符
-            $extracted = $matches[1];
-            $extracted = str_replace( '\\n', "\n", $extracted );
-            $extracted = str_replace( '\\t', "\t", $extracted );
-            $extracted = str_replace( '\\r', "\r", $extracted );
-            $extracted = str_replace( '\\"', '"', $extracted );
-            return $extracted;
+            $extracted = $this->unescape_json_like_text( $matches[1] );
+            if ( '' !== trim( $extracted ) ) {
+                return $extracted;
+            }
         }
 
-        // 如果找不到 content 字段，尝试移除所有 JSON 结构标记
-        // 移除类似 "title": "xxx", 这样的字段
-        $text = preg_replace( '/^\s*"[^"]*"\s*:\s*"[^"]*"\s*,?\s*$/m', '', $content );
-        // 移除 JSON 的括号（使用 $text 而非 $content，避免覆盖第一次清理结果）
-        $text = preg_replace( '/^\s*[{}\[\]]\s*$/m', '', $text );
-        // 移除 markdown 代码块标记
-        $text = preg_replace( '/^```(?:json)?\s*$/m', '', $text );
-        $text = trim( $text );
+        // ② 被截断的 content 字段（无闭合引号）：从 "content": " 之后取到末尾
+        //    这是「模型输出中途被截断」最常见的情形，原实现匹配不到闭合引号，
+        //    会一路落到「返回原始内容前 2000 字」，把整段 JSON 骨架当成正文发给前端。
+        if ( preg_match( '/"content"\s*:\s*"(.*)$/s', $content, $matches ) ) {
+            $body = $this->unescape_json_like_text( $matches[1] );
+            $body = $this->trim_dangling_json_tail( $body );
+            if ( mb_strlen( trim( $body ) ) >= 20 ) {
+                return trim( $body );
+            }
+        }
 
-        // 如果清理后还有内容，返回；否则返回原始内容的前1000字符
-        if ( ! empty( $text ) && ( function_exists( 'mb_strlen' ) ? mb_strlen( $text ) : strlen( $text ) ) > 100 ) {
+        // ③ 无 content 字段：清掉 JSON 结构行
+        $text = preg_replace( '/^\s*"[^"]*"\s*:\s*"[^"]*"\s*,?\s*$/m', '', $content );
+        $text = preg_replace( '/^\s*[{}\[\]]\s*,?\s*$/m', '', (string) $text );
+        $text = preg_replace( '/^```(?:json)?\s*$/m', '', (string) $text );
+        $text = trim( (string) $text );
+
+        // ④ 若清理后仍像 JSON 骨架（以 { 开头或含 "title": 结构），判定为无效内容，返回空
+        if ( '' === $text || preg_match( '/^\s*\{?\s*"(?:title|excerpt|content)"\s*:/i', $text ) ) {
+            return '';
+        }
+
+        if ( mb_strlen( $text ) > 100 ) {
             return $text;
         }
 
-        // 最后的兜底：返回原始内容，但截断到合理长度
-        return ( function_exists( 'mb_substr' ) ? mb_substr( strip_tags( $content ), 0, 2000 ) : substr( strip_tags( $content ), 0, 2000 ) );
+        // ⑤ 最后的兜底：只有在内容不像 JSON 时才截断返回
+        $plain = trim( mb_substr( strip_tags( $content ), 0, 2000 ) );
+        return preg_match( '/^\s*\{?\s*"(?:title|excerpt|content)"\s*:/i', $plain ) ? '' : $plain;
+    }
+
+    /**
+     * 反转义 JSON 字符串内容（不依赖 json_decode，可用于已截断的片段）
+     */
+    private function unescape_json_like_text( $value ) {
+        $value = (string) $value;
+        // \uXXXX → 真正的 UTF-8 字符（emoji、特殊标点等不能丢）
+        $value = preg_replace_callback( '/\\\\u([0-9a-fA-F]{4})/', function ( $m ) {
+            $code = hexdec( $m[1] );
+            $char = function_exists( 'mb_convert_encoding' )
+                ? mb_convert_encoding( pack( 'n', $code ), 'UTF-8', 'UTF-16BE' )
+                : '';
+            return ( is_string( $char ) && '' !== $char ) ? $char : '';
+        }, $value );
+        $value = str_replace( array( '\\n', '\\t', '\\r' ), array( "\n", "\t", "\r" ), $value );
+        $value = str_replace( array( '\\"', '\\\\', '\\/' ), array( '"', '\\', '/' ), $value );
+        return trim( $value );
+    }
+
+    /**
+     * 去掉截断处残留的 JSON 尾巴（如 `","tags":["a","b`）
+     */
+    private function trim_dangling_json_tail( $body ) {
+        $body = (string) $body;
+        // 形如  ...正文","tags":"..."  或  ...正文","image_keywords":[...  → 截掉
+        $body = preg_replace( '/",\s*"[a-zA-Z_]+"\s*:.*$/s', '', $body );
+        // 形如  ...正文"},  → 截掉
+        $body = preg_replace( '/"?\s*\}\s*\]?\s*$/s', '', $body );
+        // 形如  ...正文",  （只剩引号+逗号）
+        $body = preg_replace( '/"?\s*,\s*$/s', '', $body );
+        return trim( (string) $body );
     }
 
     /**
