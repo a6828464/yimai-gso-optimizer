@@ -568,11 +568,21 @@ class YIMAI_GSO_Autopilot_Runner {
                 $scheduled_at = wp_date( 'Y-m-d\TH:i', $scheduled_ts, wp_timezone() );
             }
 
+            // 分类自动映射：按选题 + 生成标题/关键词匹配标准分类；
+            // 未命中或开关关闭时，回退到「发布参数」里选的兜底分类。
+            $mapped_category_id = max( 1, absint( $snapshot['category_id'] ?? 1 ) );
+            if ( ! empty( $snapshot['auto_category'] ) ) {
+                $mapped_category_id = YIMAI_GSO_Autopilot_Plan::map_category_for_topic(
+                    trim( ( $article['keywords'] ?? '' ) . ' ' . ( $article['title'] ?? $title ) . ' ' . $topic ),
+                    $mapped_category_id
+                );
+            }
+
             $result    = $publisher->publish( array(
                 'title'        => $article['title'] ?? $title,
                 'content'      => $content,
                 'excerpt'      => $article['excerpt'] ?? '',
-                'category_id'  => max( 1, absint( $snapshot['category_id'] ?? 1 ) ),
+                'category_id'  => $mapped_category_id,
                 'tags'         => $tags,
                 'status'       => $status,
                 'scheduled_at' => $scheduled_at,

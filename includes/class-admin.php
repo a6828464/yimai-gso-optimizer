@@ -40,6 +40,8 @@ class YIMAI_GSO_Admin {
         add_action( 'wp_ajax_yimai_gso_image_library_group_rename', array( $this, 'ajax_image_library_group_rename' ) );
         add_action( 'wp_ajax_yimai_gso_image_library_group_delete', array( $this, 'ajax_image_library_group_delete' ) );
         add_action( 'wp_ajax_yimai_gso_dismiss_cron_notice', array( $this, 'ajax_dismiss_cron_notice' ) );
+        add_action( 'wp_ajax_yimai_gso_init_standard_categories', array( $this, 'ajax_init_standard_categories' ) );
+        add_action( 'wp_ajax_yimai_gso_migrate_demo_categories', array( $this, 'ajax_migrate_demo_categories' ) );
         add_action( 'wp_ajax_yimai_gso_toggle_internal_link', array( $this, 'ajax_toggle_internal_link' ) );
         add_action( 'wp_ajax_yimai_gso_save_seo_meta_settings', array( $this, 'ajax_save_seo_meta_settings' ) );
 
@@ -524,6 +526,7 @@ class YIMAI_GSO_Admin {
             'image_count'    => absint( $_POST['yimai_gso_autopilot_image_count'] ?? 1 ),
             'tags'           => sanitize_text_field( $_POST['yimai_gso_autopilot_tags'] ?? '' ),
             'use_ai_tags'    => isset( $_POST['yimai_gso_autopilot_use_ai_tags'] ) ? 1 : 0,
+            'auto_category'  => isset( $_POST['yimai_gso_autopilot_auto_category'] ) ? 1 : 0,
             'post_status'    => sanitize_text_field( $_POST['yimai_gso_autopilot_post_status'] ?? 'publish' ),
             'future_delay_hours' => absint( $_POST['yimai_gso_autopilot_future_delay_hours'] ?? 2 ),
             'log_retention_days' => absint( $_POST['yimai_gso_autopilot_log_retention_days'] ?? 30 ),
@@ -1290,12 +1293,17 @@ class YIMAI_GSO_Admin {
                                 <div class="apv3-section-body">
                                     <div class="apv3-form-grid">
                                         <div class="apv3-field">
-                                            <label>文章分类</label>
+                                            <label>文章分类（兜底）</label>
                                             <select name="yimai_gso_autopilot_category_id" <?php disabled( $root_disabled ); ?>>
                                                 <?php foreach ( $categories as $cat ) : ?>
                                                     <option value="<?php echo esc_attr( $cat->term_id ); ?>" <?php selected( absint( $settings['category_id'] ?? 1 ), $cat->term_id ); ?>><?php echo esc_html( $cat->name ); ?></option>
                                                 <?php endforeach; ?>
                                             </select>
+                                            <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-weight:400">
+                                                <input type="checkbox" name="yimai_gso_autopilot_auto_category" value="1" <?php checked( ! empty( $settings['auto_category'] ) ); ?> <?php disabled( $root_disabled ); ?>>
+                                                按选题自动归类
+                                            </label>
+                                            <small style="color:#757575;display:block;margin-top:4px">开启后按文章选题自动归入「新手入门 / 体态与理疗 / 产后与孕产 / 普拉提器械 / 瑜伽课程 / 塑形与减脂 / 选馆与办卡 / 门店与预约 / 教培与企业课」；未命中时归入上面的兜底分类。</small>
                                         </div>
                                         <div class="apv3-field">
                                             <label>每篇字数</label>
@@ -1356,6 +1364,89 @@ class YIMAI_GSO_Admin {
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Section: 分类体系 -->
+                            <div class="apv3-section" data-apv3-collapsible>
+                                <div class="apv3-section-header">
+                                    <div class="apv3-section-header-left">
+                                        <div class="apv3-section-icon apv3-icon-publish">🗂</div>
+                                        <div class="apv3-section-title-wrap">
+                                            <div class="apv3-section-title">分类体系</div>
+                                            <div class="apv3-section-desc">标准分类初始化与旧分类整理</div>
+                                        </div>
+                                    </div>
+                                    <span class="apv3-section-chevron">›</span>
+                                </div>
+                                <div class="apv3-section-body">
+                                    <div class="apv3-field apv3-full">
+                                        <div class="apv3-hint" style="margin-top:0">
+                                            标准分类共 9 个：新手入门 / 体态与理疗 / 产后与孕产 / 普拉提器械 / 瑜伽课程 / 塑形与减脂 / 选馆与办卡 / 门店与预约 / 教培与企业课。
+                                            已存在的同名分类会直接复用，不会重复创建。
+                                        </div>
+                                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+                                            <button type="button" class="button button-primary" id="yimai-apv3-init-cats">初始化标准分类</button>
+                                            <button type="button" class="button" id="yimai-apv3-migrate-cats" title="把英文演示分类（Body &amp; Soul / Friends / Home / Nature）里的文章按标题自动归入标准分类">整理旧分类文章</button>
+                                        </div>
+                                        <div id="yimai-apv3-cat-msg" style="margin-top:10px;font-size:13px"></div>
+                                        <div id="yimai-apv3-cat-list" style="margin-top:12px"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <script>
+                            jQuery(function($){
+                                function apv3RenderCats(list){
+                                    if(!list || !list.length){ return; }
+                                    var html = '<table class="widefat striped" style="font-size:12px"><thead><tr><th>分类</th><th>slug</th><th>文章数</th><th>状态</th></tr></thead><tbody>';
+                                    list.forEach(function(c){
+                                        var st = c.standard ? '<span style="color:#2271b1">标准</span>'
+                                               : (c.demo ? '<span style="color:#b32d2e">演示分类，待整理</span>'
+                                                         : '<span style="color:#757575">自定义</span>');
+                                        html += '<tr><td>' + c.name + '</td><td><code>' + c.slug + '</code></td><td>' + c.count + '</td><td>' + st + '</td></tr>';
+                                    });
+                                    html += '</tbody></table>';
+                                    $('#yimai-apv3-cat-list').html(html);
+                                }
+                                apv3RenderCats(<?php echo wp_json_encode( $this->get_category_overview() ); ?>);
+
+                                $('#yimai-apv3-init-cats').on('click', function(){
+                                    var $b = $(this).prop('disabled', true).text('初始化中…');
+                                    $('#yimai-apv3-cat-msg').text('');
+                                    $.post(ajaxurl, { action:'yimai_gso_init_standard_categories', nonce: yimaiGsoData.nonce }, function(res){
+                                        $b.prop('disabled', false).text('初始化标准分类');
+                                        if(res.success){
+                                            $('#yimai-apv3-cat-msg').css('color','#1d2327').text(res.data.message);
+                                            apv3RenderCats(res.data.list);
+                                        } else {
+                                            $('#yimai-apv3-cat-msg').css('color','#b32d2e').text(res.data && res.data.message ? res.data.message : '初始化失败');
+                                        }
+                                    }).fail(function(){
+                                        $b.prop('disabled', false).text('初始化标准分类');
+                                        $('#yimai-apv3-cat-msg').css('color','#b32d2e').text('请求失败，请重试');
+                                    });
+                                });
+
+                                $('#yimai-apv3-migrate-cats').on('click', function(){
+                                    if(!window.confirm('将把 English 演示分类（Body & Soul / Friends / Home / Nature）里的文章按标题归入标准分类，只调整文章归属、不删除分类本身。继续？')){ return; }
+                                    var $b = $(this).prop('disabled', true).text('整理中…');
+                                    $.post(ajaxurl, { action:'yimai_gso_migrate_demo_categories', nonce: yimaiGsoData.nonce }, function(res){
+                                        $b.prop('disabled', false).text('整理旧分类文章');
+                                        if(res.success){
+                                            var msg = res.data.message;
+                                            if(res.data.details && res.data.details.length){
+                                                msg += '<br><small>' + res.data.details.join('<br>') + '</small>';
+                                            }
+                                            $('#yimai-apv3-cat-msg').css('color','#1d2327').html(msg);
+                                            apv3RenderCats(res.data.list);
+                                        } else {
+                                            $('#yimai-apv3-cat-msg').css('color','#b32d2e').text(res.data && res.data.message ? res.data.message : '整理失败');
+                                        }
+                                    }).fail(function(){
+                                        $b.prop('disabled', false).text('整理旧分类文章');
+                                        $('#yimai-apv3-cat-msg').css('color','#b32d2e').text('请求失败，请重试');
+                                    });
+                                });
+                            });
+                            </script>
 
                             <!-- Section: System -->
                             <div class="apv3-section" data-apv3-collapsible>
@@ -7376,6 +7467,138 @@ class YIMAI_GSO_Admin {
     /**
      * AJAX：关闭 Cron 系统提示，7天内不再显示
      */
+    /**
+     * 分类概览：全部文章分类 + 是否为标准分类/演示分类
+     */
+    private function get_category_overview() {
+        $standard = class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ? YIMAI_GSO_Autopilot_Plan::get_standard_categories() : array();
+        $demo     = array( 'body-soul', 'friends', 'home', 'nature', 'uncategorized' );
+        $terms    = get_terms( array( 'taxonomy' => 'category', 'hide_empty' => false ) );
+        $list     = array();
+
+        if ( ! is_wp_error( $terms ) ) {
+            foreach ( $terms as $term ) {
+                $list[] = array(
+                    'id'       => (int) $term->term_id,
+                    'name'     => (string) $term->name,
+                    'slug'     => (string) $term->slug,
+                    'count'    => (int) $term->count,
+                    'standard' => isset( $standard[ $term->slug ] ),
+                    'demo'     => in_array( $term->slug, $demo, true ),
+                );
+            }
+        }
+
+        return $list;
+    }
+
+    /**
+     * AJAX：初始化标准分类（已存在的同名 slug 直接复用，不重复创建）
+     */
+    public function ajax_init_standard_categories() {
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => '权限不足。' ) );
+        }
+        if ( ! class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ) {
+            wp_send_json_error( array( 'message' => '自动发布模块未加载。' ) );
+        }
+
+        $created = array();
+        $reused  = array();
+
+        foreach ( YIMAI_GSO_Autopilot_Plan::get_standard_categories() as $slug => $category ) {
+            $existing = term_exists( $slug, 'category' );
+
+            if ( $existing ) {
+                $term_id  = (int) ( is_array( $existing ) ? $existing['term_id'] : $existing );
+                $term     = get_term( $term_id, 'category' );
+                $reused[] = $category['name'];
+                // 空描述才补，避免覆盖站长自定义文案
+                if ( $term && ! is_wp_error( $term ) && '' === trim( (string) $term->description ) ) {
+                    wp_update_term( $term_id, 'category', array( 'description' => $category['desc'] ) );
+                }
+                continue;
+            }
+
+            $result = wp_insert_term( $category['name'], 'category', array(
+                'slug'        => $slug,
+                'description' => $category['desc'],
+            ) );
+            if ( ! is_wp_error( $result ) ) {
+                $created[] = $category['name'];
+            }
+        }
+
+        wp_send_json_success( array(
+            'message' => sprintf( '初始化完成：新建 %d 个，复用 %d 个。', count( $created ), count( $reused ) ),
+            'created' => $created,
+            'reused'  => $reused,
+            'list'    => $this->get_category_overview(),
+        ) );
+    }
+
+    /**
+     * AJAX：把英文演示分类里的文章按标题归入标准分类（只调整文章归属，不删除分类）
+     */
+    public function ajax_migrate_demo_categories() {
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => '权限不足。' ) );
+        }
+        if ( ! class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ) {
+            wp_send_json_error( array( 'message' => '自动发布模块未加载。' ) );
+        }
+
+        $demo_slugs = array( 'body-soul', 'friends', 'home', 'nature' );
+        $moved      = 0;
+        $skipped    = 0;
+        $details    = array();
+
+        foreach ( $demo_slugs as $slug ) {
+            $term = get_term_by( 'slug', $slug, 'category' );
+            if ( ! $term || is_wp_error( $term ) ) {
+                continue;
+            }
+
+            $post_ids = get_posts( array(
+                'category'    => $term->term_id,
+                'numberposts' => 200,
+                'post_status' => 'any',
+                'post_type'   => 'post',
+                'fields'      => 'ids',
+            ) );
+
+            foreach ( $post_ids as $post_id ) {
+                $title  = get_the_title( $post_id );
+                $target = YIMAI_GSO_Autopilot_Plan::map_category_for_topic( $title, 0 );
+
+                if ( $target < 1 ) {
+                    $skipped++;
+                    $details[] = sprintf( '「%s」未匹配到标准分类，保留在 %s', $title, $term->name );
+                    continue;
+                }
+
+                // 只移除演示分类，保留其它分类
+                $current = wp_get_post_categories( $post_id );
+                $next    = array_values( array_unique( array_merge( array_diff( $current, array( (int) $term->term_id ) ), array( $target ) ) ) );
+                wp_set_post_categories( $post_id, $next );
+
+                $target_term = get_term( $target, 'category' );
+                $details[]   = sprintf( '「%s」→ %s', $title, ( $target_term && ! is_wp_error( $target_term ) ) ? $target_term->name : ( '分类 #' . $target ) );
+                $moved++;
+            }
+        }
+
+        wp_send_json_success( array(
+            'message' => sprintf( '整理完成：迁移 %d 篇，跳过 %d 篇（未匹配到标准分类）。英文分类本身未删除，可在「文章 → 分类」里确认无文章后手动删除。', $moved, $skipped ),
+            'moved'   => $moved,
+            'skipped' => $skipped,
+            'details' => array_slice( $details, 0, 30 ),
+            'list'    => $this->get_category_overview(),
+        ) );
+    }
+
     public function ajax_dismiss_cron_notice() {
         check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         set_transient( 'yimai_gso_cron_system_notice_dismissed', 1, 7 * DAY_IN_SECONDS );
