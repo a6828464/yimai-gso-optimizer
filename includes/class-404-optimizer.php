@@ -1070,7 +1070,15 @@ class YIMAI_GSO_404_Optimizer {
         YIMAI_GSO_Settings::set( 'optimize_404_log_enabled', absint( $_POST['log_enabled'] ?? 0 ) );
         YIMAI_GSO_Settings::set( 'optimize_404_custom_enabled', absint( $_POST['custom_enabled'] ?? 0 ) );
         YIMAI_GSO_Settings::set( 'optimize_404_auto_redirect', absint( $_POST['auto_redirect'] ?? 0 ) );
-        YIMAI_GSO_Settings::set( 'optimize_404_custom_page', wp_kses_post( $_POST['custom_page'] ?? '' ) );
+
+        // ★ 修复（T4）：custom_page 只在请求显式携带该字段时更新。
+        //    后台「设置」子面板的保存逻辑从不发送 custom_page 字段，
+        //    原先 `$_POST['custom_page'] ?? ''` 会把已保存的自定义 404 HTML
+        //    每次点「保存设置」都静默清空（数据丢失）。渲染端会回退到内置默认模板，
+        //    所以线上不易察觉，但一旦用户通过其他入口保存过自定义 HTML 就会被抹掉。
+        if ( isset( $_POST['custom_page'] ) ) {
+            YIMAI_GSO_Settings::set( 'optimize_404_custom_page', wp_kses_post( wp_unslash( $_POST['custom_page'] ) ) );
+        }
 
         wp_send_json_success( array( 'message' => '设置已保存。' ) );
     }
