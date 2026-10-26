@@ -53,7 +53,7 @@ class YIMAI_GSO_GEO_Scorer {
     );
 
     /** 缓存有效期（秒） */
-    const _xX4 = 86400; // 24 小时
+    const CACHE_TTL = 86400; // 24 小时
 
     /** 分差阈值：超过此值才触发协同建议 */
     const SYNERGY_GAP_THRESHOLD = 15;
@@ -88,7 +88,7 @@ class YIMAI_GSO_GEO_Scorer {
     public function compute( $post_id, $force = false ) {
         // 1. 读缓存
         if ( ! $force ) {
-            $cached = $this->_xCSd_internal( $post_id );
+            $cached = $this->get_cached_score_internal( $post_id );
             if ( null !== $cached ) {
                 return $cached;
             }
@@ -489,15 +489,15 @@ class YIMAI_GSO_GEO_Scorer {
      * @param int $post_id
      * @return array|null
      */
-    public static function _xCSd( $post_id ) {
+    public static function get_cached_score( $post_id ) {
         $instance = self::get_instance();
-        return $instance->_xCSd_internal( $post_id );
+        return $instance->get_cached_score_internal( $post_id );
     }
 
     /**
      * 内部方法：读取 GEO 评分缓存
      */
-    private function _xCSd_internal( $post_id ) {
+    private function get_cached_score_internal( $post_id ) {
         $cached = get_post_meta( $post_id, 'yimai_gso_geo_score', true );
 
         if ( empty( $cached ) || ! is_array( $cached ) ) {
@@ -507,7 +507,7 @@ class YIMAI_GSO_GEO_Scorer {
         // 超过 24 小时的缓存视为过期
         if ( ! empty( $cached['computed_at'] ) ) {
             $elapsed = current_time( 'timestamp' ) - strtotime( $cached['computed_at'] );
-            if ( $elapsed > self::_xX4 ) {
+            if ( $elapsed > self::CACHE_TTL ) {
                 return null;
             }
         }
@@ -626,7 +626,7 @@ class YIMAI_GSO_GEO_Scorer {
                 'suggestions'   => array( '双引擎评分协调，SEO 和 GEO 优化方向一致，无需协同调整' ),
                 'source'        => 'rule',
             );
-            set_transient( $cache_key, $result, self::_xX4 );
+            set_transient( $cache_key, $result, self::CACHE_TTL );
             wp_send_json_success( $result );
             return;
         }
@@ -663,7 +663,7 @@ class YIMAI_GSO_GEO_Scorer {
             );
         }
 
-        set_transient( $cache_key, $result, self::_xX4 );
+        set_transient( $cache_key, $result, self::CACHE_TTL );
         wp_send_json_success( $result );
     }
 
@@ -692,7 +692,7 @@ class YIMAI_GSO_GEO_Scorer {
         if ( is_array( $seo ) && ! empty( $seo['scores'] ) ) {
             foreach ( $seo['scores'] as $key => $s ) {
                 if ( is_array( $s ) && isset( $s['score'] ) && (int) $s['score'] < 60 ) {
-                    $seo_weak[] = isset( $s['level'] ) ? $key : $key;
+                    $seo_weak[] = $key; // （原 isset($s['level']) ? $key : $key 两分支同值的三元残留已按 GEO 报告 C-4 简化）
                 }
             }
         }

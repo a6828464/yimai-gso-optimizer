@@ -9,7 +9,7 @@
  * 4. 编辑页侧边栏反馈
  *
  * @package 一麦GSO SEO-GEO
- * @since 2.8.1
+ * @since 2.9.0
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
@@ -243,51 +243,18 @@ class YIMAI_GSO_Citation_Helper {
      * Citation Schema 生成
      * ================================================ */
 
-    /**
-     * 从已分析的引用数据生成 JSON-LD Schema
-     * @param array $citation_data analyze() 的返回结果
-     * @return string|null
-     */
-    public function generate_schema_json_ld( $citation_data ) {
-        if ( empty( $citation_data['sources'] ) ) return null;
-
-        $citations = array();
-        foreach ( $citation_data['sources'] as $src ) {
-            $name = $src['source'] ?: $src['text'];
-
-            // 过滤无效引用：name 为空或为纯数字/量词/碎片文本（如"5个""10%""，优化全靠玄学"）
-            if ( ! $this->is_valid_citation_name( $name ) ) {
-                continue;
-            }
-
-            $citation = array(
-                '@type' => 'CreativeWork',
-                'name'  => $name,
-            );
-            if ( ! empty( $src['url'] ) ) {
-                $citation['url'] = $src['url'];
-            }
-            $citations[] = $citation;
-        }
-
-        if ( empty( $citations ) ) return null;
-
-        $schema = array(
-            '@context'  => 'https://schema.org',
-            '@type'     => 'Article',
-            'citation'  => $citations,
-        );
-
-        return '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) . '</script>';
-    }
+    /* ================================================
+     * 引用名称校验（v2.9.0：generate_schema_json_ld 死方法已按审计 B-6 删除——
+     * 前台 citation 输出由 schema-generator 内联实现并复用下方过滤）
+     * ================================================ */
 
     /**
-     * 校验引用名称是否有效（非纯数字/量词/碎片文本）
-     *
-     * @param string $name
-     * @return bool
+     * 校验引用来源名称是否有效（供 Schema 内联引用复用）
+     * v2.9.0：从 private 改为 public static —— schema-generator 内联 citation 构建
+     * 需要复用同一套「纯数字/量词/碎片文本」过滤（审计 B-6：内联版过滤宽松导致
+     * 正文小标题与碎片文本混进 Article.citation）。
      */
-    private function is_valid_citation_name( $name ) {
+    public static function is_valid_citation_name( $name ) {
         $name = trim( (string) $name );
         if ( '' === $name ) {
             return false;

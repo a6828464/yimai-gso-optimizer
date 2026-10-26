@@ -321,8 +321,9 @@ class YIMAI_GSO_Sitemap_Generator {
             echo "Disallow: /wp-admin/\n";
             echo "Disallow: /wp-login.php\n";
             echo "Disallow: /wp-register.php\n";
-            echo "Disallow: /wp-includes/\n";
-            echo "Disallow: /wp-content/plugins/\n";
+            // ★ 修复（审计建议）：移除 Disallow: /wp-includes/ 与 /wp-content/plugins/——
+            //   Google 搜索中心明确建议不要屏蔽 wp-includes（JS/CSS 资源位于这些目录，
+            //   屏蔽会影响搜索引擎渲染页面）。缓存目录保留屏蔽。
             echo "Disallow: /wp-content/cache/\n";
             echo "Disallow: /trackback/\n";
             echo "Disallow: /?s=\n";
@@ -347,7 +348,7 @@ class YIMAI_GSO_Sitemap_Generator {
                 echo "\n# AI 爬虫（允许访问）\n";
                 echo "User-agent: GPTBot\nAllow: /\n\n";
                 echo "User-agent: ChatGPT-User\nAllow: /\n\n";
-                echo "User-agent: Claude-Web\nAllow: /\n\n";
+                echo "User-agent: ClaudeBot\nAllow: /\n\n"; // ★ 审计建议：Claude-Web 已停用，Anthropic 现用 ClaudeBot
                 echo "User-agent: PerplexityBot\nAllow: /\n\n";
                 echo "User-agent: Google-Extended\nAllow: /\n";
             }

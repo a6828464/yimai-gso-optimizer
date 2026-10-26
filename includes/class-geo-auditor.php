@@ -238,6 +238,7 @@ class YIMAI_GSO_GEO_Auditor {
             'offset'    => 0,
             'aggregates'=> array(
                 'seo_scores'       => array(),
+                'readability_scores' => array(), // ★ 审计 B-8：可读性独立信息源，不再与 C1 同源
                 'extract_scores'   => array(),
                 'freshness'        => array(),
                 'has_faq_schema'   => 0,
@@ -272,12 +273,16 @@ class YIMAI_GSO_GEO_Auditor {
         $agg = $progress['aggregates'];
 
         foreach ( $posts as $post_id ) {
-            // C1: 答案前置评分
+            // C1: 答案前置评分 / C4: 可读性维度（★ 修复审计 B-8：原先两者共用同一数组，
+            // C4 实际复制 C1 的判据与数据，7 因子只有 6 个独立信息源）
             $seo = get_post_meta( $post_id, 'yimai_gso_seo_score', true );
             if ( ! empty( $seo['geo']['answer_first']['score'] ) ) {
                 $agg['seo_scores'][] = (int) $seo['geo']['answer_first']['score'];
             } elseif ( ! empty( $seo['overall'] ) ) {
                 $agg['seo_scores'][] = (int) $seo['overall'];
+            }
+            if ( ! empty( $seo['scores']['readability']['score'] ) ) {
+                $agg['readability_scores'][] = (int) $seo['scores']['readability']['score'];
             }
 
             // C2: 可提取性
@@ -373,8 +378,9 @@ class YIMAI_GSO_GEO_Auditor {
         $factors['C3'] = $this->make_factor( 'C3', $c3_ok ? 100 : max( 0, 100 - $stale_ratio * 3 ), round( $stale_ratio, 1 ) . '% 的文章已过期（>6个月未更新）' );
         if ( $c3_ok ) $passed++;
 
-        // C4: 可读性（使用 SEO 评分的可读性维度）
-        $c4_pass = ! empty( $agg['seo_scores'] ) ? ( count( array_filter( $agg['seo_scores'], function( $s ) { return $s >= 70; } ) ) / count( $agg['seo_scores'] ) * 100 ) : 0;
+        // C4: 可读性（★ 修复审计 B-8：改读 SEO 评分缓存的 readability 子维度，
+        //   原先复用 C1 的 seo_scores 同一数组同判据，因子名存实亡）
+        $c4_pass = ! empty( $agg['readability_scores'] ) ? ( count( array_filter( $agg['readability_scores'], function( $s ) { return $s >= 70; } ) ) / count( $agg['readability_scores'] ) * 100 ) : 0;
         $c4_ok   = $c4_pass >= 50;
         $factors['C4'] = $this->make_factor( 'C4', $c4_ok ? 100 : round( $c4_pass * 2 ), round( $c4_pass, 1 ) . '% 的文章可读性评分 ≥ 70' );
         if ( $c4_ok ) $passed++;

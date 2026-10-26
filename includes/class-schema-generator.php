@@ -202,12 +202,20 @@ class YIMAI_GSO_Schema_Generator {
             $citation_data   = $citation_helper->get_citations( $post_id );
             if ( ! empty( $citation_data['count'] ) && $citation_data['count'] > 0 ) {
                 $cite_items = array();
+                $cite_seen  = array(); // ★ 修复（审计 B-6）：按 name+url 去重，防止同页 citation 重复输出
                 // get_citations() 返回 { count, sources:[{source,url,...}], ... }
                 foreach ( (array) ( $citation_data['sources'] ?? array() ) as $cite ) {
                     if ( ! is_array( $cite ) ) continue;
                     $name = trim( (string) ( $cite['source'] ?? $cite['name'] ?? '' ) );
                     $url  = trim( (string) ( $cite['url'] ?? '' ) );
                     if ( '' === $name && '' === $url ) continue;
+                    // ★ 修复（审计 B-6）：复用 Citation_Helper 的碎片文本过滤（纯数字/量词/标点开头等），
+                    //   防止正文小标题、碎片短语被当作引用来源混进 Article.citation（线上实证：
+                    //   「学员当天的状态给针对性指导」曾被重复输出两次）。
+                    if ( '' !== $name && ! YIMAI_GSO_Citation_Helper::is_valid_citation_name( $name ) ) continue;
+                    $dedupe_key = md5( strtolower( $name . '|' . $url ) );
+                    if ( isset( $cite_seen[ $dedupe_key ] ) ) continue;
+                    $cite_seen[ $dedupe_key ] = true;
                     $item = array( '@type' => 'CreativeWork' );
                     if ( '' !== $name ) $item['name'] = $name;
                     if ( '' !== $url )  $item['url']  = $url;
@@ -907,7 +915,10 @@ class YIMAI_GSO_Schema_Generator {
                 $items[] = array(
                     '@type'    => 'ListItem',
                     'position' => 2,
-                    'name'     => $cat->name,
+                    // ★ 修复（审计 #6）：分类名可能含 HTML 实体（如「Body &amp; Soul」），
+                    //   get_the_category 返回的 name 是 WP 格式化后的转义值，
+                    //   直接进 JSON-LD 会让搜索引擎解析到字面 &amp;。先解码实体。
+                    'name'     => html_entity_decode( $cat->name, ENT_QUOTES, 'UTF-8' ),
                     'item'     => get_category_link( $cat->term_id ),
                 );
             }

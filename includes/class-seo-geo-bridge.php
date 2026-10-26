@@ -13,7 +13,7 @@
  * - 只读消费：只读取外部数据，不写回
  *
  * @package BaiqueAI_SEO_Content_Engine
- * @since 3.0.0
+ * @since 2.9.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -369,12 +369,16 @@ class YIMAI_GSO_SEO_GEO_Bridge {
         }
 
         // 缓存检查结果
+        // ★ 修复（审计 S-9）：此方法原先在每次前台访客请求（限频窗口外）直接
+        //   update_post_meta 写库——「访客触发的写」。改用 transient 承载检查结果，
+        //   写入不再落 post meta（META_CHECK_KEY 无其他读取方，可安全移除持久化），
+        //   前台 HTML 注释警告与返回值不受影响。
         $result = array(
             'checked_at' => current_time( 'mysql' ),
             'warnings'   => $warnings,
             'checks'     => $checks,
         );
-        update_post_meta( $post_id, self::META_CHECK_KEY, wp_json_encode( $result, JSON_UNESCAPED_UNICODE ) );
+        set_transient( 'yimai_gso_meta_check_result_' . $post_id, $result, HOUR_IN_SECONDS );
 
         return $result;
     }
@@ -424,10 +428,13 @@ class YIMAI_GSO_SEO_GEO_Bridge {
      */
     private function read_legacy_ai_meta( $post_id ) {
         // AI 描述：与 output_ai_meta() 同优先级链
+        // ★ 修复（审计 S-3）：原顺序 excerpt→description→yoast→rankmath 与
+        //   output_ai_meta 实际链（excerpt→yoast→rankmath→description）不一致，
+        //   一致性检查的基准与前台输出可能不同源，产生误报/漏报。统一对齐。
         $ai_desc = get_post_meta( $post_id, 'yimai_gso_excerpt', true );
-        if ( empty( $ai_desc ) ) $ai_desc = get_post_meta( $post_id, 'description', true );
         if ( empty( $ai_desc ) ) $ai_desc = get_post_meta( $post_id, '_yoast_wpseo_metadesc', true );
         if ( empty( $ai_desc ) ) $ai_desc = get_post_meta( $post_id, 'rank_math_description', true );
+        if ( empty( $ai_desc ) ) $ai_desc = get_post_meta( $post_id, 'description', true );
 
         // AI 关键词：与 output_ai_meta() 同优先级链
         $ai_kw = get_post_meta( $post_id, 'yimai_gso_keywords', true );
@@ -461,9 +468,9 @@ class YIMAI_GSO_SEO_GEO_Bridge {
         // AI Ready 标记（GEO 评分 >= 55）
         if ( class_exists( 'YIMAI_GSO_GEO_Scorer' ) ) {
             try {
-                $geo_score_data = YIMAI_GSO_GEO_Scorer::_xCSd( $post_id );
+                $geo_score_data = YIMAI_GSO_GEO_Scorer::get_cached_score( $post_id );
             } catch ( \Throwable $e ) {
-                error_log( '[一麦GSO] Bridge → Geo_Scorer._xCSd() failed: ' . $e->getMessage() );
+                yimai_gso_debug_log( '[一麦GSO] Bridge → Geo_Scorer.get_cached_score() failed: ' . $e->getMessage() );
                 $geo_score_data = null;
             }
             $geo_overall = isset( $geo_score_data['overall'] ) ? intval( $geo_score_data['overall'] ) : 0;
@@ -497,45 +504,8 @@ class YIMAI_GSO_SEO_GEO_Bridge {
         return $enhancements;
     }
 
-    // ==================== AJAX 端点 ====================
-
-    /**
-     * AJAX: 获取 SEO 插件信息
-     */
-    public function ajax_get_plugin_info() {
-        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
-        if ( ! current_user_can( 'manage_options' ) ) {
-            wp_send_json_error( array( 'message' => '权限不足' ) );
-        }
-wp_send_json_success( array(
-            'plugins'  => $this->detected_plugins,
-            'has_any'  => $this->is_any_seo_plugin_active(),
-        ) );
-    }
-
-    /**
-     * AJAX: 检查指定文章的 Meta 一致性
-     */
-    public function ajax_check_meta_consistency() {
-        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
-        if ( ! current_user_can( 'edit_posts' ) ) {
-            wp_send_json_error( array( 'message' => '权限不足' ) );
-        }
-$post_id = isset( $_POST['post_id'] ) ? intval( $_POST['post_id'] ) : 0;
-        if ( ! $post_id ) {
-            wp_send_json_error( array( 'message' => '缺少文章 ID' ) );
-        }
-
-        $result = $this->check_meta_consistency( $post_id );
-
-        wp_send_json_success( array(
-            'post_id'     => $post_id,
-            'post_title'  => get_the_title( $post_id ),
-            'warnings'    => $result['warnings'],
-            'checks'      => $result['checks'],
-            'warning_count' => count( $result['warnings'] ),
-        ) );
-    }
+    // （AJAX 端点区：原 ajax_get_plugin_info / ajax_check_meta_consistency 两个死方法
+    //  ——无注册无调用，按审计建议已删除）
 
     // ==================== 冲突检测与修复（桥接管理页面） ====================
 
@@ -681,17 +651,23 @@ $post_id = isset( $_POST['post_id'] ) ? intval( $_POST['post_id'] ) : 0;
         $pt_placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
 
         // 检查 yimai_gso_excerpt 为空但 SEO meta description 不为空的文章
+        // ★ 修复（审计 S-4）：补上 SEOPress（_seopress_titles_desc）与
+        //   AIOSEO（_aioseo_description）的 meta 键，与「支持四插件」的宣称对齐。
         $sql = $wpdb->prepare(
             "SELECT COUNT(DISTINCT p.ID)
              FROM {$wpdb->posts} p
              LEFT JOIN {$wpdb->postmeta} pm1 ON pm1.post_id = p.ID AND pm1.meta_key = 'yimai_gso_excerpt'
              LEFT JOIN {$wpdb->postmeta} pm2 ON pm2.post_id = p.ID AND pm2.meta_key = '_yoast_wpseo_metadesc'
              LEFT JOIN {$wpdb->postmeta} pm3 ON pm3.post_id = p.ID AND pm3.meta_key = 'rank_math_description'
+             LEFT JOIN {$wpdb->postmeta} pm4 ON pm4.post_id = p.ID AND pm4.meta_key = '_seopress_titles_desc'
+             LEFT JOIN {$wpdb->postmeta} pm5 ON pm5.post_id = p.ID AND pm5.meta_key = '_aioseo_description'
              WHERE p.post_status = 'publish'
                AND p.post_type IN ({$pt_placeholders})
                AND (pm1.meta_value IS NULL OR pm1.meta_value = '')
                AND (pm2.meta_value IS NOT NULL AND pm2.meta_value != ''
-                    OR pm3.meta_value IS NOT NULL AND pm3.meta_value != '')",
+                    OR pm3.meta_value IS NOT NULL AND pm3.meta_value != ''
+                    OR pm4.meta_value IS NOT NULL AND pm4.meta_value != ''
+                    OR pm5.meta_value IS NOT NULL AND pm5.meta_value != '')",
             ...$post_types
         );
 

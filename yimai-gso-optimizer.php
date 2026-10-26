@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.8.0
+ * Version: 2.9.0
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.8.0' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.9.0' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -372,6 +372,15 @@ class YIMAI_GSO_Plugin {
         // L4 综合评估层GEO评分 + 双引擎面板 + 22因子审计
         YIMAI_GSO_GEO_Scorer::get_instance();
         YIMAI_GSO_GEO_Auditor::get_instance();
+
+        // ★ 修复（审计 #1/P0 + L5 断供根因）：SEO/GEO 评分原先无任何自动触发，
+        //   全靠管理员手动 AJAX——sitemap ai:ready 恒 false、ai:geo_score 全站缺失、
+        //   L5 仪表盘分布/散点图数据断供。改为发布管线末尾（优先级 30，内链完成后）
+        //   异步评分：transition_post_status → 入队 → 单次 cron 延迟 120s 执行
+        //   （等 ALT/SEO meta/内链等前序异步任务先落库，评到的才是最终内容）。
+        add_action( 'transition_post_status', array( $this, 'queue_auto_score' ), 30, 3 );
+        add_action( 'yimai_gso_process_auto_score_queue', array( $this, 'process_auto_score_queue' ) );
+
         // L5 监控与仪表盘（仅前台需要的部分）
         YIMAI_GSO_Referral_Tracker::get_instance();
         YIMAI_GSO_Alert_Engine::get_instance();
@@ -472,8 +481,14 @@ class YIMAI_GSO_Plugin {
         add_action( 'wp_ajax_yimai_gso_heading_check_optimized', array( 'YIMAI_GSO_Heading_Analyzer', 'ajax_check_optimized' ) );
 
         // Canonical URL 管理与 404 优化
-        add_action( 'wp_ajax_yimai_gso_canonical_batch_scan', array( 'YIMAI_GSO_Canonical_Manager', 'ajax_batch_scan' ) );
-        add_action( 'wp_ajax_yimai_gso_canonical_save_custom', array( 'YIMAI_GSO_Canonical_Manager', 'ajax_save_custom' ) );
+        // GEO: 引用数据查询 AJAX
+        // ★ 修复（审计 B-7）：ajax_get_citations 一直存在但从未注册，
+        //   编辑侧栏未来接入引用反馈时调用将得到 400；补上注册使其成为可用端点。
+        add_action( 'wp_ajax_yimai_gso_get_citations', array( 'YIMAI_GSO_Citation_Helper', 'ajax_get_citations' ) );
+        // ★ 修复（审计 #8）：canonical 两个 AJAX 原先在主文件与
+        //   YIMAI_GSO_Canonical_Manager::init() 双注册，每次请求执行两遍；
+        //   类内注册已覆盖，主文件侧删除（canonical_batch_scan/save_custom）。
+
         add_action( 'wp_ajax_yimai_gso_404_scan', array( 'YIMAI_GSO_404_Optimizer', 'ajax_scan_dead_links' ) );
         add_action( 'wp_ajax_yimai_gso_404_get_detail', array( 'YIMAI_GSO_404_Optimizer', 'ajax_get_link_detail' ) );
         add_action( 'wp_ajax_yimai_gso_404_generate_page', array( 'YIMAI_GSO_404_Optimizer', 'ajax_generate_404_page' ) );
@@ -704,14 +719,36 @@ class YIMAI_GSO_Plugin {
         if ( $post_id && has_post_thumbnail( $post_id ) ) {
             $image = get_the_post_thumbnail_url( $post_id, 'full' );
         }
+        // ★ 修复（审计 #7）：SVG 不能作 og:image——微信/Facebook/QQ 分享抓取器
+        //   不支持 SVG，分享卡片会无缩略图。custom_logo（主题 logo）是 SVG 时跳过，
+        //   回退站点图标（PNG）；最终兜底取媒体库中最近的一张 PNG/JPG 图片。
         if ( empty( $image ) ) {
             $logo_id = get_theme_mod( 'custom_logo' );
             if ( $logo_id ) {
-                $image = wp_get_attachment_image_url( $logo_id, 'full' );
+                $logo_url = wp_get_attachment_image_url( $logo_id, 'full' );
+                if ( $logo_url && ! preg_match( '/\.svg(\?|$)/i', $logo_url ) ) {
+                    $image = $logo_url;
+                }
             }
         }
         if ( empty( $image ) && function_exists( 'get_site_icon_url' ) ) {
-            $image = get_site_icon_url( 512 );
+            $site_icon = get_site_icon_url( 512 );
+            if ( $site_icon && ! preg_match( '/\.svg(\?|$)/i', $site_icon ) ) {
+                $image = $site_icon;
+            }
+        }
+        if ( empty( $image ) ) {
+            $fallback = get_posts( array(
+                'post_type'      => 'attachment',
+                'post_mime_type' => array( 'image/jpeg', 'image/png', 'image/webp' ),
+                'posts_per_page' => 1,
+                'fields'         => 'ids',
+                'orderby'        => 'date',
+                'order'          => 'DESC',
+            ) );
+            if ( ! empty( $fallback ) ) {
+                $image = wp_get_attachment_image_url( $fallback[0], 'full' );
+            }
         }
 
         $og  = '<meta property="og:type" content="' . ( $post_id ? 'article' : 'website' ) . '" />' . "\n";
@@ -769,7 +806,20 @@ class YIMAI_GSO_Plugin {
      * 为 ChatGPT/Gemini/Perplexity 等 AI 大模型爬虫提供结构化描述
      */
     public function output_ai_meta() {
-        if ( ! is_singular( 'post' ) ) {
+        // ★ 修复（审计 B-1）：原先仅 is_singular('post') 生效——页面(page)与受支持的自定义类型
+        //   全部不输出 ai-description/ai-keywords（线上首页已验证缺失）。
+        //   改为插件全局支持的内容类型白名单（Post_Type_Helper，默认 post+page），
+        //   首页/归档保持不输出（避免与 AI Platform Adapter 的站点级 meta 重复）。
+        if ( ! is_singular() ) {
+            return;
+        }
+        $post_type = get_post_type();
+        $helper_ready = class_exists( 'YIMAI_GSO_Post_Type_Helper' );
+        // 兜底：Post_Type_Helper 不存在时维持原行为（仅文章页）
+        if ( $helper_ready && ! YIMAI_GSO_Post_Type_Helper::is_supported( $post_type ) ) {
+            return;
+        }
+        if ( ! $helper_ready && ! is_singular( 'post' ) ) {
             return;
         }
 
@@ -782,7 +832,9 @@ class YIMAI_GSO_Plugin {
         if ( empty( $ai_desc ) ) $ai_desc = get_post_meta( $post_id, 'description', true );
         if ( empty( $ai_desc ) ) {
             $post = get_post( $post_id );
-            $ai_desc = wp_trim_words( wp_strip_all_tags( $post->post_content ), 30, '' );
+            // ★ 修复（GEO 报告 S-7）：原先 wp_trim_words(30)≈60 中文字符提前触底，
+            //   meta 描述偏短。改按字符截取 160，让 AI 引擎拿到更完整的首段信息。
+            $ai_desc = mb_substr( wp_strip_all_tags( $post->post_content ), 0, 160 );
         }
         $ai_desc = mb_substr( wp_strip_all_tags( $ai_desc ), 0, 160 );
 
@@ -882,6 +934,71 @@ class YIMAI_GSO_Plugin {
 
         if ( $noindex ) {
             echo '<meta name="robots" content="noindex, follow">' . "\n";
+        }
+    }
+
+    /**
+     * 发布管线自动评分（审计 #1/P0 修复）：transition_post_status 优先级 30 入队
+     * 延迟异步执行 SEO_Scorer::analyze + GEO_Scorer::compute，评分落库后
+     * sitemap 的 ai:ready / ai:geo_score 与 L5 仪表盘分布图自动恢复数据。
+     */
+    public function queue_auto_score( $new_status, $old_status, $post ) {
+        if ( $new_status !== 'publish' || ! $post instanceof WP_Post ) {
+            return;
+        }
+        if ( wp_is_post_revision( $post->ID ) || wp_is_post_autosave( $post->ID ) ) {
+            return;
+        }
+        if ( ! class_exists( 'YIMAI_GSO_Post_Type_Helper' ) || ! YIMAI_GSO_Post_Type_Helper::is_supported( $post->post_type ) ) {
+            return;
+        }
+
+        $queue = get_option( 'yimai_gso_auto_score_queue', array() );
+        if ( ! is_array( $queue ) ) {
+            $queue = array();
+        }
+        if ( ! in_array( $post->ID, $queue, true ) ) {
+            $queue[] = (int) $post->ID;
+            update_option( 'yimai_gso_auto_score_queue', array_slice( $queue, -50 ), false );
+        }
+
+        // 延迟 120s：等 ALT/SEO meta/内链等前序异步任务先落库再评分
+        if ( ! wp_next_scheduled( 'yimai_gso_process_auto_score_queue' ) ) {
+            wp_schedule_single_event( time() + 120, 'yimai_gso_process_auto_score_queue' );
+        }
+    }
+
+    /**
+     * 自动评分队列处理：逐篇执行 SEO + GEO 评分（cron 回调）
+     */
+    public function process_auto_score_queue() {
+        $queue = get_option( 'yimai_gso_auto_score_queue', array() );
+        if ( ! is_array( $queue ) || empty( $queue ) ) {
+            delete_option( 'yimai_gso_auto_score_queue' );
+            return;
+        }
+
+        $batch = array_splice( $queue, 0, 5 );
+        foreach ( $batch as $post_id ) {
+            $post_id = absint( $post_id );
+            if ( $post_id <= 0 || 'publish' !== get_post_status( $post_id ) ) {
+                continue;
+            }
+            if ( class_exists( 'YIMAI_GSO_SEO_Scorer' ) ) {
+                YIMAI_GSO_SEO_Scorer::get_instance()->analyze( $post_id );
+            }
+            if ( class_exists( 'YIMAI_GSO_GEO_Scorer' ) ) {
+                YIMAI_GSO_GEO_Scorer::get_instance()->compute( $post_id );
+            }
+        }
+
+        if ( ! empty( $queue ) ) {
+            update_option( 'yimai_gso_auto_score_queue', $queue, false );
+            if ( ! wp_next_scheduled( 'yimai_gso_process_auto_score_queue' ) ) {
+                wp_schedule_single_event( time() + 30, 'yimai_gso_process_auto_score_queue' );
+            }
+        } else {
+            delete_option( 'yimai_gso_auto_score_queue' );
         }
     }
 

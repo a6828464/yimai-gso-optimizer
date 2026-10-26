@@ -88,7 +88,7 @@ class YIMAI_GSO_SEO_Pusher {
         // 仅处理插件支持的内容类型（默认：post + page）
         if ( ! YIMAI_GSO_Post_Type_Helper::is_supported( $post->post_type ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[YIMAI GSO] 不支持的内容类型: ' . $post->post_type . ', 文章 ID: ' . $post->ID );
+                yimai_gso_debug_log( '[YIMAI GSO] 不支持的内容类型: ' . $post->post_type . ', 文章 ID: ' . $post->ID );
             }
             return;
         }
@@ -96,7 +96,7 @@ class YIMAI_GSO_SEO_Pusher {
         // 检查自动推送开关
         if ( ! YIMAI_GSO_Settings::get( 'seo_push_auto_enabled', 0 ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[YIMAI GSO] 自动推送未开启，文章 ID: ' . $post->ID );
+                yimai_gso_debug_log( '[YIMAI GSO] 自动推送未开启，文章 ID: ' . $post->ID );
             }
             return;
         }
@@ -104,7 +104,7 @@ class YIMAI_GSO_SEO_Pusher {
         // 更新推送：仅当开启时才入队
         if ( $old_status === 'publish' && ! YIMAI_GSO_Settings::get( 'seo_push_on_update', 1 ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[YIMAI GSO] 更新推送未开启，文章 ID: ' . $post->ID );
+                yimai_gso_debug_log( '[YIMAI GSO] 更新推送未开启，文章 ID: ' . $post->ID );
             }
             return;
         }
@@ -117,7 +117,7 @@ class YIMAI_GSO_SEO_Pusher {
         
         // 入队异步推送（不再同步阻塞发布流程）
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( '[YIMAI GSO] 文章入队: ' . $post->ID );
+            yimai_gso_debug_log( '[YIMAI GSO] 文章入队: ' . $post->ID );
         }
         $this->add_to_seo_queue( $post->ID );
     }
@@ -146,7 +146,7 @@ class YIMAI_GSO_SEO_Pusher {
             'baidu'  => array( 'success' => 0, 'fail' => 0, 'remain' => 0, 'msg' => '', 'codes' => array() ),
             'bing'   => array( 'success' => 0, 'fail' => 0, 'msg' => '', 'codes' => array() ),
             'google' => array( 'success' => 0, 'fail' => 0, 'msg' => '', 'codes' => array() ),
-        );
+       );
         
         // 过滤空URL
         $urls = array_filter( $urls );
@@ -170,7 +170,7 @@ class YIMAI_GSO_SEO_Pusher {
         }
 
         // 记录日志（按批量记录，每个URL一条，success字段记录该URL是否推送成功）
-        error_log( '[YIMAI GSO] 开始记录日志，URL数: ' . count( $urls ) );
+        yimai_gso_debug_log( '[YIMAI GSO] 开始记录日志，URL数: ' . count( $urls ) );
         foreach ( $urls as $url ) {
             $log_results = array(
                 'baidu' => array(
@@ -185,8 +185,8 @@ class YIMAI_GSO_SEO_Pusher {
                     'success' => ( $results['google']['success'] > 0 ) ? 1 : 0,
                     'msg'     => $results['google']['msg'] ?? '',
                 ),
-            );
-            error_log( '[YIMAI GSO] 记录日志 URL: ' . $url );
+           );
+            yimai_gso_debug_log( '[YIMAI GSO] 记录日志 URL: ' . $url );
             $this->log_push( $url, $log_results, $type );
         }
         
@@ -224,7 +224,7 @@ class YIMAI_GSO_SEO_Pusher {
                 'remain' => 0,
                 'msg' => $api_url->get_error_message(),
                 'codes' => array()
-            );
+           );
         }
         
         // 使用 wp_safe_remote_post 防止 SSRF
@@ -244,7 +244,7 @@ class YIMAI_GSO_SEO_Pusher {
                 'remain' => 0,
                 'msg' => '请求失败: ' . $response->get_error_message(),
                 'codes' => array()
-            );
+           );
         }
         
         $code = wp_remote_retrieve_response_code( $response );
@@ -259,7 +259,7 @@ class YIMAI_GSO_SEO_Pusher {
                 'remain' => 0,
                 'msg' => 'HTTP ' . $code . ': ' . $msg,
                 'codes' => array()
-            );
+           );
         }
         
         return array(
@@ -268,7 +268,7 @@ class YIMAI_GSO_SEO_Pusher {
             'remain' => isset( $data['remain'] ) ? intval( $data['remain'] ) : 0,
             'msg' => '推送成功，剩余可推送: ' . ( isset( $data['remain'] ) ? $data['remain'] : 0 ) . ' 条',
             'codes' => array()
-        );
+       );
     }
     
     /**
@@ -325,7 +325,7 @@ class YIMAI_GSO_SEO_Pusher {
             'fail' => count( $urls ),
             'msg' => '未配置必应推送，请填写 IndexNow Key 或 API Key',
             'codes' => array()
-        );
+       );
     }
     
     /**
@@ -361,7 +361,7 @@ class YIMAI_GSO_SEO_Pusher {
                 'fail' => count( $urls ),
                 'msg' => 'IndexNow请求失败: ' . $response->get_error_message(),
                 'codes' => array()
-            );
+           );
         }
         
         $code = wp_remote_retrieve_response_code( $response );
@@ -372,7 +372,7 @@ class YIMAI_GSO_SEO_Pusher {
                 'fail' => count( $urls ) - count( $batch ),
                 'msg' => 'IndexNow推送成功 (' . $code . ')，共 ' . count( $batch ) . ' 条',
                 'codes' => array()
-            );
+           );
         }
         
         // 错误处理
@@ -381,7 +381,7 @@ class YIMAI_GSO_SEO_Pusher {
             403 => 'Key验证失败，请确保网站根目录已上传 {key}.txt 文件',
             422 => 'URL不属于当前域名',
             429 => '请求过于频繁，请稍后再试',
-        );
+       );
         $msg = isset( $error_msgs[ $code ] ) ? $error_msgs[ $code ] : 'HTTP ' . $code;
         $body = wp_remote_retrieve_body( $response );
         if ( ! empty( $body ) && strlen( $body ) < 200 ) {
@@ -393,7 +393,7 @@ class YIMAI_GSO_SEO_Pusher {
             'fail' => count( $urls ),
             'msg' => $msg,
             'codes' => array()
-        );
+       );
     }
     
     /**
@@ -445,7 +445,7 @@ class YIMAI_GSO_SEO_Pusher {
             'fail' => $fail,
             'msg' => $success > 0 ? '推送成功 ' . $success . ' 条' : implode( '; ', $messages ),
             'codes' => array()
-        );
+       );
     }
 
     /**
@@ -482,7 +482,7 @@ class YIMAI_GSO_SEO_Pusher {
             'skipped' => 1,
             'msg'     => 'Google 已于 2023 年停用 sitemap ping 接口，本条已跳过（建议改用 Indexing API 或依赖 sitemap.xml 自动发现）。',
             'codes'   => array(),
-        );
+       );
     }
 
     /**
@@ -497,7 +497,7 @@ class YIMAI_GSO_SEO_Pusher {
                 'fail' => count( $urls ),
                 'msg' => '未配置Google Service Account JSON密钥',
                 'codes' => array()
-            );
+           );
         }
 
         $credentials = json_decode( $service_json, true );
@@ -507,7 +507,7 @@ class YIMAI_GSO_SEO_Pusher {
                 'fail' => count( $urls ),
                 'msg' => 'Service Account JSON格式无效',
                 'codes' => array()
-            );
+           );
         }
 
         $access_token = $this->get_google_access_token( $credentials );
@@ -517,7 +517,7 @@ class YIMAI_GSO_SEO_Pusher {
                 'fail' => count( $urls ),
                 'msg' => 'Google认证失败: ' . $access_token->get_error_message(),
                 'codes' => array()
-            );
+           );
         }
 
         $success = 0;
@@ -561,7 +561,7 @@ class YIMAI_GSO_SEO_Pusher {
             'fail' => $fail,
             'msg' => $success > 0 ? 'Indexing API推送成功 ' . $success . ' 条' : implode( '; ', array_slice( $messages, 0, 3 ) ),
             'codes' => array()
-        );
+       );
     }
 
     /**
@@ -679,7 +679,7 @@ class YIMAI_GSO_SEO_Pusher {
         return array(
             'body'     => $body,
             'response' => array( 'code' => $http_code ),
-        );
+       );
     }
 
     // ==================== 异步推送队列 ====================
@@ -708,7 +708,7 @@ class YIMAI_GSO_SEO_Pusher {
         // 队列容量保护（最大50条，与SEO元数据队列保持一致）
         if ( count( $queue ) >= 50 ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[YIMAI GSO] 推送队列已满(50)，文章未入队: ' . $post_id );
+                yimai_gso_debug_log( '[YIMAI GSO] 推送队列已满(50)，文章未入队: ' . $post_id );
             }
             return;
         }
@@ -716,7 +716,7 @@ class YIMAI_GSO_SEO_Pusher {
         // 去重
         if ( in_array( $post_id, $queue, true ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[YIMAI GSO] 文章已在队列中: ' . $post_id );
+                yimai_gso_debug_log( '[YIMAI GSO] 文章已在队列中: ' . $post_id );
             }
             return;
         }
@@ -724,14 +724,14 @@ class YIMAI_GSO_SEO_Pusher {
         $queue[] = $post_id;
         update_option( self::SEO_QUEUE_OPTION, $queue, false );
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( '[YIMAI GSO] 文章已加入队列: ' . $post_id . '，队列长度: ' . count( $queue ) );
+            yimai_gso_debug_log( '[YIMAI GSO] 文章已加入队列: ' . $post_id . '，队列长度: ' . count( $queue ) );
         }
 
         // 安排异步处理（60秒后执行，避开发布高峰期）
         if ( ! wp_next_scheduled( self::SEO_QUEUE_CRON ) ) {
             wp_schedule_single_event( time() + 60, self::SEO_QUEUE_CRON );
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[YIMAI GSO] 已安排 WP-Cron 事件处理队列' );
+                yimai_gso_debug_log( '[YIMAI GSO] 已安排 WP-Cron 事件处理队列' );
             }
         }
 
@@ -750,16 +750,16 @@ class YIMAI_GSO_SEO_Pusher {
      * 每次最多处理 5 篇，避免超时
      */
     public function process_seo_queue() {
-        error_log( '[YIMAI GSO] 开始处理推送队列' );
+        yimai_gso_debug_log( '[YIMAI GSO] 开始处理推送队列' );
 
         $queue = get_option( self::SEO_QUEUE_OPTION, array() );
         if ( ! is_array( $queue ) || empty( $queue ) ) {
             delete_option( self::SEO_QUEUE_OPTION );
-            error_log( '[YIMAI GSO] 队列为空，跳过处理' );
+            yimai_gso_debug_log( '[YIMAI GSO] 队列为空，跳过处理' );
             return;
         }
 
-        error_log( '[YIMAI GSO] 队列中有 ' . count( $queue ) . ' 篇文章待推送' );
+        yimai_gso_debug_log( '[YIMAI GSO] 队列中有 ' . count( $queue ) . ' 篇文章待推送' );
 
         // 每次最多处理5篇
         $batch = array_splice( $queue, 0, 5 );
@@ -769,7 +769,7 @@ class YIMAI_GSO_SEO_Pusher {
             if ( $post_id <= 0 ) {
                 continue;
             }
-            error_log( '[YIMAI GSO] 正在推送文章 ID: ' . $post_id );
+            yimai_gso_debug_log( '[YIMAI GSO] 正在推送文章 ID: ' . $post_id );
             $results = $this->push_post( $post_id, 'auto' );
             yimai_gso_debug_log( '文章 ID: ' . $post_id . ' 推送结果: ' . wp_json_encode( $results ) );
         }
@@ -827,7 +827,7 @@ class YIMAI_GSO_SEO_Pusher {
                         $results['bing'] = array(
                             'success' => 0,
                             'msg' => '未配置必应推送Key'
-                        );
+                       );
                     }
                     break;
 
@@ -878,16 +878,16 @@ class YIMAI_GSO_SEO_Pusher {
             'google_success' => $results['google']['success'] ?? 0,
             'google_msg' => $results['google']['msg'] ?? '',
             'created_at' => current_time( 'mysql' ),
-        );
+       );
         
         yimai_gso_debug_log( '准备写入日志: ' . wp_json_encode( $log_data ) );
         
         $result = $wpdb->insert( $table, $log_data );
         
         if ( $result === false ) {
-            error_log( '[YIMAI GSO] 日志写入失败: ' . $wpdb->last_error );
+            yimai_gso_debug_log( '[YIMAI GSO] 日志写入失败: ' . $wpdb->last_error );
         } else {
-            error_log( '[YIMAI GSO] 日志写入成功，ID: ' . $wpdb->insert_id );
+            yimai_gso_debug_log( '[YIMAI GSO] 日志写入成功，ID: ' . $wpdb->insert_id );
         }
     }
     
@@ -962,7 +962,7 @@ class YIMAI_GSO_SEO_Pusher {
             'bing_success' => (int) $stats->bing_success,
             'google_success' => (int) $stats->google_success,
             'success_rate' => $stats->total > 0 ? round( $stats->success_count / $stats->total * 100, 1 ) : 0,
-        );
+       );
     }
     
     /**
@@ -1003,7 +1003,7 @@ class YIMAI_GSO_SEO_Pusher {
             'total' => (int) $total,
             'pages' => ceil( $total / $per_page ),
             'current_page' => $page,
-        );
+       );
     }
     
     /**
@@ -1158,7 +1158,7 @@ class YIMAI_GSO_SEO_Pusher {
                     $result = array(
                         'success' => $response['success'] > 0,
                         'message' => $response['msg']
-                    );
+                   );
                 }
                 break;
                 
@@ -1173,7 +1173,7 @@ class YIMAI_GSO_SEO_Pusher {
                     $result = array(
                         'success' => $response['success'] > 0,
                         'message' => $response['msg']
-                    );
+                   );
                 } elseif ( ! empty( $api_key ) ) {
                     // 测试旧版 API 连接（推送首页）
                     $test_url = home_url( '/' );
@@ -1181,7 +1181,7 @@ class YIMAI_GSO_SEO_Pusher {
                     $result = array(
                         'success' => $response['success'] > 0,
                         'message' => $response['msg']
-                    );
+                   );
                 } else {
                     $result = array( 'success' => false, 'message' => '未配置必应推送Key' );
                 }
@@ -1199,14 +1199,14 @@ class YIMAI_GSO_SEO_Pusher {
                         $result = array(
                             'success' => $response['success'] > 0,
                             'message' => $response['msg']
-                        );
+                       );
                     }
                 } else {
                     $response = $this->push_to_google_sitemap_ping();
                     $result = array(
                         'success' => $response['success'] > 0,
                         'message' => $response['msg']
-                    );
+                   );
                 }
                 break;
 
@@ -1236,7 +1236,7 @@ class YIMAI_GSO_SEO_Pusher {
             'orderby'        => 'date',
             'order'          => 'DESC',
             'no_found_rows'  => false,
-        );
+       );
         
         if ( $category > 0 ) {
             $args['cat'] = $category;
@@ -1267,7 +1267,7 @@ class YIMAI_GSO_SEO_Pusher {
                 'permalink' => get_permalink( $post->ID ),
                 'category'  => implode( ', ', $cat_names ),
                 'pushed'    => (bool) get_post_meta( $post->ID, '_yimai_gso_seo_pushed', true ),
-            );
+           );
         }
         
         wp_send_json_success( array(
@@ -1284,7 +1284,7 @@ class YIMAI_GSO_SEO_Pusher {
             'yimai_gso_seo_push_widget',
             '一麦AI - 搜索引擎推送统计',
             array( $this, 'render_dashboard_widget' )
-        );
+       );
     }
     
     /**

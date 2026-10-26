@@ -585,6 +585,10 @@ class YIMAI_GSO_Autopilot_Runner {
                 'language'     => $language,
                 'source'       => 'autopilot',
                 'article_index' => absint( $article_index ),
+                // ★ 修复（审计 12 节建议 #2）：永动发布原先不传 auto_excerpt，
+                //   自动发布的文章永不走「独立 AI 摘要二次生成」；现跟随全局开关
+                //   「发布时自动生成 AI 摘要」（auto_excerpt_on_publish）。
+                'auto_excerpt' => (bool) YIMAI_GSO_Settings::get( 'auto_excerpt_on_publish', 0 ),
             ) );
 
             if ( is_wp_error( $result ) ) {

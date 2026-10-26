@@ -6246,6 +6246,17 @@ class YIMAI_GSO_Admin {
                                        placeholder="文章摘要">
                                 <small class="yimai-gso-field-hint">摘要框上方显示的标题文字，默认为【文章摘要】</small>
                             </div>
+                            <div class="yimai-gso-field-group">
+                                <!-- ★ 修复（审计 #9）：auto_excerpt_on_publish 原先是死设置键——
+                                     publisher 读 2 处但无任何写入点与 UI，用户永远无法开启。
+                                     补上开关：发布/更新文章时自动调用 AI 生成摘要（异步入队，不阻塞发布）。 -->
+                                <label>发布时自动生成 AI 摘要</label>
+                                <label class="yimai-gso-radio">
+                                    <input type="checkbox" name="yimai_gso_auto_excerpt_on_publish" value="1" <?php checked( YIMAI_GSO_Settings::get( 'auto_excerpt_on_publish', 0 ), 1 ); ?>>
+                                    <span>文章发布时自动调用 AI 生成摘要</span>
+                                </label>
+                                <small class="yimai-gso-field-hint">开启后，未填写摘要的文章在发布时会自动异步生成 AI 摘要（单篇生成的「自动摘要」勾选与此开关效果一致）</small>
+                            </div>
                         </div>
                     </div>
 
@@ -6447,31 +6458,25 @@ class YIMAI_GSO_Admin {
      */
     private function render_geo_entity_settings() {
         $entity       = YIMAI_GSO_GEO_Entity::get_entity_data();
-        $feature_ok   = true;
         $entity_types = YIMAI_GSO_GEO_Entity::ENTITY_TYPES;
         $platforms    = YIMAI_GSO_GEO_Entity::SAMEAS_PLATFORMS;
+        // （原 $feature_ok = true + if(!$feature_ok) 恒假门控残留已按审计 B-4 删除）
         ?>
         <div class="yimai-gso-settings-section">
             <div class="yimai-gso-settings-section-header">
                 <h2>🏢 实体信息定义</h2>
                 <p class="description">定义网站/品牌的实体信息，用于 Knowledge Graph 和所有 Schema 标记</p>
             </div>
-            <?php if ( ! $feature_ok ) : ?>
-            <div class="yimai-gso-feature-locked" style="background:#fef3c7;padding:14px 18px;border-radius:8px;margin-bottom:14px;">
-                <p style="margin:0;color:#166534;"><span class="dashicons dashicons-yes-alt"></span> GEO 实体优化功能已由本地版本启用</p>
-            </div>
-            <?php endif; ?>
             <div class="yimai-gso-settings-fields">
                 <div class="yimai-gso-field-group">
                     <label>实体名称</label>
                     <input type="text" id="geo-entity-name" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_name'] ); ?>"
-                           placeholder="例如：一麦瑜伽"
-                           <?php disabled( ! $feature_ok ); ?>>
+                           placeholder="例如：一麦瑜伽">
                 </div>
                 <div class="yimai-gso-field-group">
                     <label>实体类型</label>
-                    <select id="geo-entity-type" <?php disabled( ! $feature_ok ); ?>>
+                    <select id="geo-entity-type">
                         <?php foreach ( $entity_types as $key => $label ) : ?>
                         <option value="<?php echo esc_attr( $key ); ?>" <?php selected( $entity['entity_type'], $key ); ?>>
                             <?php echo esc_html( $label ); ?>
@@ -6484,35 +6489,30 @@ class YIMAI_GSO_Admin {
                     <label>实体 Logo URL</label>
                     <input type="text" id="geo-entity-logo" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_logo'] ); ?>"
-                           placeholder="留空则使用主题Logo"
-                           <?php disabled( ! $feature_ok ); ?>>
+                           placeholder="留空则使用主题Logo">
                     <small class="yimai-gso-field-hint">建议尺寸 512×512，留空则自动使用站点图标(site icon)或自定义Logo</small>
                 </div>
                 <div class="yimai-gso-field-group">
                     <label>实体描述</label>
                     <textarea id="geo-entity-description" rows="3" class="large-text"
-                              placeholder="简要描述您的公司/品牌"
-                              <?php disabled( ! $feature_ok ); ?>><?php echo esc_textarea( $entity['entity_description'] ); ?></textarea>
+                              placeholder="简要描述您的公司/品牌"><?php echo esc_textarea( $entity['entity_description'] ); ?></textarea>
                 </div>
                 <div class="yimai-gso-field-group">
                     <label>联系邮箱</label>
                     <input type="email" id="geo-entity-email" class="regular-text"
-                           value="<?php echo esc_attr( $entity['entity_email'] ); ?>"
-                           <?php disabled( ! $feature_ok ); ?>>
+                           value="<?php echo esc_attr( $entity['entity_email'] ); ?>">
                 </div>
                 <div class="yimai-gso-field-group">
                     <label>联系电话</label>
                     <input type="text" id="geo-entity-phone" class="regular-text"
-                           value="<?php echo esc_attr( $entity['entity_phone'] ); ?>"
-                           <?php disabled( ! $feature_ok ); ?>>
+                           value="<?php echo esc_attr( $entity['entity_phone'] ); ?>">
                 </div>
                 <?php if ( 'LocalBusiness' === $entity['entity_type'] ) : ?>
                 <div class="yimai-gso-field-group">
                     <label>实体地址</label>
                     <input type="text" id="geo-entity-address" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_address'] ); ?>"
-                           placeholder="省/市/区/街道 详细地址"
-                           <?php disabled( ! $feature_ok ); ?>>
+                           placeholder="省/市/区/街道 详细地址">
                 </div>
                 <?php endif; ?>
             </div>
@@ -6530,8 +6530,7 @@ class YIMAI_GSO_Admin {
                         <?php foreach ( $platforms as $key => $plat ) : ?>
                         <button type="button" class="button button-small geo-add-platform-btn"
                                 data-platform="<?php echo esc_attr( $key ); ?>"
-                                data-label="<?php echo esc_attr( $plat['label'] ); ?>"
-                                <?php disabled( ! $feature_ok ); ?>>
+                                data-label="<?php echo esc_attr( $plat['label'] ); ?>">
                             + <?php echo esc_html( $plat['label'] ); ?>
                         </button>
                         <?php endforeach; ?>
@@ -6551,23 +6550,20 @@ class YIMAI_GSO_Admin {
                             <input type="url" class="regular-text geo-sameas-url"
                                    value="<?php echo esc_attr( $url ); ?>"
                                    placeholder="https://..."
-                                   <?php disabled( ! $feature_ok ); ?>
                                    style="flex:1;">
                             <button type="button" class="button button-small geo-check-link-btn"
-                                    data-index="<?php echo $index; ?>" title="检测链接可访问性"
-                                    <?php disabled( ! $feature_ok ); ?>>
+                                    data-index="<?php echo $index; ?>" title="检测链接可访问性">
                                 <span class="dashicons dashicons-search"></span>
                             </button>
                             <button type="button" class="button button-small geo-remove-row-btn"
-                                    title="删除此链接"
-                                    <?php disabled( ! $feature_ok ); ?>>
+                                    title="删除此链接">
                                 <span class="dashicons dashicons-no-alt"></span>
                             </button>
                             <span class="geo-link-status" style="font-size:11px;min-width:80px;"></span>
                         </div>
                         <?php endforeach; ?>
                     </div>
-                    <button type="button" class="button" id="geo-add-row-btn" <?php disabled( ! $feature_ok ); ?>>
+                    <button type="button" class="button" id="geo-add-row-btn">
                         <span class="dashicons dashicons-plus"></span> 添加链接
                     </button>
                     <small class="yimai-gso-field-hint">建议添加 3-5 个权威平台的官方链接，AI 通过这些链接交叉验证您的实体身份</small>
@@ -6576,7 +6572,7 @@ class YIMAI_GSO_Admin {
         </div>
 
         <div class="yimai-gso-settings-footer" style="margin-top:24px;">
-            <button type="button" id="geo-save-btn" class="yimai-gso-save-btn" <?php disabled( ! $feature_ok ); ?>>
+            <button type="button" id="geo-save-btn" class="yimai-gso-save-btn">
                 <span class="dashicons dashicons-yes"></span>
                 保存实体配置
             </button>
@@ -6700,18 +6696,13 @@ class YIMAI_GSO_Admin {
         $rules     = YIMAI_GSO_Crawler_Editor::get_rules();
         $crawlers  = YIMAI_GSO_Crawler_Editor::CRAWLERS;
         $templates = YIMAI_GSO_Crawler_Editor::TEMPLATES;
-        $feature_ok = true && true;
+        // （原 $feature_ok = true && true + if(!$feature_ok) 恒假门控残留已按审计 B-4 同源清理）
         ?>
         <div class="yimai-gso-settings-section">
             <div class="yimai-gso-settings-section-header">
                 <h2><span class="dashicons dashicons-visibility"></span> AI 爬虫访问策略</h2>
                 <p class="description">控制哪些 AI 平台的爬虫可以访问您的网站内容。在 robots.txt 中动态生成对应规则</p>
             </div>
-            <?php if ( ! $feature_ok ) : ?>
-            <div class="yimai-gso-feature-locked" style="background:#fef3c7;padding:14px 18px;border-radius:8px;margin-bottom:14px;">
-                <p style="margin:0;color:#166534;"><span class="dashicons dashicons-yes-alt"></span> AI 爬虫管理已由本地版本启用</p>
-            </div>
-            <?php endif; ?>
 
             <!-- 策略模板 -->
             <div class="yimai-gso-settings-fields">
@@ -6720,8 +6711,7 @@ class YIMAI_GSO_Admin {
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
                         <?php foreach ( $templates as $key => $tmpl ) : ?>
                         <button type="button" class="button button-small crawler-template-btn"
-                                data-template="<?php echo esc_attr( $key ); ?>"
-                                <?php disabled( ! $feature_ok ); ?>>
+                                data-template="<?php echo esc_attr( $key ); ?>">
                             <?php echo esc_html( $tmpl['label'] ); ?>
                         </button>
                         <?php endforeach; ?>
@@ -6775,7 +6765,6 @@ class YIMAI_GSO_Admin {
                                     <input type="checkbox" class="crawler-rule-check"
                                            data-crawler="<?php echo esc_attr( $key ); ?>"
                                            <?php checked( ( isset( $rules[ $key ] ) ? $rules[ $key ] : 'allow' ), 'allow' ); ?>
-                                           <?php disabled( ! $feature_ok ); ?>
                                            style="display:none;">
                                     <span class="crawler-toggle-slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
                                         background-color:<?php echo ( isset( $rules[ $key ] ) && $rules[ $key ] === 'disallow' ) ? '#dc2626' : '#059669'; ?>;
@@ -6811,7 +6800,7 @@ class YIMAI_GSO_Admin {
         </div>
 
         <div class="yimai-gso-settings-footer" style="margin-top:24px;">
-            <button type="button" id="crawler-save-btn" class="yimai-gso-save-btn" <?php disabled( ! $feature_ok ); ?>>
+            <button type="button" id="crawler-save-btn" class="yimai-gso-save-btn">
                 <span class="dashicons dashicons-yes"></span>
                 保存爬虫策略
             </button>
@@ -7043,6 +7032,7 @@ class YIMAI_GSO_Admin {
             'mtphotos_review_strictness', 'mtphotos_review_failover',
             'publish_time_jitter',
             'frontend_excerpt_enabled', 'frontend_excerpt_label',
+            'auto_excerpt_on_publish', // ★ 审计 #9：补上死设置键的写入端（checkbox 未勾选不提交，需置 0）
             'operation_mode',
         );
         foreach ( $fields as $field ) {
@@ -7083,6 +7073,9 @@ class YIMAI_GSO_Admin {
                 if ( ! isset( $_POST[ 'yimai_gso_frontend_excerpt_enabled' ] ) && ! isset( $_POST[ 'frontend_excerpt_enabled' ] ) ) {
                     update_option( 'yimai_gso_frontend_excerpt_enabled', 0 );
                 }
+            } elseif ( 'auto_excerpt_on_publish' === $field ) {
+                // ★ 审计 #9：checkbox 未勾选时不提交 → 直接置 0（发布时自动 AI 摘要开关）
+                update_option( 'yimai_gso_auto_excerpt_on_publish', isset( $_POST['yimai_gso_auto_excerpt_on_publish'] ) || isset( $_POST['auto_excerpt_on_publish'] ) ? 1 : 0 );
             }
         }
 

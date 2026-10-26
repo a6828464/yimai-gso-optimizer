@@ -26,6 +26,7 @@ class YIMAI_GSO_GEO_Entity {
     const ENTITY_TYPES = array(
         'Organization'    => 'Organization (组织/公司)',
         'LocalBusiness'   => 'LocalBusiness (本地商家)',
+        'HealthAndBeautyBusiness' => 'HealthAndBeautyBusiness (美容健康/瑜伽健身机构)', // ★ GEO 报告 C-2：瑜伽馆行业标准类型
         'Person'          => 'Person (个人)',
         'Brand'           => 'Brand (品牌)',
         'Corporation'     => 'Corporation (企业)',
@@ -115,6 +116,11 @@ class YIMAI_GSO_GEO_Entity {
             $data['same_as'] = array_values( array_filter(
                 array_map( 'trim', $data['same_as'] ),
                 function( $url ) {
+                    // ★ 修复（审计 S-1）：FILTER_VALIDATE_URL 对 javascript: 等伪协议可能放行，
+                    //   save_entity_data 独立调用路径无 esc_url_raw 双保险——显式限定 http/https。
+                    if ( ! preg_match( '#^https?://#i', $url ) ) {
+                        return false;
+                    }
                     return ! empty( $url ) && filter_var( $url, FILTER_VALIDATE_URL );
                 }
             ) );
@@ -197,8 +203,10 @@ class YIMAI_GSO_GEO_Entity {
             $schema['telephone'] = $entity['entity_phone'];
         }
 
-        // 地址（仅 LocalBusiness 类型输出）
-        if ( ! empty( $entity['entity_address'] ) && 'LocalBusiness' === $entity['entity_type'] ) {
+        // 地址（LocalBusiness 类型族输出：含 HealthAndBeautyBusiness 等 LocalBusiness 子类型）
+        // ★ GEO 报告 C-2：原先仅严格等于 LocalBusiness 才输出地址，选择行业子类型时地址静默丢失
+        $is_local_family = in_array( $entity['entity_type'], array( 'LocalBusiness', 'HealthAndBeautyBusiness' ), true );
+        if ( ! empty( $entity['entity_address'] ) && $is_local_family ) {
             $schema['address'] = array(
                 '@type' => 'PostalAddress',
                 'streetAddress' => $entity['entity_address'],
@@ -226,11 +234,7 @@ class YIMAI_GSO_GEO_Entity {
         }
 
         check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
-
-        // 权限检查
-        if ( ! true ) {
-            wp_send_json_error( array( 'message' => '当前配置不支持 GEO 实体优化功能，请升级配置' ) );
-        }
+        // （原付费配置门控 if(!true) 恒假死代码已按审计 B-3 删除）
 
         $name        = isset( $_POST['entity_name'] ) ? sanitize_text_field( wp_unslash( $_POST['entity_name'] ) ) : '';
         $type        = isset( $_POST['entity_type'] ) ? sanitize_text_field( $_POST['entity_type'] ) : 'Organization';
@@ -301,6 +305,23 @@ class YIMAI_GSO_GEO_Entity {
             'user-agent'  => 'BQAI-SEO-GEO/2.9 (sameAs Link Checker)',
         ) );
 
+        // ★ 修复（GEO 报告 C-1）：知乎/微博等平台对 HEAD 返回 405/403，
+        //   失败或非 2xx/3xx 时回退 GET 重试一次，避免误报「链接异常」。
+        $code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+        if ( 0 === $code || $code === 405 || $code === 403 || $code >= 500 ) {
+            $get_response = wp_remote_get( $url, array(
+                'timeout'     => 10,
+                'redirection' => 3,
+                'user-agent'  => 'BQAI-SEO-GEO/2.9 (sameAs Link Checker)',
+            ) );
+            if ( ! is_wp_error( $get_response ) ) {
+                $response = $get_response;
+                $code     = (int) wp_remote_retrieve_response_code( $response );
+            } elseif ( 0 === $code ) {
+                $response = $get_response; // keep original error for message
+            }
+        }
+
         if ( is_wp_error( $response ) ) {
             wp_send_json_success( array(
                 'url'       => $url,
@@ -329,7 +350,17 @@ class YIMAI_GSO_GEO_Entity {
      * @return bool
      */
     public static function is_configured() {
+        // ★ 修复（审计 B-2）：原先只看 same_as 非空——用户填了名称/电话/地址
+        //   但没填 sameAs 时，增强 Schema 完全不输出，已填的联系方式与地址
+        //   静默丢失（前台退回简版 Organization，contact/address 全丢）。
+        //   改为核心字段有任一实质填写即视为已配置，sameAs 只作为加分项。
         $entity = self::get_entity_data();
+        $core_fields = array( 'entity_name', 'entity_description', 'entity_email', 'entity_phone', 'entity_address', 'entity_logo' );
+        foreach ( $core_fields as $field ) {
+            if ( ! empty( $entity[ $field ] ) ) {
+                return true;
+            }
+        }
         return ! empty( $entity['same_as'] );
     }
 }

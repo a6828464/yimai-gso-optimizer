@@ -307,17 +307,21 @@ class YIMAI_GSO_AI_Platform_Adapter {
         $citations = array();
 
         // 尝试从 Citation_Helper 获取引用数据
+        // ★ 修复（审计 B-5）：原先读 post_meta 键 `yimai_gso_citation_data`，
+        //   而 Citation_Helper 实际写入的键是 `yimai_gso_citations`（结构 {count, sources:[...]}），
+        //   键名不匹配导致真实引用永远读不到、citations 只剩「文章自身」兜底项。
         if ( class_exists( 'YIMAI_GSO_Citation_Helper' ) ) {
-            $citation_data = get_post_meta( $post_id, 'yimai_gso_citation_data', true );
+            $citation_data = get_post_meta( $post_id, 'yimai_gso_citations', true );
             if ( ! empty( $citation_data ) && is_array( $citation_data ) ) {
-                foreach ( $citation_data as $cite ) {
-                    if ( ! empty( $cite['url'] ) ) {
-                        $citations[] = array(
-                            '@type' => 'CreativeWork',
-                            'url'   => $cite['url'],
-                            'name'  => isset( $cite['title'] ) ? $cite['title'] : '',
-                        );
-                    }
+                foreach ( (array) ( $citation_data['sources'] ?? array() ) as $cite ) {
+                    if ( ! is_array( $cite ) ) continue;
+                    $name = trim( (string) ( $cite['source'] ?? $cite['title'] ?? '' ) );
+                    $url  = trim( (string) ( $cite['url'] ?? '' ) );
+                    if ( '' === $name && '' === $url ) continue;
+                    $item = array( '@type' => 'CreativeWork' );
+                    if ( '' !== $name ) $item['name'] = $name;
+                    if ( '' !== $url )  $item['url']  = $url;
+                    $citations[] = $item;
                 }
             }
         }
@@ -547,17 +551,20 @@ class YIMAI_GSO_AI_Platform_Adapter {
         }
 
         // 尝试从 Citation_Helper 获取引用数据
+        // ★ 修复（审计 B-5）：键名对齐 `yimai_gso_citations`（结构 {count, sources:[...]}）
         if ( class_exists( 'YIMAI_GSO_Citation_Helper' ) ) {
-            $citation_data = get_post_meta( $post_id, 'yimai_gso_citation_data', true );
+            $citation_data = get_post_meta( $post_id, 'yimai_gso_citations', true );
             if ( ! empty( $citation_data ) && is_array( $citation_data ) ) {
-                $data['citation_count'] = count( $citation_data );
-                foreach ( $citation_data as $cite ) {
-                    if ( ! empty( $cite['url'] ) ) {
-                        $data['sources'][] = array(
-                            'url'  => $cite['url'],
-                            'name' => isset( $cite['title'] ) ? $cite['title'] : '',
-                        );
-                    }
+                $data['citation_count'] = absint( $citation_data['count'] ?? 0 );
+                foreach ( (array) ( $citation_data['sources'] ?? array() ) as $cite ) {
+                    if ( ! is_array( $cite ) ) continue;
+                    $name = trim( (string) ( $cite['source'] ?? $cite['title'] ?? '' ) );
+                    $url  = trim( (string) ( $cite['url'] ?? '' ) );
+                    if ( '' === $name && '' === $url ) continue;
+                    $data['sources'][] = array(
+                        'url'  => $url,
+                        'name' => $name,
+                    );
                 }
             }
         }

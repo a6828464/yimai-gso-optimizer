@@ -1,5 +1,45 @@
 # 更新日志
 
+## 2.9.0
+
+SEO 全功能审计修复 + 404 页面接管失效修复（17 模块逐项体检 + 线上取证后的系统性修复）：
+
+**404 页面接管失效（服务器层 + 插件层双根因）**
+
+- **根因**：站点 nginx 全局 `fastcgi_intercept_errors on` 与宝塔 vhost 默认片段 `error_page 404 /404.html` 组合，把 WordPress 返回的 404 响应体整体丢弃、转去 serve 一个不存在的 `/404.html`，二次 404 后输出 nginx 原生页——纯路径与查询式 404 全部被拦截，插件自定义 404 页、404 日志、301 建议全部不可达。服务器配置已修复（注释 error_page 404，备份 `yimaiyoga.com_80.conf.bak-20261026-t4`），修复后两类 404 均输出插件自定义页
+- **修复设置保存清空自定义 404 HTML**：后台 404「设置」子面板保存时从不发送 custom_page 字段，旧代码每次保存都把已存的自定义 404 HTML 静默清空。现仅当请求显式携带该字段时才更新
+
+**SEO/GEO 评分自动化（审计 P0）**
+
+- **根因**：评分引擎代码健康但全代码库无任何自动触发——全靠管理员手动点「批量分析」。后果：sitemap 里 `ai:ready` 恒 false（AI 爬虫看到全站「未就绪」标记）、`ai:geo_score` 全站缺失、L5 仪表盘 SEO/GEO 分布图与散点图数据断供
+- **修复**：文章发布管线末尾（优先级 30，内链完成之后）自动入队评分，延迟 120 秒异步执行（等 ALT/SEO 元数据/内链先落库再评分，评到的才是最终内容），逐篇跑 SEO 综合评分 + GEO 评分并写缓存。新发布文章自动出现在评分数据、sitemap AI 标记与 L5 图表中
+
+**确证 bug 修复**
+
+- **AI meta 只在文章页输出**：`ai-description/ai-keywords` 原先仅 `is_singular('post')` 生效，页面与受支持的内容类型全部缺失。现按插件内容类型白名单（默认 post+page）输出，首页/归档保持由平台适配器负责不重复
+- **Claude 引用块键名错配**：平台适配器读 `yimai_gso_citation_data`，而引用检测器写入的键是 `yimai_gso_citations`——真实引用永远读不到，citations 只剩「文章自身」兜底项。键名与结构已对齐
+- **Article.citation 噪声与重复**：正文小标题曾被当作引用来源且重复输出两次。内联 citation 构建现复用引用检测器的碎片过滤（纯数字/量词/标点开头），并按名称+URL 去重
+- **面包屑实体未解码**：BreadcrumbList 的分类名可能带 HTML 实体（如 `Body &amp; Soul`）直接进 JSON-LD。已解码
+- **首页 og:image 为 SVG**：微信/Facebook 分享抓取器不支持 SVG、分享卡片无图。SVG 跳过后回退站点图标，再兜底取媒体库最近位图
+- **推送日志失控**：推送模块 16 处裸 `error_log` 不受 WP_DEBUG 控制，cron 每批必写 5+ 条服务器日志。全部收敛到统一调试日志规范；内链模块 8 处同源问题一并收敛
+- **canonical AJAX 双注册**：两个 canonical AJAX 在主文件与类内各注册一次、每次请求执行两遍。删除主文件侧重复注册
+- **「发布时自动生成 AI 摘要」是死开关**：publisher 读 `auto_excerpt_on_publish` 但全代码库无写入点、无 UI，用户永远无法开启。基础设置补上开关，永动发布同步跟随该开关
+- **llms-full.txt 无正文**：文件名叫 full 却只输出 200 字摘要。现输出清洗后的正文全文（H2/H3 转 Markdown 标题，单篇超 8000 字截断），AI 引擎能拿到实质内容
+- **GEO 实体判定过严**：只填名称/电话/地址但没填 sameAs 时增强 Schema 完全不输出、已填字段静默丢失。现核心字段任一实质填写即输出
+- **审计可读性因子同源**：22 因子里 C1「答案前置」与 C4「可读性」原共用同一数组同一判据，7 个内容因子实际只有 6 个独立信息源。C4 改读 SEO 评分的可读性子维度
+
+**疑似/建议级修复**
+
+- robots.txt 移除对 `/wp-includes/`、`/wp-content/plugins/` 的过度屏蔽（Google 明确建议不要屏蔽，影响搜索渲染页面）；默认 AI 爬虫段把已停用的 `Claude-Web` 更新为 `ClaudeBot`
+- AI meta 摘要兜底改按字符截 160（原先按 30 词≈60 字符提前触底）；meta 一致性检查的回退链与前台输出对齐；一致性检查不再由前台访客触发写库（改 transient 承载）
+- SEO 插件 meta 覆盖面：AI 描述缺失统计补上 SEOPress 与 AIOSEO 的 meta 键（原先只认 Yoast/RankMath）
+- 作者档案新增「从业年限/资质证书」进 Person Schema（`hasCredential`），对 AI 引擎可见
+- sameAs 保存显式限定 http/https（防伪协议）；链接可达性检测 HEAD 失败回退 GET（知乎/微博等平台对 HEAD 返回 405）
+- 实体类型新增 HealthAndBeautyBusiness（瑜伽馆行业标准类型），该类型同样输出地址字段
+- 混淆命名清理：GEO 评分缓存常量与方法重命名为可读名称（CACHE_TTL/get_cached_score/flush_cache）；删除 3 处无调用的死方法与门控残留代码
+- 引用数据 AJAX 端点补注册（方法一直在、钩子缺失，调用会 400）
+- `@since` 版本标注统一为 2.9.0
+
 ## 2.8.0
 
 换图功能升级为「图片选择器」（用户实测反馈：正文除第一张外的配图换不了）：

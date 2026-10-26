@@ -55,7 +55,7 @@ class YIMAI_GSO_Post_Type_Helper {
     /**
      * 清除请求级缓存（设置页保存 post type 后调用）
      */
-    public static function re_x5Z() {
+    public static function flush_cache() { // （原混淆命名 re_x5Z 已按 GEO 报告 C-3 重命名）
         self::$cached_types = null;
     }
 

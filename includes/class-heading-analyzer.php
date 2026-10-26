@@ -599,52 +599,7 @@ class YIMAI_GSO_Heading_Analyzer {
         wp_send_json_success( $result );
     }
 
-    /**
-     * AJAX: 批量扫描标题结构
-     */
-    public static function ajax_batch_scan() {
-        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
-
-        if ( ! current_user_can( 'edit_posts' ) ) {
-            wp_send_json_error( '权限不足' );
-        }
-
-        global $wpdb;
-        $pt_list = YIMAI_GSO_Post_Type_Helper::sql_type_list();
-        $post_ids = isset( $_POST['post_ids'] ) ? (array) $_POST['post_ids'] : array();
-
-        if ( empty( $post_ids ) ) {
-            // 自动获取最近的文章
-            $post_ids = $wpdb->get_col(
-                "SELECT p.ID FROM {$wpdb->posts} p
-                 INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
-                 WHERE p.post_type IN ({$pt_list}) AND p.post_status = 'publish'
-                   AND pm.meta_key = 'yimai_gso_generated' AND pm.meta_value = '1'
-                 ORDER BY p.post_date DESC LIMIT 50"
-            );
-        }
-
-        $analyzer = self::get_instance();
-        $results = array( 'analyzed' => 0, 'scores' => array() );
-
-        foreach ( $post_ids as $id ) {
-            $id = absint( $id );
-            if ( ! $id ) continue;
-            $r = $analyzer->analyze( $id );
-            if ( ! isset( $r['error'] ) ) {
-                $results['analyzed']++;
-                $results['scores'][] = array(
-                    'post_id'    => $id,
-                    'post_title' => $r['post_title'],
-                    'score'      => $r['score'],
-                    'h2_count'   => $r['h2_structure']['count'],
-                    'kw_rate'    => $r['kw_coverage']['rate'],
-                );
-            }
-        }
-
-        wp_send_json_success( $results );
-    }
+    // （原 ajax_batch_scan() 46 行死方法——无注册无调用，按审计建议 #11 已删除）
 
     /**
      * AJAX: 批量检查文章的优化状态

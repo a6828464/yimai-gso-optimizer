@@ -142,7 +142,7 @@ class YIMAI_GSO_Internal_Link {
                     'blocking'  => false,
                 ) );
                 if ( is_wp_error( $trigger_resp ) && defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
-                    error_log( '[一麦GSO] InternalLink add_to_queue wp-cron.php 触发失败: ' . $trigger_resp->get_error_message() );
+                    yimai_gso_debug_log( '[一麦GSO] InternalLink add_to_queue wp-cron.php 触发失败: ' . $trigger_resp->get_error_message() );
                 }
             } elseif ( function_exists( 'spawn_cron' ) ) {
                 spawn_cron();
@@ -220,7 +220,7 @@ class YIMAI_GSO_Internal_Link {
             'category_ids' => array_map( 'absint', (array) $category_ids ),
             'post_status'  => 'publish',
             'source'       => 'auto_publish',
-        );
+       );
 
         $new_content = self::insert_links( $content, $title, $tags, $post_id, $context );
 
@@ -272,7 +272,7 @@ class YIMAI_GSO_Internal_Link {
             'status'       => 'skipped',
             'message'      => '',
             'time'         => current_time( 'mysql' ),
-        );
+       );
 
         // 检查是否启用
         if ( ! YIMAI_GSO_Settings::get( 'internal_link_enabled', 0 ) ) {
@@ -298,7 +298,7 @@ class YIMAI_GSO_Internal_Link {
             'excluded_tags'    => self::normalize_id_list( self::get_setting( 'internal_link_excluded_tag_ids', array() ) ),
             'keyword_library'  => self::get_keyword_library(),
             'anchor_policy'    => self::get_setting( 'internal_link_anchor_policy', 'natural' ),
-        );
+       );
 
         $candidates = self::get_candidate_posts( $title, $tags, $post_id, $runtime_context );
         $log_context['candidate_count'] = count( $candidates );
@@ -323,8 +323,7 @@ class YIMAI_GSO_Internal_Link {
             $log_context['message'] = 'AI 未产出可用的内链规划';
             $log_context['candidate_count'] = count( $candidates );
             self::append_log( $log_context );
-            // 额外输出 error_log 方便实时排查（不受 DEBUG 控制）
-            error_log( '[一麦GSO InternalLink] 内链规划失败 | post_id=' . $post_id . ' | title=' . mb_substr($title, 0, 60) . ' | candidates=' . count($candidates) . ' | max_links=' . $max_links . ' | mode=' . $runtime_context['candidate_mode'] );
+            yimai_gso_debug_log( '[一麦GSO InternalLink] 内链规划失败 | post_id=' . $post_id . ' | title=' . mb_substr($title, 0, 60) . ' | candidates=' . count($candidates) . ' | max_links=' . $max_links . ' | mode=' . $runtime_context['candidate_mode'] );
             return $content;
         }
 
@@ -469,7 +468,7 @@ class YIMAI_GSO_Internal_Link {
                     'tags'       => $post_tags,
                     'score'      => $score,
                     'categories' => $candidate_cat_ids,
-                );
+               );
             }
         }
 
@@ -574,7 +573,7 @@ class YIMAI_GSO_Internal_Link {
             $tmp_reasoning = $response['usage']['completion_tokens_details']['reasoning_tokens'] ?? 0;
 
             if ( '' === trim( $tmp_content ) && 'length' === $tmp_finish && $tmp_reasoning > 1000 ) {
-                error_log( '[一麦GSO InternalLink] reasoning 占满预算，扩容重试 | attempt=' . $attempt . ' | old_max=' . $dynamic_max_tokens . ' | reasoning_tokens=' . $tmp_reasoning );
+                yimai_gso_debug_log( '[一麦GSO InternalLink] reasoning 占满预算，扩容重试 | attempt=' . $attempt . ' | old_max=' . $dynamic_max_tokens . ' | reasoning_tokens=' . $tmp_reasoning );
                 $dynamic_max_tokens = min( 16384, (int) ( $dynamic_max_tokens * 1.5 ) );
                 continue;
             }
@@ -583,7 +582,7 @@ class YIMAI_GSO_Internal_Link {
         }
 
         if ( is_wp_error( $response ) ) {
-            error_log( '[一麦GSO InternalLink] AI API 错误: ' . $response->get_error_message() );
+            yimai_gso_debug_log( '[一麦GSO InternalLink] AI API 错误: ' . $response->get_error_message() );
             return array();
         }
 
@@ -601,7 +600,7 @@ class YIMAI_GSO_Internal_Link {
             $msg_keys = isset( $response['choices'][0]['message'] ) && is_array( $response['choices'][0]['message'] )
                 ? implode( ',', array_keys( $response['choices'][0]['message'] ) )
                 : 'NO_MESSAGE';
-            error_log( '[一麦GSO InternalLink] Diag: model=' . $model . ' | finish=' . $finish_reason
+            yimai_gso_debug_log( '[一麦GSO InternalLink] Diag: model=' . $model . ' | finish=' . $finish_reason
                 . ' | content_len=' . strlen( $raw_content ) . ' | choice_cnt=' . $choice_count
                 . ' | msg_keys=[' . $msg_keys . '] | usage=' . $usage_info
                 . ' | max_tokens_req=' . $dynamic_max_tokens . ' | candidate_cnt=' . $candidate_count );
@@ -615,12 +614,12 @@ class YIMAI_GSO_Internal_Link {
             $preview = ( function_exists( 'mb_substr' ) ? mb_substr( $raw_content, 0, 500 ) : substr( $raw_content, 0, 500 ) );
             $trunc_note = $is_truncated ? ' [TRUNCATED]' : '';
             $content_len = strlen( $raw_content );
-            error_log( '[一麦GSO InternalLink] JSON 解析失败' . $trunc_note . ' | finish=' . $finish_reason . ' | raw_len=' . $content_len . ' | candidate_cnt=' . $candidate_count . ' | max_tokens=' . $dynamic_max_tokens . ' | preview: ' . $preview );
+            yimai_gso_debug_log( '[一麦GSO InternalLink] JSON 解析失败' . $trunc_note . ' | finish=' . $finish_reason . ' | raw_len=' . $content_len . ' | candidate_cnt=' . $candidate_count . ' | max_tokens=' . $dynamic_max_tokens . ' | preview: ' . $preview );
             return array();
         }
 
         if ( $is_truncated && defined( 'WP_DEBUG' ) && WP_DEBUG && WP_DEBUG_LOG ) {
-            error_log( '[一麦GSO InternalLink] AI 响应被截断 (finish_reason=length)，已提取 ' . count( $links ) . ' 条内链' );
+            yimai_gso_debug_log( '[一麦GSO InternalLink] AI 响应被截断 (finish_reason=length)，已提取 ' . count( $links ) . ' 条内链' );
         }
 
         $valid_links = array();
@@ -636,7 +635,7 @@ class YIMAI_GSO_Internal_Link {
                     'keyword'      => $link['keyword'],
                     'url'          => $sanitized_url,
                     'target_title' => $link['target_title'] ?? '',
-                );
+               );
             }
             if ( count( $valid_links ) >= $max_links ) {
                 break;
@@ -646,7 +645,7 @@ class YIMAI_GSO_Internal_Link {
         // 空结果时记录（帮助判断是 AI 返回空还是内容不匹配）
         if ( empty( $valid_links ) ) {
             $original_count = is_array( $links ) ? count( $links ) : 0;
-            error_log( '[一麦GSO InternalLink] AI 返回 ' . $original_count . ' 条规划，经验证后 0 条有效 | candidate_cnt=' . $candidate_count . ' | finish=' . $finish_reason . ' | max_links=' . $max_links );
+            yimai_gso_debug_log( '[一麦GSO InternalLink] AI 返回 ' . $original_count . ' 条规划，经验证后 0 条有效 | candidate_cnt=' . $candidate_count . ' | finish=' . $finish_reason . ' | max_links=' . $max_links );
         }
 
         return $valid_links;
@@ -761,7 +760,7 @@ class YIMAI_GSO_Internal_Link {
         return array(
             'content'        => $content,
             'inserted_count' => $inserted_count,
-        );
+       );
     }
 
     /**
@@ -893,7 +892,7 @@ class YIMAI_GSO_Internal_Link {
             'inserted'      => 0,
             'warning'       => 0,
             'last_run'      => '',
-        );
+       );
 
         foreach ( $logs as $index => $log ) {
             $stats['inserted'] += absint( $log['inserted_count'] ?? 0 );
@@ -1035,7 +1034,7 @@ class YIMAI_GSO_Internal_Link {
                     'title'   => $title,
                     'status'  => 'success',
                     'message' => '内链重建完成',
-                );
+               );
             } else {
                 $failed++;
                 $logs[] = array(
@@ -1044,7 +1043,7 @@ class YIMAI_GSO_Internal_Link {
                     'title'   => $title,
                     'status'  => 'failed',
                     'message' => '内链重建失败或无需更新',
-                );
+               );
             }
 
             $processed++;
@@ -1244,7 +1243,7 @@ class YIMAI_GSO_Internal_Link {
                             $links[ $normalized ] = array(
                                 'post_ids'    => array(),
                                 'post_titles' => array(),
-                            );
+                           );
                         }
                         if ( ! in_array( $post->ID, $links[ $normalized ]['post_ids'], true ) ) {
                             $links[ $normalized ]['post_ids'][]    = $post->ID;
@@ -1333,7 +1332,7 @@ class YIMAI_GSO_Internal_Link {
                     'status'      => $status,
                     'post_ids'    => $data['post_ids'],
                     'post_titles' => $data['post_titles'],
-                );
+               );
             }
         }
 
@@ -1352,7 +1351,7 @@ class YIMAI_GSO_Internal_Link {
                 'checked'      => $checked,
                 'broken_count' => count( $broken ),
                 'broken_links' => $broken,
-            );
+           );
             update_option( self::BROKEN_LINK_AUDIT_OPTION, $result, false );
         }
 

@@ -206,6 +206,24 @@ class YIMAI_GSO_Author_Profile {
             }
         }
 
+        // ★ 修复（GEO 报告 S-8）：从业年限/资质证书两字段原先只存库不出 Schema，
+        //   对前台 AI 可见性零贡献。映射到 schema.org Person 合法属性：
+        //   hasCredential（资质证书）+ description 并入从业年限说明。
+        $certifications = get_user_meta( $author_id, 'yimai_gso_author_certifications', true );
+        if ( ! empty( $certifications ) ) {
+            $certs = array_filter( array_map( 'trim', preg_split( '/[\n,，、;；]+/u', (string) $certifications ) ) );
+            if ( ! empty( $certs ) ) {
+                $schema['hasCredential'] = array_values( $certs );
+            }
+        }
+        $years = get_user_meta( $author_id, 'yimai_gso_author_years', true );
+        if ( ! empty( $years ) && is_numeric( $years ) ) {
+            $years_text = sprintf( '从业 %d 年', absint( $years ) );
+            $schema['description'] = empty( $schema['description'] )
+                ? $years_text
+                : $schema['description'] . '，' . $years_text;
+        }
+
         return $schema;
     }
 

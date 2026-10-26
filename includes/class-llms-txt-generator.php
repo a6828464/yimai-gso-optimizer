@@ -207,12 +207,21 @@ class YIMAI_GSO_LLMs_Txt_Generator {
         foreach ( $posts as $post ) {
             $title   = wp_strip_all_tags( get_the_title( $post ) );
             $url     = esc_url( get_permalink( $post->ID ) );
-            $excerpt = wp_strip_all_tags( $this->get_post_excerpt( $post ) );
+            // ★ 修复（审计 #10）：llms-full.txt 行业语义 = 站点内容全文，原先只输出
+            //   200 字截断摘要（get_post_excerpt），AI 引擎拿不到正文实质内容。
+            //   改为输出清洗后的正文全文（保留 H2/H3 标题行），超长截断至 8000 字。
+            // 把常见块级标记转成 Markdown 风格标题/段落，便于 AI 分段理解
+            $content = preg_replace( '/<h[23][^>]*>(.*?)<\/h[23]>/is', "\n\n## $1\n", $post->post_content );
+            $content = wp_strip_all_tags( $content );
+            $content = trim( preg_replace( '/\n{3,}/', "\n\n", $content ) );
+            if ( mb_strlen( $content ) > 8000 ) {
+                $content = mb_substr( $content, 0, 8000 ) . "\n\n（正文超长，已截断，完整内容见 URL）";
+            }
             
             echo "### {$title}\n\n";
             
-            if ( ! empty( $excerpt ) ) {
-                echo "> {$excerpt}\n\n";
+            if ( ! empty( $content ) ) {
+                echo "{$content}\n\n";
             }
             
             echo "- URL: {$url}\n";
