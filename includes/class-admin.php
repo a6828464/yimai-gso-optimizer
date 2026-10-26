@@ -4435,6 +4435,17 @@ class YIMAI_GSO_Admin {
                         <div class="yimai-gso-modal-body" id="yimai-gso-modal-body"></div>
                     </div>
                 </div>
+
+                <!-- 换图选择弹窗：列出文章全部配图，支持单张换/一键全换 -->
+                <div id="yimai-gso-image-picker-modal" class="yimai-gso-modal" style="display:none;">
+                    <div class="yimai-gso-modal-content">
+                        <div class="yimai-gso-modal-header">
+                            <h2>选择要更换的图片</h2>
+                            <button class="yimai-gso-modal-close">&times;</button>
+                        </div>
+                        <div class="yimai-gso-modal-body" id="yimai-gso-image-picker-body"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- ==================== 标签：结构化数据 ==================== -->

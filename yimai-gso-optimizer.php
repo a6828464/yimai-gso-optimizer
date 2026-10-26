@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.7.1
+ * Version: 2.8.0
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.7.1' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.8.0' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -482,6 +482,7 @@ class YIMAI_GSO_Plugin {
         add_action( 'wp_ajax_yimai_gso_history_query', array( $this, 'ajax_history_query' ) );
         add_action( 'wp_ajax_yimai_gso_history_delete', array( $this, 'ajax_history_delete' ) );
         add_action( 'wp_ajax_yimai_gso_history_change_image', array( $this, 'ajax_history_change_image' ) );
+        add_action( 'wp_ajax_yimai_gso_history_list_images', array( $this, 'ajax_history_list_images' ) );
         add_action( 'wp_ajax_yimai_gso_history_stats', array( $this, 'ajax_history_stats' ) );
         add_action( 'wp_ajax_yimai_gso_search_posts', array( $this, 'ajax_search_posts' ) );
         
@@ -2095,13 +2096,69 @@ class YIMAI_GSO_Plugin {
     }
 
     /**
-     * AJAX: 内容管理 - 一键换图
+     * AJAX: 内容管理 - 列出文章正文中的全部配图（换图选择器数据源）
      *
-     * 为文章重新取一张配图：按当前配图设置取新图 → 上传媒体库 →
-     * 更新封面缩略图 + 替换正文第一张图（无图则在正文头部插入）→ 同步 zib_post_image。
+     * 返回每张图的位置序号、当前地址、缩略预览、alt、是否封面，
+     * 供前端渲染「选择要更换哪一张」的图片选择弹窗。
+     */
+    public function ajax_history_list_images() {
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( array( 'message' => '权限不足' ) );
+        }
+
+        $post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+        $post    = $post_id ? get_post( $post_id ) : null;
+        if ( ! $post ) {
+            wp_send_json_error( array( 'message' => '文章不存在' ) );
+        }
+        if ( get_post_meta( $post_id, 'yimai_gso_generated', true ) != 1 ) {
+            wp_send_json_error( array( 'message' => '仅支持插件生成的文章' ) );
+        }
+
+        $content = (string) $post->post_content;
+        if ( ! preg_match_all( '/<img\s[^>]*src=["\']([^"\']+)["\'][^>]*>/i', $content, $matches, PREG_SET_ORDER ) ) {
+            wp_send_json_success( array( 'items' => array(), 'count' => 0 ) );
+        }
+
+        $cover_id  = (int) get_post_thumbnail_id( $post_id );
+        $cover_url = $cover_id ? (string) wp_get_attachment_url( $cover_id ) : '';
+
+        $items = array();
+        foreach ( $matches as $i => $m ) {
+            $url  = html_entity_decode( $m[1], ENT_QUOTES );
+            $alt  = '';
+            if ( preg_match( '/alt=["\']([^"\']*)["\']/i', $m[0], $am ) ) {
+                $alt = $am[1];
+            }
+            // 本地图优先用中等尺寸缩略图预览，外链图原样返回
+            $thumb      = $url;
+            $attach_id  = attachment_url_to_postid( $url );
+            if ( $attach_id > 0 ) {
+                $thumb = wp_get_attachment_image_url( $attach_id, 'medium' ) ?: $url;
+            }
+            $items[] = array(
+                'index'    => $i,
+                'url'      => $url,
+                'thumb'    => $thumb,
+                'alt'      => $alt,
+                'is_cover' => ( 0 === $i ) || ( '' !== $cover_url && $url === $cover_url ),
+            );
+        }
+
+        wp_send_json_success( array( 'items' => $items, 'count' => count( $items ) ) );
+    }
+
+    /**
+     * AJAX: 内容管理 - 换图（支持指定位置 / 一键全部更换）
      *
-     * 图片源遵循现有「配图设置」：AI 生图 / MT Photos / 本地图库 / Pexels 等
-     * 全部走 YIMAI_GSO_Image_Handler::fetch_images() 统一入口。
+     * 参数 index：
+     * - 缺省或 0 → 换正文第 1 张图并同步封面（兼容旧「一键换图」行为）
+     * - 数字 N（≥1）→ 只换正文第 N+1 张图，不动封面
+     * - 'all' → 全部图片逐一更换，第 1 张同步封面
+     *
+     * 图片源遵循现有「配图设置」；替换只改 img 标签的 src/alt 并剥离
+     * srcset/懒加载属性，保留标签其余结构（class、style、包裹元素）。
      */
     public function ajax_history_change_image() {
         check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
@@ -2109,9 +2166,13 @@ class YIMAI_GSO_Plugin {
             wp_send_json_error( array( 'message' => '权限不足' ) );
         }
 
-        // 换图可能涉及 AI 生图，放宽执行时间
+        $index_raw    = isset( $_POST['index'] ) ? sanitize_text_field( wp_unslash( $_POST['index'] ) ) : '0';
+        $replace_all  = ( 'all' === $index_raw );
+        $target_index = $replace_all ? -1 : max( 0, absint( $index_raw ) );
+
+        // 全部更换可能逐张 AI 生图，放宽执行时间
         if ( function_exists( 'set_time_limit' ) ) {
-            @set_time_limit( 120 );
+            @set_time_limit( $replace_all ? 300 : 120 );
         }
 
         $post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
@@ -2128,6 +2189,20 @@ class YIMAI_GSO_Plugin {
             wp_send_json_error( array( 'message' => '仅支持插件生成的文章' ) );
         }
 
+        $content = (string) $post->post_content;
+        preg_match_all( '/<img\s[^>]*src=["\'][^"\']+["\'][^>]*>/i', $content, $img_tags );
+        $total_imgs = count( $img_tags[0] );
+
+        // 目标位置不存在（单换模式）→ 明确报错而不是悄悄换第一张
+        if ( ! $replace_all && $target_index > 0 && $target_index >= $total_imgs ) {
+            wp_send_json_error( array( 'message' => "文章只有 {$total_imgs} 张图，没有第 " . ( $target_index + 1 ) . " 张的位置" ) );
+        }
+        // 全部换但正文无图 → 按单换（首图）处理：头部插一张 + 封面
+        if ( $replace_all && 0 === $total_imgs ) {
+            $replace_all  = false;
+            $target_index = 0;
+        }
+
         // 换图关键词：优先文章关键词，其次标题
         $keyword = get_post_meta( $post_id, 'yimai_gso_keywords', true );
         if ( empty( $keyword ) ) {
@@ -2137,10 +2212,15 @@ class YIMAI_GSO_Plugin {
         require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-image-handler.php';
         $handler  = new YIMAI_GSO_Image_Handler();
         $provider = YIMAI_GSO_Settings::get( 'image_provider', 'pexels' );
+        $is_ai    = in_array( $provider, array( 'ai', 'dalle' ), true );
 
-        // AI 生图按次计费：只取 1 张（每次生成本身就不同）；
-        // 图库类 API 同关键词结果顺序固定：取 3 张 + 偏移轮换，连续点「换图」能看到不同图
-        $fetch_count = in_array( $provider, array( 'ai', 'dalle' ), true ) ? 1 : 3;
+        // 取图数量：AI 按次计费——单换只取 1 张；全部换取目标张数（上限 10）。
+        // 图库 API 结果顺序固定——取 3 张靠偏移轮换；全部换时取 min(N,10) 张循环分配。
+        if ( $replace_all ) {
+            $fetch_count = $is_ai ? min( max( $total_imgs, 1 ), 10 ) : min( max( $total_imgs, 3 ), 10 );
+        } else {
+            $fetch_count = $is_ai ? 1 : 3;
+        }
 
         $images = $handler->fetch_images( $keyword, $fetch_count, array(
             'title'   => $post->post_title,
@@ -2159,37 +2239,66 @@ class YIMAI_GSO_Plugin {
             wp_send_json_error( array( 'message' => '取图失败：图片源未返回可用图片' ) );
         }
 
-        // 轮换偏移：记录本篇已换图次数，在同批候选里循环取用
+        // 轮换偏移：单换在同一批候选里循环取用；全部换作为整体分配起点
         $offset = (int) get_post_meta( $post_id, 'yimai_gso_change_image_offset', true );
-        $pick   = $images[ $offset % count( $images ) ];
         update_post_meta( $post_id, 'yimai_gso_change_image_offset', $offset + 1 );
 
-        // 取第一张可用图，上传到媒体库
-        $new_image   = $pick;
-        $alt_text    = ! empty( $new_image['alt'] ) ? $new_image['alt'] : $post->post_title;
-        $attach_id   = $handler->upload_image_to_media( $new_image['url'], '', $alt_text, 60 );
+        $pick_index = $replace_all ? $offset : ( $offset % count( $images ) );
 
-        if ( is_wp_error( $attach_id ) || $attach_id <= 0 ) {
-            $err_msg = is_wp_error( $attach_id ) ? $attach_id->get_error_message() : '上传媒体库失败';
-            wp_send_json_error( array( 'message' => '图片入库失败：' . $err_msg ) );
+        // 为每个要换的位置预上传一张图（全部换=每个位置一张；单换=一张）
+        $positions = $replace_all ? range( 0, $total_imgs - 1 ) : array( $target_index );
+        $new_map   = array(); // position => [attach_id, url, alt]
+        foreach ( $positions as $pos ) {
+            $candidate = $images[ $pick_index % count( $images ) ];
+            $pick_index++;
+
+            $alt_text  = ! empty( $candidate['alt'] ) ? $candidate['alt'] : $post->post_title;
+            $attach_id = $handler->upload_image_to_media( $candidate['url'], '', $alt_text, 60 );
+            if ( is_wp_error( $attach_id ) || $attach_id <= 0 ) {
+                // 全部换模式下单张失败跳过该位置，其余位置继续；单换模式直接报错
+                if ( ! $replace_all ) {
+                    $err_msg = is_wp_error( $attach_id ) ? $attach_id->get_error_message() : '上传媒体库失败';
+                    wp_send_json_error( array( 'message' => '图片入库失败：' . $err_msg ) );
+                }
+                continue;
+            }
+            $new_map[ $pos ] = array(
+                'attach_id' => (int) $attach_id,
+                'url'       => (string) wp_get_attachment_url( $attach_id ),
+                'alt'       => $alt_text,
+            );
+        }
+        if ( empty( $new_map ) ) {
+            wp_send_json_error( array( 'message' => '图片入库失败：所有候选图均上传失败' ) );
         }
 
-        // 1) 更新封面缩略图（子比主题字段同步）
-        set_post_thumbnail( $post_id, $attach_id );
-        update_post_meta( $post_id, 'zib_post_image', $attach_id );
+        // 替换正文 img 标签：只改 src/alt，剥离 srcset/sizes/懒加载属性，保留其余结构
+        $counter = 0;
+        $content = preg_replace_callback(
+            '/<img\s[^>]*src=["\'][^"\']+["\'][^>]*>/i',
+            static function ( $m ) use ( &$counter, $new_map ) {
+                $pos = $counter++;
+                if ( ! isset( $new_map[ $pos ] ) ) {
+                    return $m[0]; // 该位置不换
+                }
+                $tag = $m[0];
+                // 剥离响应式与懒加载属性（指向旧图，残留会盖过新 src）
+                $tag = preg_replace( '/\s(srcset|sizes|data-src|data-lazy-src|data-original|data-lazy)=["\'][^"\']*["\']/i', '', $tag );
+                $tag = preg_replace( '/\ssrc=["\'][^"\']*["\']/i', ' src="' . esc_url( $new_map[ $pos ]['url'] ) . '"', $tag, 1 );
+                if ( preg_match( '/\salt=["\'][^"\']*["\']/i', $tag ) ) {
+                    $tag = preg_replace( '/\salt=["\'][^"\']*["\']/i', ' alt="' . esc_attr( $new_map[ $pos ]['alt'] ) . '"', $tag, 1 );
+                } else {
+                    $tag = preg_replace( '/^<img\s/i', '<img alt="' . esc_attr( $new_map[ $pos ]['alt'] ) . '" ', $tag, 1 );
+                }
+                return $tag;
+            },
+            $content
+        );
 
-        // 2) 替换正文第一张 <img>；正文无图则在头部插入
-        $content   = (string) $post->post_content;
-        $local_url = wp_get_attachment_url( $attach_id );
-        $alt_esc   = esc_attr( $alt_text );
-        $new_tag   = '<p><img src="' . esc_url( $local_url ) . '" alt="' . $alt_esc . '" /></p>';
-
-        if ( preg_match( '/<img\s[^>]*src=["\'][^"\']+["\'][^>]*>/i', $content, $m ) ) {
-            $content = preg_replace( '/<img\s[^>]*src=["\'][^"\']+["\'][^>]*>/i', $new_tag, $content, 1 );
-            // 清掉旧首图残留的空 <p> 包裹（<p></p> 或 <p> </p>）
-            $content = preg_replace( '/<p>\s*<\/p>/i', '', $content, 1 );
-        } else {
-            $content = $new_tag . "\n" . $content;
+        // 单换首图且正文原本无图：头部插入新图
+        if ( ! $replace_all && isset( $new_map[ $target_index ] ) && 0 === $total_imgs ) {
+            $img = $new_map[ $target_index ];
+            $content = '<p><img src="' . esc_url( $img['url'] ) . '" alt="' . esc_attr( $img['alt'] ) . '" /></p>' . "\n" . $content;
         }
 
         wp_update_post( array(
@@ -2197,16 +2306,28 @@ class YIMAI_GSO_Plugin {
             'post_content' => $content,
         ) );
 
-        // 图片计数 +1（保留原有计数，仅追加）
-        $old_count = (int) get_post_meta( $post_id, 'yimai_gso_image_count', true );
-        update_post_meta( $post_id, 'yimai_gso_image_count', $old_count + 1 );
+        // 封面同步：换了第 1 张（或全部换）时更新缩略图与子比主题字段
+        $results = array();
+        if ( isset( $new_map[0] ) ) {
+            set_post_thumbnail( $post_id, $new_map[0]['attach_id'] );
+            update_post_meta( $post_id, 'zib_post_image', $new_map[0]['attach_id'] );
+        }
+        foreach ( $new_map as $pos => $img ) {
+            $results[] = array(
+                'index'     => $pos,
+                'thumb_url' => wp_get_attachment_image_url( $img['attach_id'], 'medium' ) ?: $img['url'],
+                'image_url' => $img['url'],
+            );
+        }
 
-        $thumb_url = wp_get_attachment_image_url( $attach_id, 'thumbnail' ) ?: $local_url;
+        // 图片计数累加（保留原有计数，仅追加）
+        $old_count = (int) get_post_meta( $post_id, 'yimai_gso_image_count', true );
+        update_post_meta( $post_id, 'yimai_gso_image_count', $old_count + count( $new_map ) );
 
         wp_send_json_success( array(
-            'message'   => '配图已更换',
-            'thumb_url' => $thumb_url,
-            'image_url' => $local_url,
+            'message'    => $replace_all ? '已更换全部 ' . count( $new_map ) . ' 张配图' : '已更换第 ' . ( $target_index + 1 ) . ' 张配图',
+            'results'    => $results,
+            'replaced'   => count( $new_map ),
         ) );
     }
 

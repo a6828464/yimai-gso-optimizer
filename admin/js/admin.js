@@ -4315,40 +4315,10 @@ function esc(s) {
             $('#yimai-gso-history-modal').fadeOut(150);
         });
 
-        // 详情弹窗内的一键换图（弹窗内容动态渲染，用委托绑定）
+        // 详情弹窗内的一键换图（弹窗内容动态渲染，用委托绑定）→ 打开图片选择弹窗
         $(document).off('click', '.yimai-gso-detail-change-image-btn').on('click', '.yimai-gso-detail-change-image-btn', function () {
-            var $btn = $(this);
-            var id = $btn.data('id');
-            var origLabel = $btn.html();
-            $btn.prop('disabled', true).html('⏳ 换图中…');
-
-            $.post(yimaiGsoData.ajaxUrl, {
-                action: 'yimai_gso_history_change_image',
-                nonce: yimaiGsoData.nonce,
-                post_id: id
-            }, function (res) {
-                $btn.prop('disabled', false).html(origLabel);
-                if (!res.success) {
-                    alert('换图失败：' + ((res.data && res.data.message) || '未知错误'));
-                    return;
-                }
-                // 同步卡片缩略图与缓存
-                if (res.data && res.data.thumb_url) {
-                    var sep = res.data.thumb_url.indexOf('?') >= 0 ? '&' : '?';
-                    var bustUrl = res.data.thumb_url + sep + 't=' + Date.now();
-                    var $thumb = $('.yimai-gso-article-card[data-id="' + id + '"]').find('.yimai-gso-card-thumb img');
-                    if ($thumb.length) {
-                        $thumb.attr('src', bustUrl);
-                    } else {
-                        $('.yimai-gso-article-card[data-id="' + id + '"]').find('.yimai-gso-card-thumb').prepend('<img src="' + bustUrl + '" alt="">');
-                    }
-                    if (historyCardCache[id]) historyCardCache[id].thumbnail = res.data.thumb_url;
-                }
-                showSaveSuccessToast('history-image');
-            }).fail(function () {
-                $btn.prop('disabled', false).html(origLabel);
-                alert('换图失败：网络错误，请重试');
-            });
+            var id = $(this).data('id');
+            openImagePicker(id);
         });
 
         // 详情弹窗内的删除文章
@@ -4484,42 +4454,10 @@ function esc(s) {
                 showCardDetailModal(id);
             });
 
-            // 一键换图：按当前配图设置重新取图，成功后刷新缩略图
+            // 换图：先打开图片选择弹窗（列出全部配图，单张换/一键全换）
             $('.yimai-gso-card-change-image-btn').off('click').on('click', function () {
-                var $btn = $(this);
-                var id = $btn.data('id');
-                var $card = $('.yimai-gso-article-card[data-id="' + id + '"]');
-                var origLabel = $btn.html();
-                $btn.prop('disabled', true).html('⏳ 换图中…');
-
-                $.post(yimaiGsoData.ajaxUrl, {
-                    action: 'yimai_gso_history_change_image',
-                    nonce: yimaiGsoData.nonce,
-                    post_id: id
-                }, function (res) {
-                    $btn.prop('disabled', false).html(origLabel);
-                    if (!res.success) {
-                        alert('换图失败：' + ((res.data && res.data.message) || '未知错误'));
-                        return;
-                    }
-                    // 就地更新卡片缩略图（不整页刷新）
-                    if (res.data && res.data.thumb_url) {
-                        var $thumb = $card.find('.yimai-gso-card-thumb img');
-                        if ($thumb.length) {
-                            // 加时间戳强制刷新缓存
-                            var sep = res.data.thumb_url.indexOf('?') >= 0 ? '&' : '?';
-                            $thumb.attr('src', res.data.thumb_url + sep + 't=' + Date.now());
-                        } else {
-                            $card.find('.yimai-gso-card-thumb').prepend('<img src="' + res.data.thumb_url + '" alt="">');
-                        }
-                        // 同步详情缓存里的缩略图
-                        if (historyCardCache[id]) historyCardCache[id].thumbnail = res.data.thumb_url;
-                    }
-                    showSaveSuccessToast('history-image');
-                }).fail(function () {
-                    $btn.prop('disabled', false).html(origLabel);
-                    alert('换图失败：网络错误，请重试');
-                });
+                var id = $(this).data('id');
+                openImagePicker(id);
             });
 
             // 删除文章（带确认；只删插件生成的文章，后端二次校验）
@@ -4562,6 +4500,142 @@ function esc(s) {
     }
 
     var historyCardCache = {};
+
+    // ==================== 换图选择弹窗 ====================
+    // 列出文章全部配图：每张可单独换，也可一键全换；换完就地刷新预览与卡片缩略图
+    var pickerPostId = 0;
+
+    function openImagePicker(id) {
+        pickerPostId = id;
+        var $modal = $('#yimai-gso-image-picker-modal');
+        var $body = $('#yimai-gso-image-picker-body');
+        $body.html('<div style="text-align:center;padding:30px;color:#94a3b8;"><span class="yimai-gso-loading"></span> 正在读取文章配图…</div>');
+        $modal.fadeIn(150);
+
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_history_list_images',
+            nonce: yimaiGsoData.nonce,
+            post_id: id
+        }, function (res) {
+            if (!res.success) {
+                $body.html('<p style="color:#ef4444;">' + escHtml((res.data && res.data.message) || '读取失败') + '</p>');
+                return;
+            }
+            renderImagePicker(res.data);
+        }).fail(function () {
+            $body.html('<p style="color:#ef4444;">网络错误，请重试</p>');
+        });
+    }
+
+    function renderImagePicker(data) {
+        var $body = $('#yimai-gso-image-picker-body');
+        var items = data.items || [];
+
+        if (!items.length) {
+            $body.html(
+                '<div style="text-align:center;padding:24px;color:#64748b;">' +
+                '<p>这篇文章正文没有配图。</p>' +
+                '<button type="button" class="button button-primary yimai-gso-picker-change-all">生成一张配图并设为封面</button>' +
+                '</div>'
+            );
+            return;
+        }
+
+        var html = '<p style="margin:0 0 14px;color:#64748b;font-size:13px;">共 ' + items.length + ' 张配图。点「换这张」单独更换该位置的图；第 1 张图会同步为文章封面。</p>';
+        html += '<div class="yimai-gso-picker-grid">';
+        items.forEach(function (it) {
+            html += '<div class="yimai-gso-picker-item" data-index="' + it.index + '">' +
+                '<div class="yimai-gso-picker-thumb">' +
+                '<img src="' + escHtml(it.thumb) + '" alt="" loading="lazy">' +
+                (it.is_cover ? '<span class="yimai-gso-picker-cover-tag">封面</span>' : '') +
+                '</div>' +
+                '<div class="yimai-gso-picker-item-info">' +
+                '<span class="yimai-gso-picker-pos">第 ' + (it.index + 1) + ' 张</span>' +
+                '<button type="button" class="button button-small yimai-gso-picker-change-one" data-index="' + it.index + '">🔄 换这张</button>' +
+                '</div>' +
+                '</div>';
+        });
+        html += '</div>';
+        html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;display:flex;gap:8px;align-items:center;">' +
+            '<button type="button" class="button button-primary yimai-gso-picker-change-all">🔁 一键更换全部 ' + items.length + ' 张</button>' +
+            '<span class="yimai-gso-picker-status" style="color:#64748b;font-size:12px;"></span>' +
+            '</div>';
+        $body.html(html);
+    }
+
+    function pickerApplyResults(res) {
+        var data = res.data || {};
+        var results = data.results || [];
+
+        // 就地刷新选择弹窗内对应位置的预览图
+        results.forEach(function (r) {
+            var $item = $('.yimai-gso-picker-item[data-index="' + r.index + '"]');
+            if ($item.length) {
+                var sep = (r.thumb_url || r.image_url).indexOf('?') >= 0 ? '&' : '?';
+                $item.find('.yimai-gso-picker-thumb img').attr('src', (r.thumb_url || r.image_url) + sep + 't=' + Date.now());
+                if (r.index === 0) {
+                    if (!$item.find('.yimai-gso-picker-cover-tag').length) {
+                        $item.find('.yimai-gso-picker-thumb').append('<span class="yimai-gso-picker-cover-tag">封面</span>');
+                    }
+                }
+            }
+        });
+
+        // 换了第 1 张 → 同步刷新内容管理卡片的封面缩略图与缓存
+        var first = results.filter(function (r) { return r.index === 0; })[0];
+        if (first && (first.thumb_url || first.image_url)) {
+            var thumb = first.thumb_url || first.image_url;
+            var sep = thumb.indexOf('?') >= 0 ? '&' : '?';
+            var $thumb = $('.yimai-gso-article-card[data-id="' + pickerPostId + '"]').find('.yimai-gso-card-thumb img');
+            if ($thumb.length) {
+                $thumb.attr('src', thumb + sep + 't=' + Date.now());
+            } else {
+                $('.yimai-gso-article-card[data-id="' + pickerPostId + '"]').find('.yimai-gso-card-thumb').prepend('<img src="' + thumb + sep + 't=' + Date.now() + '" alt="">');
+            }
+            if (historyCardCache[pickerPostId]) historyCardCache[pickerPostId].thumbnail = thumb;
+        }
+
+        $('.yimai-gso-picker-status').css('color', '#059669').text('✅ ' + (data.message || '配图已更换'));
+    }
+
+    function pickerRequest(index, $btn, doneLabel) {
+        var origLabel = $btn.html();
+        $btn.prop('disabled', true).html('⏳ 处理中…');
+        $('.yimai-gso-picker-status').css('color', '#64748b').text(index === 'all' ? '正在逐张更换全部配图，图片较多时请耐心等待…' : '正在更换所选配图…');
+
+        $.post(yimaiGsoData.ajaxUrl, {
+            action: 'yimai_gso_history_change_image',
+            nonce: yimaiGsoData.nonce,
+            post_id: pickerPostId,
+            index: index
+        }, function (res) {
+            $btn.prop('disabled', false).html(doneLabel || origLabel);
+            if (!res.success) {
+                $('.yimai-gso-picker-status').css('color', '#ef4444').text('❌ ' + ((res.data && res.data.message) || '未知错误'));
+                return;
+            }
+            pickerApplyResults(res);
+        }).fail(function () {
+            $btn.prop('disabled', false).html(doneLabel || origLabel);
+            $('.yimai-gso-picker-status').css('color', '#ef4444').text('❌ 网络错误，请重试');
+        });
+    }
+
+    // 弹窗内按钮全部用委托（内容动态渲染）
+    $(document)
+        .off('click', '#yimai-gso-image-picker-modal .yimai-gso-modal-close, #yimai-gso-image-picker-modal .yimai-gso-modal-overlay')
+        .on('click', '#yimai-gso-image-picker-modal .yimai-gso-modal-close, #yimai-gso-image-picker-modal .yimai-gso-modal-overlay', function () {
+            $('#yimai-gso-image-picker-modal').fadeOut(150);
+        })
+        .off('click', '.yimai-gso-picker-change-one')
+        .on('click', '.yimai-gso-picker-change-one', function () {
+            var idx = $(this).data('index');
+            pickerRequest(idx, $(this), '🔄 换这张');
+        })
+        .off('click', '.yimai-gso-picker-change-all')
+        .on('click', '.yimai-gso-picker-change-all', function () {
+            pickerRequest('all', $(this), '🔁 一键更换全部');
+        });
 
     function showCardDetailModal(id) {
         var $modal = $('#yimai-gso-history-modal');
