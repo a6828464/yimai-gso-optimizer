@@ -157,8 +157,12 @@ class YIMAI_GSO_Alert_Engine {
         self::ensure_table();
 
         // 去重：相同 rule_key + 相同 context hash 的 Active 告警不重复创建
+        // 修复：哈希计算必须与入库编码一致（JSON_UNESCAPED_UNICODE，存原始中文），
+        // 否则 PHP 端 \uXXXX 转义哈希永远对不上 SQL 端对原始中文的 MD5，
+        // 导致每小时检测都插入一条重复告警（曾积压 206 条同文案 active 预警）。
         if ( ! empty( $alert['context'] ) ) {
-            $ctx_hash = md5( $alert['rule_key'] . '|' . json_encode( $alert['context'] ) );
+            $ctx_json  = json_encode( $alert['context'], JSON_UNESCAPED_UNICODE );
+            $ctx_hash  = md5( $alert['rule_key'] . '|' . $ctx_json );
             $exists = $wpdb->get_var( $wpdb->prepare(
                 "SELECT id FROM `{$table}`
                  WHERE rule_key = %s AND status = 'active' AND MD5(CONCAT(rule_key, '|', COALESCE(context, ''))) = %s
@@ -170,6 +174,18 @@ class YIMAI_GSO_Alert_Engine {
                 return (int) $exists;
             }
         }
+
+        // 收敛：同 rule_key 的未处理（active）告警只保留一条。
+        // 检测每次运行，问题都还在（比如爬虫持续零访问），会不断产生同规则告警；
+        // 旧的未处理告警没有保留价值，在插入新告警前统一标记 resolved，
+        // 既清理历史积压（206 条同文案），也防止未来再积压。
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE `{$table}`
+             SET status = 'resolved', resolved_at = %s
+             WHERE rule_key = %s AND status = 'active'",
+            current_time( 'mysql' ),
+            $alert['rule_key']
+        ) );
 
         $data = array(
             'rule_key'   => $alert['rule_key'],
@@ -274,6 +290,8 @@ class YIMAI_GSO_Alert_Engine {
         }
 
         $issues = array();
+        $downgrade_to_warning = false; // 纯零访问（非骤降）时降级为 warning
+        $dropped_crawlers     = array(); // 上周期有访问、本周归零的爬虫（真·疑似误封）
 
         // 检查 1: Crawler_Editor 规则 vs 实际 robots.txt
         if ( class_exists( 'YIMAI_GSO_Crawler_Editor' ) ) {
@@ -321,23 +339,48 @@ class YIMAI_GSO_Alert_Engine {
                 }
             }
 
-            $zero_crawlers = array();
-            $key_bots = array( 'GPTBot', 'Google-Extended', 'ClaudeBot', 'DeepSeekBot' );
-            foreach ( $key_bots as $bot ) {
-                if ( ! isset( $by_crawler[ $bot ] ) || $by_crawler[ $bot ] === 0 ) {
-                    $zero_crawlers[] = $bot;
+            // 对照组：上一个 7 天（第 8~14 天）的访问量，用于区分「骤降」与「从未被爬」
+            $prev_stats   = YIMAI_GSO_Crawler_Tracker::get_stats( 14 );
+            $prev_crawler = array();
+            if ( ! empty( $prev_stats['by_crawler'] ) ) {
+                foreach ( $prev_stats['by_crawler'] as $row ) {
+                    $prev_crawler[ $row['crawler_key'] ] = (int) $row['total_visits'];
                 }
             }
 
-            if ( count( $zero_crawlers ) >= 3 ) {
-                $issues[] = '最近7天多个关键AI爬虫（' . implode( ', ', $zero_crawlers ) . '）零访问，可能被封锁或策略变更';
+            $zero_crawlers     = array(); // 最近7天零访问的所有关键爬虫
+            $dropped_crawlers  = array(); // 上周期有访问、本周归零（真·骤降，疑似被封）
+            $never_crawlers    = array(); // 两周期都是零（站点还没被这些引擎收录，常态）
+            $key_bots = array( 'GPTBot', 'Google-Extended', 'ClaudeBot', 'DeepSeekBot' );
+            foreach ( $key_bots as $bot ) {
+                $recent_visits = isset( $by_crawler[ $bot ] ) ? $by_crawler[ $bot ] : 0;
+                if ( $recent_visits > 0 ) {
+                    continue;
+                }
+                $zero_crawlers[] = $bot;
+                if ( isset( $prev_crawler[ $bot ] ) && $prev_crawler[ $bot ] > 0 ) {
+                    $dropped_crawlers[] = $bot;
+                } else {
+                    $never_crawlers[] = $bot;
+                }
+            }
+
+            // 上周期有访问、本周归零 ≥ 3 个 → critical（真·疑似误封/策略变更）
+            if ( count( $dropped_crawlers ) >= 3 ) {
+                $issues[] = '最近7天多个关键AI爬虫（' . implode( ', ', $dropped_crawlers ) . '）访问归零，上一周期均有访问记录，可能被封锁或策略变更';
+            } elseif ( count( $zero_crawlers ) >= 3 ) {
+                // 从未被爬（或少量归零）：降级为提示性 issue，由下方统一按 warning 报出
+                $issues[] = '最近7天关键AI爬虫（' . implode( ', ', $zero_crawlers ) . '）零访问。若站点为新站或尚未被 AI 引擎收录属正常现象；若此前有收录建议检查 robots.txt 与防火墙策略';
+                $downgrade_to_warning = true;
             }
         }
 
         if ( ! empty( $issues ) ) {
             self::create_alert( array(
                 'rule_key' => 'R2',
-                'severity' => 'critical',
+                // 仅「上周期有访问、本周归零」的真骤降才 critical；
+                // 纯零访问（新站/未被收录常态）降为 warning，避免常态噪音
+                'severity' => ! empty( $downgrade_to_warning ) && empty( $dropped_crawlers ) ? 'warning' : 'critical',
                 'title'    => 'AI 爬虫访问异常',
                 'message'  => implode( '；', $issues ),
                 'context'  => array( 'issues' => $issues ),

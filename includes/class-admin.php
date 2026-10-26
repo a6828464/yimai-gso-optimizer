@@ -3378,10 +3378,13 @@ class YIMAI_GSO_Admin {
             <aside class="yimai-gso-sidebar">
                 <div class="yimai-gso-sidebar-header">
                     <div class="yimai-gso-sidebar-brand-icon">
-                        <img src="<?php echo esc_url( YIMAI_GSO_PLUGIN_URL . 'assets/images/gso-logo.png' ); ?>" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:8px;">
+                        <img src="<?php echo esc_url( YIMAI_GSO_PLUGIN_URL . 'assets/images/gso-logo.png' ); ?>" alt="一麦GSO" class="yimai-gso-brand-logo">
                     </div>
+                    <!-- 品牌标题用 div 而非 h2：WP common.js 会把 .notice 移动到 .wrap 内
+                         第一个 h1/h2 之后，这里曾因此把保存提示塞进紫色渐变头部里，
+                         与半透明白字样式叠加后完全看不清（用户报告「提醒颜色重叠」）。 -->
                     <div class="yimai-gso-sidebar-brand-text">
-                        <h2>一麦GSO双擎优化</h2>
+                        <div class="yimai-gso-sidebar-brand-name">一麦GSO双擎优化</div>
                         <p>SEO排名与GEO引用双引擎协同优化</p>
                     </div>
                 </div>

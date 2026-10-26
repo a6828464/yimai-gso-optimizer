@@ -1939,7 +1939,9 @@ function esc(s) {
             'internal-links': '✅ 智能内链设置已保存',
             'auto-alt':       '✅ 自动图片ALT设置已保存',
             'seo-push':       '✅ SEO推送配置已保存',
-            'llms-txt':       '✅ LLMs.txt 设置已保存'
+            'llms-txt':       '✅ LLMs.txt 设置已保存',
+            'history-image':  '✅ 配图已更换',
+            'history-delete': '✅ 文章已删除'
         };
         var msg = messages[tab] || '✅ 设置已保存';
 
@@ -3815,6 +3817,8 @@ function esc(s) {
         html += '<div class="yimai-gso-detail-actions">';
         html += '<a href="' + item.view_url + '" target="_blank" class="button button-primary">查看文章</a>';
         html += '<a href="' + item.edit_url + '" class="button">编辑文章</a>';
+        html += '<button type="button" class="button yimai-gso-detail-change-image-btn" data-id="' + item.id + '">🔄 一键换图</button>';
+        html += '<button type="button" class="button yimai-gso-detail-delete-btn" data-id="' + item.id + '" style="color:#dc2626;">🗑 删除文章</button>';
         html += '</div>';
 
         html += '</div>';
@@ -4311,6 +4315,72 @@ function esc(s) {
             $('#yimai-gso-history-modal').fadeOut(150);
         });
 
+        // 详情弹窗内的一键换图（弹窗内容动态渲染，用委托绑定）
+        $(document).off('click', '.yimai-gso-detail-change-image-btn').on('click', '.yimai-gso-detail-change-image-btn', function () {
+            var $btn = $(this);
+            var id = $btn.data('id');
+            var origLabel = $btn.html();
+            $btn.prop('disabled', true).html('⏳ 换图中…');
+
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_history_change_image',
+                nonce: yimaiGsoData.nonce,
+                post_id: id
+            }, function (res) {
+                $btn.prop('disabled', false).html(origLabel);
+                if (!res.success) {
+                    alert('换图失败：' + ((res.data && res.data.message) || '未知错误'));
+                    return;
+                }
+                // 同步卡片缩略图与缓存
+                if (res.data && res.data.thumb_url) {
+                    var sep = res.data.thumb_url.indexOf('?') >= 0 ? '&' : '?';
+                    var bustUrl = res.data.thumb_url + sep + 't=' + Date.now();
+                    var $thumb = $('.yimai-gso-article-card[data-id="' + id + '"]').find('.yimai-gso-card-thumb img');
+                    if ($thumb.length) {
+                        $thumb.attr('src', bustUrl);
+                    } else {
+                        $('.yimai-gso-article-card[data-id="' + id + '"]').find('.yimai-gso-card-thumb').prepend('<img src="' + bustUrl + '" alt="">');
+                    }
+                    if (historyCardCache[id]) historyCardCache[id].thumbnail = res.data.thumb_url;
+                }
+                showSaveSuccessToast('history-image');
+            }).fail(function () {
+                $btn.prop('disabled', false).html(origLabel);
+                alert('换图失败：网络错误，请重试');
+            });
+        });
+
+        // 详情弹窗内的删除文章
+        $(document).off('click', '.yimai-gso-detail-delete-btn').on('click', '.yimai-gso-detail-delete-btn', function () {
+            var $btn = $(this);
+            var id = $btn.data('id');
+            var title = (historyCardCache[id] && historyCardCache[id].title) || '该文章';
+            if (!window.confirm('确定删除文章《' + title + '》？\n删除后文章与封面图将进入回收站，此操作可在文章回收站恢复。')) {
+                return;
+            }
+            $btn.prop('disabled', true).html('删除中…');
+
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_history_delete',
+                nonce: yimaiGsoData.nonce,
+                ids: [id]
+            }, function (res) {
+                if (!res.success) {
+                    $btn.prop('disabled', false).html('🗑 删除文章');
+                    alert('删除失败：' + ((res.data && res.data.message) || '未知错误'));
+                    return;
+                }
+                $('#yimai-gso-history-modal').fadeOut(150);
+                showSaveSuccessToast('history-delete');
+                loadHistoryStats();
+                loadHistoryCards(currentHistoryPage);
+            }).fail(function () {
+                $btn.prop('disabled', false).html('🗑 删除文章');
+                alert('删除失败：网络错误，请重试');
+            });
+        });
+
         $(document).off('keydown').on('keydown', function (e) {
             if (e.key === 'Escape') $('#yimai-gso-history-modal').fadeOut(150);
         });
@@ -4398,7 +4468,9 @@ function esc(s) {
                     '<div class="yimai-gso-card-actions">' +
                     '<a href="' + item.view_url + '" target="_blank" class="button">查看</a>' +
                     '<a href="' + item.edit_url + '" class="button">编辑</a>' +
+                    '<button class="button yimai-gso-card-change-image-btn" data-id="' + item.id + '" title="按配图设置重新取一张图，不满意可连续点换">🔄 换图</button>' +
                     '<button class="button yimai-gso-card-detail-btn" data-id="' + item.id + '">详情</button>' +
+                    '<button class="button yimai-gso-card-delete-btn" data-id="' + item.id + '" style="color:#dc2626;">🗑 删除</button>' +
                     '</div>' +
                     '</div>' +
                     '</div>';
@@ -4410,6 +4482,79 @@ function esc(s) {
             $('.yimai-gso-card-detail-btn').off('click').on('click', function () {
                 var id = $(this).data('id');
                 showCardDetailModal(id);
+            });
+
+            // 一键换图：按当前配图设置重新取图，成功后刷新缩略图
+            $('.yimai-gso-card-change-image-btn').off('click').on('click', function () {
+                var $btn = $(this);
+                var id = $btn.data('id');
+                var $card = $('.yimai-gso-article-card[data-id="' + id + '"]');
+                var origLabel = $btn.html();
+                $btn.prop('disabled', true).html('⏳ 换图中…');
+
+                $.post(yimaiGsoData.ajaxUrl, {
+                    action: 'yimai_gso_history_change_image',
+                    nonce: yimaiGsoData.nonce,
+                    post_id: id
+                }, function (res) {
+                    $btn.prop('disabled', false).html(origLabel);
+                    if (!res.success) {
+                        alert('换图失败：' + ((res.data && res.data.message) || '未知错误'));
+                        return;
+                    }
+                    // 就地更新卡片缩略图（不整页刷新）
+                    if (res.data && res.data.thumb_url) {
+                        var $thumb = $card.find('.yimai-gso-card-thumb img');
+                        if ($thumb.length) {
+                            // 加时间戳强制刷新缓存
+                            var sep = res.data.thumb_url.indexOf('?') >= 0 ? '&' : '?';
+                            $thumb.attr('src', res.data.thumb_url + sep + 't=' + Date.now());
+                        } else {
+                            $card.find('.yimai-gso-card-thumb').prepend('<img src="' + res.data.thumb_url + '" alt="">');
+                        }
+                        // 同步详情缓存里的缩略图
+                        if (historyCardCache[id]) historyCardCache[id].thumbnail = res.data.thumb_url;
+                    }
+                    showSaveSuccessToast('history-image');
+                }).fail(function () {
+                    $btn.prop('disabled', false).html(origLabel);
+                    alert('换图失败：网络错误，请重试');
+                });
+            });
+
+            // 删除文章（带确认；只删插件生成的文章，后端二次校验）
+            $('.yimai-gso-card-delete-btn').off('click').on('click', function () {
+                var $btn = $(this);
+                var id = $btn.data('id');
+                var title = '';
+                var cached = historyCardCache[id];
+                if (cached && cached.title) {
+                    title = cached.title;
+                } else {
+                    title = $btn.closest('.yimai-gso-article-card').find('.yimai-gso-card-title').text();
+                }
+                if (!window.confirm('确定删除文章《' + title + '》？\n删除后文章与封面图将进入回收站，此操作可在文章回收站恢复。')) {
+                    return;
+                }
+                $btn.prop('disabled', true).html('删除中…');
+
+                $.post(yimaiGsoData.ajaxUrl, {
+                    action: 'yimai_gso_history_delete',
+                    nonce: yimaiGsoData.nonce,
+                    ids: [id]
+                }, function (res) {
+                    if (!res.success) {
+                        $btn.prop('disabled', false).html('🗑 删除');
+                        alert('删除失败：' + ((res.data && res.data.message) || '未知错误'));
+                        return;
+                    }
+                    showSaveSuccessToast('history-delete');
+                    loadHistoryStats();
+                    loadHistoryCards(currentHistoryPage);
+                }).fail(function () {
+                    $btn.prop('disabled', false).html('🗑 删除');
+                    alert('删除失败：网络错误，请重试');
+                });
             });
 
             renderPagination(d.page, d.pages, d.total, loadHistoryCards);

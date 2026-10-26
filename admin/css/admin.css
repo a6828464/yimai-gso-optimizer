@@ -2772,13 +2772,15 @@ body.wp-admin div.wrap.yimai-gso-wrap {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 52px;
-    height: 52px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, rgba(251,191,36,.3), rgba(245,158,11,.2));
-    box-shadow: 0 4px 16px rgba(251,191,36,.2);
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    /* 白色底托：logo 本体是深绿透明底，直接叠在紫色渐变上对比度不足（用户反馈「不清晰」） */
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,.22);
     margin-bottom: 14px;
-    border: 1px solid rgba(251,191,36,.3);
+    border: 1px solid rgba(255,255,255,.55);
+    overflow: hidden;
 }
 .yimai-gso-sidebar-brand-icon .dashicons {
     font-size: 26px;
@@ -2786,17 +2788,71 @@ body.wp-admin div.wrap.yimai-gso-wrap {
     height: 26px;
     color: #fbbf24;
 }
+/* logo 图片：48px 显示尺寸 + 饱和渲染，消除深绿叠紫底的模糊感 */
+.yimai-gso-brand-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    image-rendering: -webkit-optimize-contrast;
+    display: block;
+}
+.yimai-gso-sidebar-brand-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+    margin: 0 0 6px 0;
+    line-height: 1.25;
+}
+.yimai-gso-sidebar-brand-text p {
+    font-size: 12px;
+    color: rgba(255,255,255,.75);
+    font-weight: 500;
+    margin: 0;
+    line-height: 1.5;
+}
+/* 兼容旧标记：品牌标题曾用 h2，保留同名样式防止旧缓存页面错位 */
 .yimai-gso-sidebar-brand-text h2 {
     font-size: 16px;
     font-weight: 700;
     color: #fff;
     letter-spacing: 0.5px;
     margin: 0 0 6px 0;
+    line-height: 1.25;
 }
-.yimai-gso-sidebar-brand-text p {
-    font-size: 12px;
-    color: rgba(255,255,255,.65);
-    font-weight: 500;
+/* ===== 修复「保存提醒出现在 LOGO 下方且看不清」=====
+   根因一：WP common.js 把 .notice 移到 .wrap 内第一个 h1/h2 后（已改 div）；
+   根因二：通知若仍落在侧边栏渐变头部内，其 p 会继承上面的半透明白字。
+   此处对插件页面内所有 .notice 兜底强制标准可读配色，任何落点都清晰。 */
+body.wp-admin .yimai-gso-wrap .notice,
+body.wp-admin .yimai-gso-wrap div.notice {
+    background: #fff !important;
+    color: #1e293b !important;
+    border-left-color: #72aee6 !important;
+    margin: 10px 0 !important;
+    padding: 12px 16px !important;
+}
+body.wp-admin .yimai-gso-wrap .notice p,
+body.wp-admin .yimai-gso-wrap .notice strong,
+body.wp-admin .yimai-gso-wrap .notice code {
+    color: #1e293b !important;
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+}
+body.wp-admin .yimai-gso-wrap .notice a {
+    color: #2271b1 !important;
+}
+body.wp-admin .yimai-gso-wrap .notice.notice-warning p,
+body.wp-admin .yimai-gso-wrap .notice.notice-warning strong {
+    color: #7a5c00 !important;
+}
+body.wp-admin .yimai-gso-wrap .notice.notice-success p,
+body.wp-admin .yimai-gso-wrap .notice.notice-success strong {
+    color: #0a6b32 !important;
+}
+body.wp-admin .yimai-gso-wrap .notice.notice-error p,
+body.wp-admin .yimai-gso-wrap .notice.notice-error strong {
+    color: #8a1f1f !important;
 }
 
 .yimai-gso-sidebar-nav {
