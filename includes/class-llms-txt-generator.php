@@ -22,6 +22,27 @@ class YIMAI_GSO_LLMs_Txt_Generator {
     const DEFAULT_MAX_POSTS = 100;
     const DEFAULT_MAX_DESC_LENGTH = 200;
 
+    /**
+     * 站点落地页（t8）
+     *
+     * 主题是以静态模板实现的单页式站点（page-studio.php / page-classes.php …），
+     * 后台未必建了同名 page。llms.txt 的 Core Pages 必须把这些真入口全部列出，
+     * 否则大模型只知道首页，站点等于只有一条 URL。
+     *
+     * 键为 slug，值为「标题 + 一句话用途」；若站点真建了同名 page，会改用其真实
+     * 标题与固定链接（自定义固定链接结构下也正确）。
+     */
+    const LANDING_PAGES = array(
+        'studio'      => array( 'title' => '空间与门店', 'desc' => '宁波门店地址、环境与到店方式' ),
+        'classes'     => array( 'title' => '课程体系', 'desc' => '瑜伽课程分类、难度与课表' ),
+        'training'    => array( 'title' => '教练培训', 'desc' => '瑜伽教培体系的课程与报名要求' ),
+        'membership'  => array( 'title' => '会员方案', 'desc' => '会员卡种、权益与价格' ),
+        'instructors' => array( 'title' => '师资团队', 'desc' => '教练背景、资质与专长' ),
+        'booking'     => array( 'title' => '预约体验', 'desc' => '在线预约体验课与咨询入口' ),
+        'contact'     => array( 'title' => '联系我们', 'desc' => '门店电话、地址与常见问答' ),
+        'blog'        => array( 'title' => '博客', 'desc' => '瑜伽练习方法与生活方式文章' ),
+    );
+
     public static function get_instance() {
         if ( null === self::$instance ) {
             self::$instance = new self();
@@ -263,22 +284,41 @@ class YIMAI_GSO_LLMs_Txt_Generator {
      */
     private function get_core_pages( $settings ) {
         $pages = array();
-        
+        $seen  = array();
+
         // 首页
+        $home_url = home_url( '/' );
         $pages[] = array(
             'title' => '首页',
-            'url'   => home_url( '/' ),
+            'url'   => $home_url,
             'desc'  => get_bloginfo( 'description' ),
         );
-        
+        $seen[] = $this->normalize_url( $home_url );
+
+        // 落地页（t8：/studio /classes /training /membership /instructors
+        // /booking /contact /blog —— 原先只输出首页一条，等于没告诉大模型站点结构）
+        foreach ( $this->get_landing_pages() as $landing ) {
+            $key = $this->normalize_url( $landing['url'] );
+            if ( in_array( $key, $seen, true ) ) {
+                continue;
+            }
+            $pages[] = $landing;
+            $seen[]  = $key;
+        }
+
         // 文章页面（首页或文章页）
         $posts_page_id = get_option( 'page_for_posts' );
         if ( $posts_page_id ) {
-            $pages[] = array(
-                'title' => '文章',
-                'url'   => get_permalink( $posts_page_id ),
-                'desc'  => '最新文章列表',
-            );
+            $posts_url = get_permalink( $posts_page_id );
+            $key       = $this->normalize_url( $posts_url );
+            if ( ! in_array( $key, $seen, true ) ) {
+                $pages[] = array(
+                    'title' => '文章',
+                    'url'   => $posts_url,
+                    'desc'  => '最新文章列表',
+                );
+                $seen[] = $key;
+            }
         }
         
         // 用户自定义页面
@@ -286,16 +326,85 @@ class YIMAI_GSO_LLMs_Txt_Generator {
             foreach ( $settings['core_pages'] as $page_id ) {
                 $page = get_post( $page_id );
                 if ( $page && 'publish' === $page->post_status ) {
+                    $page_url = get_permalink( $page->ID );
+                    $key      = $this->normalize_url( $page_url );
+                    if ( in_array( $key, $seen, true ) ) {
+                        continue;
+                    }
                     $pages[] = array(
                         'title' => get_the_title( $page ),
-                        'url'   => get_permalink( $page->ID ),
+                        'url'   => $page_url,
                         'desc'  => $this->get_post_excerpt( $page ),
                     );
+                    $seen[] = $key;
                 }
             }
         }
         
         return $pages;
+    }
+
+    /**
+     * 站点落地页列表（t8）
+     *
+     * @return array
+     */
+    private function get_landing_pages() {
+        $pages    = array();
+        $posts_id = (int) get_option( 'page_for_posts' );
+
+        foreach ( self::LANDING_PAGES as $slug => $meta ) {
+            $url   = home_url( '/' . $slug . '/' );
+            $title = $meta['title'];
+            $desc  = $meta['desc'];
+            $post  = null;
+
+            // 博客页优先指向「设置 → 阅读 → 文章页面」
+            if ( 'blog' === $slug && $posts_id ) {
+                $post = get_post( $posts_id );
+            }
+            if ( ! $post ) {
+                $candidate = get_page_by_path( $slug );
+                if ( $candidate && 'publish' === $candidate->post_status ) {
+                    $post = $candidate;
+                }
+            }
+
+            if ( $post ) {
+                // 已被 noindex 的页面不往 llms.txt 里塞
+                if ( class_exists( 'YIMAI_GSO_Sitemap_Generator' ) && method_exists( 'YIMAI_GSO_Sitemap_Generator', 'is_post_indexable' ) ) {
+                    $indexable = (bool) YIMAI_GSO_Sitemap_Generator::is_post_indexable( $post->ID );
+                } else {
+                    // 类未加载时按同一份 post meta 判定，避免依赖加载顺序
+                    $indexable = ( '1' !== (string) get_post_meta( $post->ID, 'yimai_gso_noindex', true ) );
+                }
+                if ( ! $indexable ) {
+                    continue;
+                }
+                $url   = get_permalink( $post );
+                $title = get_the_title( $post );
+            }
+
+            $pages[] = array(
+                'title' => $title ?: $meta['title'],
+                'url'   => $url,
+                'desc'  => $desc,
+            );
+        }
+
+        return (array) apply_filters( 'yimai_gso_llms_landing_pages', $pages );
+    }
+
+    /**
+     * URL 归一化（用于去重：忽略协议、host 大小写与末尾斜杠差异）
+     *
+     * @param string $url
+     * @return string
+     */
+    private function normalize_url( $url ) {
+        $url = strtolower( trim( (string) $url ) );
+        $url = preg_replace( '#^https?://#', '', $url );
+        return rtrim( $url, '/' );
     }
 
     /**
@@ -309,8 +418,24 @@ class YIMAI_GSO_LLMs_Txt_Generator {
         );
         
         // 排除分类
+        $exclude = array();
         if ( ! empty( $settings['excluded_categories'] ) ) {
-            $args['exclude'] = $settings['excluded_categories'];
+            $exclude = array_map( 'intval', (array) $settings['excluded_categories'] );
+        }
+
+        // t8：「未分类」不进 llms.txt —— 它只是默认分类的占位，对 AI 是纯噪声
+        $uncategorized = get_term_by( 'slug', 'uncategorized', 'category' );
+        if ( $uncategorized instanceof WP_Term ) {
+            $exclude[] = (int) $uncategorized->term_id;
+        }
+        $default_category = (int) get_option( 'default_category' );
+        if ( $default_category > 0 ) {
+            $exclude[] = $default_category;
+        }
+
+        $exclude = array_values( array_unique( array_filter( $exclude ) ) );
+        if ( ! empty( $exclude ) ) {
+            $args['exclude'] = $exclude;
         }
         
         $categories = get_categories( $args );

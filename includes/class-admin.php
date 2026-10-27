@@ -5815,6 +5815,10 @@ class YIMAI_GSO_Admin {
                                     <div class="yimai-gso-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap-post.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap-post.xml' ) ); ?></a></div>
                                 </div>
                                 <div class="yimai-gso-sp-sitemap-card">
+                                    <div class="yimai-gso-sp-sitemap-card-title">页面 Sitemap</div>
+                                    <div class="yimai-gso-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap-page.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap-page.xml' ) ); ?></a></div>
+                                </div>
+                                <div class="yimai-gso-sp-sitemap-card">
                                     <div class="yimai-gso-sp-sitemap-card-title">分类 Sitemap</div>
                                     <div class="yimai-gso-sp-sitemap-url"><a href="<?php echo esc_url( home_url( '/sitemap-taxonomy-category.xml' ) ); ?>" target="_blank"><?php echo esc_html( home_url( '/sitemap-taxonomy-category.xml' ) ); ?></a></div>
                                 </div>
@@ -6745,6 +6749,8 @@ class YIMAI_GSO_Admin {
         $entity       = YIMAI_GSO_GEO_Entity::get_entity_data();
         $entity_types = YIMAI_GSO_GEO_Entity::ENTITY_TYPES;
         $platforms    = YIMAI_GSO_GEO_Entity::SAMEAS_PLATFORMS;
+        // t8：地址/坐标/营业时间对 LocalBusiness 整个类型族都要显示
+        $is_local_type = in_array( $entity['entity_type'], array( 'LocalBusiness', 'HealthAndBeautyBusiness', 'HealthClub', 'ExerciseGym', 'SportsActivityLocation' ), true );
         // （原 $feature_ok = true + if(!$feature_ok) 恒假门控残留已按审计 B-4 删除）
         ?>
         <div class="yimai-gso-settings-section">
@@ -6792,12 +6798,43 @@ class YIMAI_GSO_Admin {
                     <input type="text" id="geo-entity-phone" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_phone'] ); ?>">
                 </div>
-                <?php if ( 'LocalBusiness' === $entity['entity_type'] ) : ?>
+                <?php if ( $is_local_type ) : ?>
                 <div class="yimai-gso-field-group">
                     <label>实体地址</label>
                     <input type="text" id="geo-entity-address" class="regular-text"
                            value="<?php echo esc_attr( $entity['entity_address'] ); ?>"
                            placeholder="省/市/区/街道 详细地址">
+                </div>
+                <div class="yimai-gso-field-group">
+                    <label>行政区划（市 / 省 / 邮编 / 国家）</label>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <input type="text" id="geo-entity-locality" class="regular-text" style="max-width:150px;"
+                               value="<?php echo esc_attr( $entity['entity_address_locality'] ); ?>" placeholder="宁波市">
+                        <input type="text" id="geo-entity-region" class="regular-text" style="max-width:150px;"
+                               value="<?php echo esc_attr( $entity['entity_address_region'] ); ?>" placeholder="浙江省">
+                        <input type="text" id="geo-entity-postal" class="regular-text" style="max-width:110px;"
+                               value="<?php echo esc_attr( $entity['entity_postal_code'] ); ?>" placeholder="315000">
+                        <input type="text" id="geo-entity-country" class="regular-text" style="max-width:80px;"
+                               value="<?php echo esc_attr( $entity['entity_address_country'] ); ?>" placeholder="CN">
+                    </div>
+                </div>
+                <div class="yimai-gso-field-group">
+                    <label>经纬度</label>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <input type="text" id="geo-entity-latitude" class="regular-text" style="max-width:160px;"
+                               value="<?php echo esc_attr( $entity['entity_latitude'] ); ?>" placeholder="纬度 29.8680">
+                        <input type="text" id="geo-entity-longitude" class="regular-text" style="max-width:160px;"
+                               value="<?php echo esc_attr( $entity['entity_longitude'] ); ?>" placeholder="经度 121.5490">
+                    </div>
+                    <small class="yimai-gso-field-hint">
+                        本地商家类型必须有经纬度：留空时前台 Schema 会自动降级为 Organization，不再声称 LocalBusiness（避免富媒体检测报错）。
+                    </small>
+                </div>
+                <div class="yimai-gso-field-group">
+                    <label>营业时间</label>
+                    <textarea id="geo-entity-hours" rows="2" class="large-text"
+                              placeholder="Mo-Su 09:00-21:00"><?php echo esc_textarea( $entity['entity_opening_hours'] ); ?></textarea>
+                    <small class="yimai-gso-field-hint">每行一条，支持 Mo-Su 09:00-21:00 或 周一至周日 09:00-21:00；无法解析时原样输出为 openingHours</small>
                 </div>
                 <?php endif; ?>
             </div>
@@ -6955,6 +6992,13 @@ class YIMAI_GSO_Admin {
                     entity_email: $('#geo-entity-email').val(),
                     entity_phone: $('#geo-entity-phone').val(),
                     entity_address: $('#geo-entity-address').length ? $('#geo-entity-address').val() : '',
+                    entity_latitude: $('#geo-entity-latitude').length ? $('#geo-entity-latitude').val() : '',
+                    entity_longitude: $('#geo-entity-longitude').length ? $('#geo-entity-longitude').val() : '',
+                    entity_postal_code: $('#geo-entity-postal').length ? $('#geo-entity-postal').val() : '',
+                    entity_address_locality: $('#geo-entity-locality').length ? $('#geo-entity-locality').val() : '',
+                    entity_address_region: $('#geo-entity-region').length ? $('#geo-entity-region').val() : '',
+                    entity_address_country: $('#geo-entity-country').length ? $('#geo-entity-country').val() : '',
+                    entity_opening_hours: $('#geo-entity-hours').length ? $('#geo-entity-hours').val() : '',
                     same_as: sameas
                 }, function(res) {
                     btn.prop('disabled', false);

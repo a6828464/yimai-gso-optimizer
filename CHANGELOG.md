@@ -1,5 +1,20 @@
 # 更新日志
 
+## 2.11.0
+
+SEO 系统层修复 7 项 + schema 声明一致性收口。**本版须与主题 ≥ 1.9.3 同批上线，先插件、后主题。**
+
+- **新增 `yimai_gso_emit_local_business` filter（默认 `true`）**：主题 1.9.3 依赖它接管门店 LocalBusiness 输出——返回 `false` 时插件不再输出 LocalBusiness 族节点。它与「无合法经纬度」共用同一道降级：命中任一条件即把 `@type` 降为 `Organization`，并一并省略 `geo`/`address`/`openingHoursSpecification`，不声称自己没有的本地商家身份
+- **发布顺序硬约束**：先装本插件、再装主题 1.9.3。反序时主题会让位（不注册该 filter、不输出两店），门店 Schema 由旧插件那份无坐标的节点承接；回滚必须先回主题、再回插件，反序（插件退 2.10.0 + 主题留 1.9.3）会重新出现 3 个冲突的本地实体
+- **GEO 实体补齐本地商家必备字段**：后台新增纬度/经度/邮编/城市/省份/国家/营业时间，经纬度按 ±90/±180 校验、越界即留空。`openingHoursSpecification` 支持 `Mo-Su 09:00-21:00`、`周一至周日 09:00-21:00`、`星期一至星期日 09:00-21:00` 与分段写法；解析不了的写法原样输出 `openingHours` 文本，不猜时间
+- **sitemap 拆出 page 子图**：`sitemap-post.xml` 只含文章，新增 `sitemap-page.xml`；索引只在对应类型有内容时列出子图，rewrite 规则 / query var / 文件生成 / flush 四处同步
+- **sitemap 尊重 noindex**：三层过滤（文章 meta、全局设置、分类与标签）在取 URL 前统一生效，noindex 页面不再进图
+- **修复 Course 误判**：课程相关文章不再一律标成 `Course`，按文章真实类型输出（702/706/1287 → `Article`）；`/training` 与 `/classes` 两个落地页保留 `COURSE`
+- **`ai-schema-coverage` 改为真实声明**（三处硬伤一并修）：平台条目不再回退配置里的 `schema_priority`，改用本页实际输出的 `@type` 集合，空集不写 `schema:`；首页 coverage 与真实输出逐项相等（此前恒为空数组）；`wp_head` 改为 schema=13 / meta=14，保证「先输出后读取」，插件自身节点（含 E-E-A-T 的 WebPage）也登记进 coverage；`is_home()` 不再放行，`/blog` 等二级归档不输出平台 meta，消除「只有 WebSite 的半截 coverage」
+- **robots 只声明 `sitemap.xml`**：默认模板与清洗函数都只保留 sitemap.xml（大小写与前后空格容错），`sitemap.html`、`llms.txt` 不再作为 Sitemap 声明输出，AI 爬虫块完整保留
+- **llms.txt Core Pages 补全**：9 个落地页（home/studio/classes/membership/booking/instructors/training/contact/blog）全部进入 Core Pages，仅在缺失时回退
+- 删除 sitemap 生成器里未使用的 `$allowed_files` 死变量
+
 ## 2.10.0
 
 文章同步到公众号草稿箱 + 后台 UI 统一与移动端修复：

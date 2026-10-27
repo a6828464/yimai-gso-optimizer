@@ -9,6 +9,16 @@ class YIMAI_GSO_Schema_Generator {
 
     private static $instance = null;
 
+    /**
+     * 本请求真实输出的 Schema @type 列表（t8）
+     *
+     * output_json_ld() 在 echo 前登记，供 ai-platform-adapter 生成
+     * ai-schema-coverage 时读取——只声明真正输出的类型，不再按平台偏好列表空喊。
+     *
+     * @var array
+     */
+    private static $emitted_types = array();
+
     public static function get_instance() {
         if ( null === self::$instance ) {
             self::$instance = new self();
@@ -77,6 +87,9 @@ class YIMAI_GSO_Schema_Generator {
     }
 
     public function output_json_ld() {
+        // t8：每次渲染先清空「已输出类型」登记，避免同一请求内重复调用留下脏数据
+        self::$emitted_types = array();
+
         // 预览请求跳过（防止内存溢出）
         if ( function_exists( 'yimai_gso_is_preview_request' ) && yimai_gso_is_preview_request() ) {
             return;
@@ -137,6 +150,16 @@ class YIMAI_GSO_Schema_Generator {
         $schema_type = get_post_meta( $post_id, 'yimai_gso_schema_type', true );
         if ( empty( $schema_type ) ) {
             $schema_type = $this->auto_detect_type( $post_id );
+            update_post_meta( $post_id, 'yimai_gso_schema_type', $schema_type );
+        }
+
+        // ★ t8：历史缓存纠正 —— 旧版本已把探店文误判成 Course 并写进 post meta，
+        //   只改 auto_detect_type 对它们无效（meta 非空就不再重算），这里强制复核一次。
+        //   人工在后台指定过的（带 locked 标记）一律不动。
+        if ( 'Course' === $schema_type
+             && '1' !== (string) get_post_meta( $post_id, 'yimai_gso_schema_type_locked', true )
+             && ! $this->is_course_page( $post_id ) ) {
+            $schema_type = 'Article';
             update_post_meta( $post_id, 'yimai_gso_schema_type', $schema_type );
         }
 
@@ -237,8 +260,62 @@ class YIMAI_GSO_Schema_Generator {
             return;
         }
 
+        // t8：登记本页真实输出的 @type（ai-schema-coverage 的唯一数据源）
+        $this->register_emitted_types( $schemas );
+
         foreach ( $schemas as $schema ) {
             echo '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT ) . '</script>' . "\n";
+        }
+    }
+
+    /**
+     * 本请求已真实输出的 Schema @type 列表（t8）
+     *
+     * @return array
+     */
+    public static function get_emitted_types() {
+        return array_values( self::$emitted_types );
+    }
+
+    /**
+     * 登记一组「即将输出」的 Schema 节点里的全部 @type
+     *
+     * 递归收集：@graph、potentialAction、query-input 这类嵌套节点里的 @type 同样
+     * 会出现在 <head> 里，也算真实输出（t9 F-1：首页的 SearchAction / EntryPoint /
+     * PropertyValueSpecification 不能因为层级深就漏报）。
+     *
+     * @param array|mixed $schemas 单个节点或节点数组
+     * @return void
+     */
+    private function register_emitted_types( $schemas ) {
+        foreach ( (array) $schemas as $schema ) {
+            $this->collect_emitted_types( $schema );
+        }
+    }
+
+    /**
+     * 递归收集单个节点及其子节点里的 @type
+     *
+     * @param mixed $node
+     * @return void
+     */
+    private function collect_emitted_types( $node ) {
+        if ( ! is_array( $node ) ) {
+            return;
+        }
+
+        if ( isset( $node['@type'] ) ) {
+            foreach ( (array) $node['@type'] as $type ) {
+                if ( is_string( $type ) && '' !== $type && ! in_array( $type, self::$emitted_types, true ) ) {
+                    self::$emitted_types[] = $type;
+                }
+            }
+        }
+
+        foreach ( $node as $value ) {
+            if ( is_array( $value ) ) {
+                $this->collect_emitted_types( $value );
+            }
         }
     }
 
@@ -287,11 +364,40 @@ class YIMAI_GSO_Schema_Generator {
         }
 
         // 检测 Course：课程/培训关键词 ≥3
-        if ( preg_match_all( '/(?:课程|培训|学习|课时|大纲|course|lesson|syllabus|报名费)/iu', $sample ) >= 3 ) {
+        // ★ t8 修复：原先任何 post_type 只要命中 3 个课程词就返回 Course，
+        //   探店/游记类博客文（/archives/702、706、1287）正文出现「课程/培训/报名费」
+        //   是常态，被标成 Course 会触发富媒体检测「课程缺少 provider/offers」。
+        //   现在只允许 page，且标题/别名确实属于课程页。
+        if ( $this->is_course_page( $post_id )
+             && preg_match_all( '/(?:课程|培训|学习|课时|大纲|course|lesson|syllabus|报名费)/iu', $sample ) >= 3 ) {
             return 'Course';
         }
 
         return 'Article';
+    }
+
+    /**
+     * 是否允许把该内容判定为 Course（t8）
+     *
+     * 两个条件同时成立才放行：
+     * 1. post_type = page（文章一律不是课程页）；
+     * 2. 标题或别名带课程语义（真实课程页 /classes、/training 能命中）。
+     *
+     * 站点若确有自定义课程型内容，可用 yimai_gso_schema_allow_course 过滤器改写。
+     *
+     * @param int $post_id
+     * @return bool
+     */
+    private function is_course_page( $post_id ) {
+        $post = get_post( $post_id );
+        $allow = false;
+
+        if ( $post && 'page' === $post->post_type ) {
+            $haystack  = $post->post_title . ' ' . $post->post_name;
+            $allow     = (bool) preg_match( '/(课程|课表|培训|师资|教培|教练班|course|training|classes|workshop)/iu', $haystack );
+        }
+
+        return (bool) apply_filters( 'yimai_gso_schema_allow_course', $allow, $post_id );
     }
 
     /**
@@ -977,6 +1083,11 @@ class YIMAI_GSO_Schema_Generator {
             return;
         }
 
+        // 首页同样要登记真实输出的 @type —— t9 F-1：原先只有 singular 分支登记，
+        // 首页明明输出了 WebSite/SearchAction/EntryPoint/PropertyValueSpecification/Organization，
+        // get_emitted_types() 却返回空数组，导致 ai-schema-coverage 永远漏报首页。
+        $this->register_emitted_types( $schemas );
+
         foreach ( $schemas as $schema ) {
             echo '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT ) . '</script>' . "\n";
         }
@@ -1088,6 +1199,8 @@ class YIMAI_GSO_Schema_Generator {
         if ( ! in_array( $type, $valid, true ) ) {
             return false;
         }
+        // t8：人工指定的类型打锁标记 —— 前台复核（Course → Article）不得推翻人的选择
+        update_post_meta( $post_id, 'yimai_gso_schema_type_locked', '1' );
         return update_post_meta( $post_id, 'yimai_gso_schema_type', $type );
     }
 

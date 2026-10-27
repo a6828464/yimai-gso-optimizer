@@ -112,6 +112,43 @@ class YIMAI_GSO_Crawler_Editor {
     // ==================== robots.txt 区块生成 ====================
 
     /**
+     * 过滤 robots.txt 里的非法地图声明
+     *
+     * 地图协议只接受 XML（或 RSS/Atom）格式；/sitemap.html 是给人看的索引页，
+     * llms.txt 是给大模型看的内容清单，两者都不是 sitemap。把它们写成
+     * 「Sitemap:」行只会制造无效抓取与 Search Console 报错，因此这里按扩展名
+     * 只保留 .xml 的声明行。
+     *
+     * @param string $text robots.txt 文本
+     * @return string
+     */
+    public static function sanitize_robots_text( $text ) {
+        if ( ! is_string( $text ) || '' === trim( $text ) ) {
+            return (string) $text;
+        }
+
+        $lines = preg_split( '/\r\n|\r|\n/', $text );
+        if ( ! is_array( $lines ) ) {
+            return $text;
+        }
+
+        $kept = array();
+        foreach ( $lines as $line ) {
+            if ( preg_match( '/^\s*sitemap\s*:\s*(\S+)/i', $line, $m ) ) {
+                $path = (string) wp_parse_url( trim( $m[1] ), PHP_URL_PATH );
+                if ( ! preg_match( '/\.xml$/i', $path ) ) {
+                    continue; // 非 XML 地图：整行丢弃
+                }
+                $kept[] = 'Sitemap: ' . esc_url_raw( trim( $m[1] ) );
+                continue;
+            }
+            $kept[] = $line;
+        }
+
+        return implode( "\n", $kept );
+    }
+
+    /**
      * 生成 AI 爬虫区块的文本内容
      * 由 sitemap-generator 的 render_robots() 调用
      */

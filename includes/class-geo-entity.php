@@ -22,6 +22,16 @@ class YIMAI_GSO_GEO_Entity {
     /** 内存缓存，z4() 可强制刷新 */
     private static $entity_cache = null;
 
+    /**
+     * 本次请求真实输出的实体 @type（t8）
+     *
+     * 供 ai-platform-adapter 的 ai-schema-coverage 读取——只声明实际输出的类型。
+     * null 表示没有输出（实体未配置 / 被主题接管 / 冲突插件在位）。
+     *
+     * @var string|null
+     */
+    private static $emitted_type = null;
+
     /** 实体类型选项 */
     const ENTITY_TYPES = array(
         'Organization'    => 'Organization (组织/公司)',
@@ -93,6 +103,14 @@ class YIMAI_GSO_GEO_Entity {
             'entity_email'       => get_bloginfo( 'admin_email' ),
             'entity_phone'       => '',
             'entity_address'     => '',
+            // t8：LocalBusiness 实体必备字段（缺坐标不得声称本地商家）
+            'entity_latitude'          => '',
+            'entity_longitude'         => '',
+            'entity_postal_code'       => '',
+            'entity_address_locality'  => '',
+            'entity_address_region'    => '',
+            'entity_address_country'   => 'CN',
+            'entity_opening_hours'     => '',
             'same_as'            => array(),
         );
 
@@ -159,6 +177,8 @@ class YIMAI_GSO_GEO_Entity {
      * 如果实体已配置，输出含 sameAs + 联系方式 的完整 Schema
      */
     public function output_enhanced_organization_schema() {
+        self::$emitted_type = null;
+
         // 第三方SEO插件冲突检测：若已存在 Organization Schema，不重复输出
         if ( class_exists( 'YIMAI_GSO_Schema_Generator' )
              && ! empty( YIMAI_GSO_Schema_Generator::detect_conflict_plugins() ) ) {
@@ -203,14 +223,55 @@ class YIMAI_GSO_GEO_Entity {
             $schema['telephone'] = $entity['entity_phone'];
         }
 
-        // 地址（LocalBusiness 类型族输出：含 HealthAndBeautyBusiness 等 LocalBusiness 子类型）
-        // ★ GEO 报告 C-2：原先仅严格等于 LocalBusiness 才输出地址，选择行业子类型时地址静默丢失
-        $is_local_family = in_array( $entity['entity_type'], array( 'LocalBusiness', 'HealthAndBeautyBusiness' ), true );
-        if ( ! empty( $entity['entity_address'] ) && $is_local_family ) {
-            $schema['address'] = array(
-                '@type' => 'PostalAddress',
-                'streetAddress' => $entity['entity_address'],
+        // 地址 / 坐标 / 营业时间（仅 LocalBusiness 类型族）
+        //
+        // ★ t8 修复：原先只看 entity_type 是否属于 LocalBusiness 族就输出地址，
+        //   既没有坐标也没有营业时间——「只有 streetAddress 的 LocalBusiness」
+        //   无法通过 Rich Results，Schema.org 也不认。
+        //   现在两道闸门：
+        //   ① apply_filters( 'yimai_gso_emit_local_business', true )：
+        //      主题接管两店 LocalBusiness 输出时返回 false，插件不得再输出同类节点；
+        //   ② 必须有合法经纬度，否则降级为 Organization，绝不声称本地商家。
+        $emit_local = (bool) apply_filters( 'yimai_gso_emit_local_business', true, $entity );
+
+        if ( in_array( $schema['@type'], self::local_business_types(), true ) ) {
+            if ( ! $emit_local || ! self::has_coordinates( $entity ) ) {
+                $schema['@type'] = 'Organization';
+            }
+        }
+
+        $is_local_family = in_array( $schema['@type'], self::local_business_types(), true );
+
+        if ( $is_local_family ) {
+            $address = array( '@type' => 'PostalAddress' );
+            if ( ! empty( $entity['entity_address'] ) ) {
+                $address['streetAddress'] = $entity['entity_address'];
+            }
+            if ( ! empty( $entity['entity_address_locality'] ) ) {
+                $address['addressLocality'] = $entity['entity_address_locality'];
+            }
+            if ( ! empty( $entity['entity_address_region'] ) ) {
+                $address['addressRegion'] = $entity['entity_address_region'];
+            }
+            if ( ! empty( $entity['entity_postal_code'] ) ) {
+                $address['postalCode'] = $entity['entity_postal_code'];
+            }
+            $address['addressCountry'] = ! empty( $entity['entity_address_country'] ) ? $entity['entity_address_country'] : 'CN';
+            $schema['address'] = $address;
+
+            $schema['geo'] = array(
+                '@type'     => 'GeoCoordinates',
+                'latitude'  => (float) $entity['entity_latitude'],
+                'longitude' => (float) $entity['entity_longitude'],
             );
+
+            $specs = self::opening_hours_specification( $entity['entity_opening_hours'] );
+            if ( ! empty( $specs ) ) {
+                $schema['openingHoursSpecification'] = $specs;
+            } elseif ( ! empty( $entity['entity_opening_hours'] ) ) {
+                // 解析不了的写法（如「每天 10 点到 21 点」）原样输出，不猜
+                $schema['openingHours'] = array_values( array_filter( array_map( 'trim', preg_split( '/[\r\n;；]+/', (string) $entity['entity_opening_hours'] ) ) ) );
+            }
         }
 
         // sameAs 链接
@@ -218,9 +279,173 @@ class YIMAI_GSO_GEO_Entity {
             $schema['sameAs'] = $entity['same_as'];
         }
 
+        self::$emitted_type = $schema['@type'];
+
         echo '<script type="application/ld+json">' .
              wp_json_encode( $schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) .
              '</script>' . "\n";
+    }
+
+    /**
+     * 本请求真实输出的实体 @type（t8）
+     *
+     * @return string|null
+     */
+    public static function get_emitted_type() {
+        return self::$emitted_type;
+    }
+
+    /**
+     * LocalBusiness 类型族（这些类型必须有真实地理坐标才能成立）
+     *
+     * @return array
+     */
+    private static function local_business_types() {
+        return array(
+            'LocalBusiness',
+            'HealthAndBeautyBusiness',
+            'HealthClub',
+            'ExerciseGym',
+            'SportsActivityLocation',
+        );
+    }
+
+    /**
+     * 实体是否配置了合法经纬度（t8）
+     *
+     * @param array $entity
+     * @return bool
+     */
+    private static function has_coordinates( $entity ) {
+        $lat = isset( $entity['entity_latitude'] ) ? trim( (string) $entity['entity_latitude'] ) : '';
+        $lng = isset( $entity['entity_longitude'] ) ? trim( (string) $entity['entity_longitude'] ) : '';
+
+        if ( '' === $lat || '' === $lng || ! is_numeric( $lat ) || ! is_numeric( $lng ) ) {
+            return false;
+        }
+
+        $lat = (float) $lat;
+        $lng = (float) $lng;
+
+        return ( $lat >= -90 && $lat <= 90 && $lng >= -180 && $lng <= 180 );
+    }
+
+    /**
+     * 营业时间文本 → openingHoursSpecification 数组（t8）
+     *
+     * 支持每行一条，例如：
+     *   Mo-Su 09:00-21:00
+     *   Mon-Fri 10:00-20:00
+     *   周一至周日 09:00-21:00
+     * 任意一行无法解析时返回空数组，调用方退回纯文本 openingHours。
+     *
+     * @param string $raw
+     * @return array
+     */
+    private static function opening_hours_specification( $raw ) {
+        $raw = trim( (string) $raw );
+        if ( '' === $raw ) {
+            return array();
+        }
+
+        $order   = array( 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday' );
+        $specs   = array();
+        $day_re  = '([A-Za-z]{2,9}|周[一二三四五六日天]|星期[一二三四五六日天])';
+        $lines   = preg_split( '/[\r\n;；]+/', $raw );
+
+        foreach ( $lines as $line ) {
+            $line = trim( $line );
+            if ( '' === $line ) {
+                continue;
+            }
+
+            if ( ! preg_match( '/(\d{1,2}:\d{2})\s*[-–~至]\s*(\d{1,2}:\d{2})/u', $line, $m ) ) {
+                return array();
+            }
+
+            $opens  = self::normalize_time( $m[1] );
+            $closes = self::normalize_time( $m[2] );
+            $days_part = trim( str_replace( $m[0], '', $line ) );
+
+            $days = array();
+            if ( preg_match( '/' . $day_re . '\s*(?:[-–~至]|to)\s*' . $day_re . '/u', $days_part, $r ) ) {
+                $from = self::day_name( $r[1] );
+                $to   = self::day_name( $r[2] );
+                $i    = array_search( $from, $order, true );
+                $j    = array_search( $to, $order, true );
+                if ( false === $i || false === $j ) {
+                    return array();
+                }
+                while ( true ) {
+                    $days[] = $order[ $i ];
+                    if ( $i === $j ) {
+                        break;
+                    }
+                    $i = ( $i + 1 ) % 7;
+                }
+            } else {
+                preg_match_all( '/' . $day_re . '/u', $days_part, $rr );
+                foreach ( $rr[0] as $token ) {
+                    $day = self::day_name( $token );
+                    if ( '' !== $day ) {
+                        $days[] = $day;
+                    }
+                }
+                if ( empty( $days ) ) {
+                    $days = $order; // 未写星期 = 每天营业
+                }
+            }
+
+            foreach ( array_unique( $days ) as $day ) {
+                $specs[] = array(
+                    '@type'     => 'OpeningHoursSpecification',
+                    'dayOfWeek' => 'https://schema.org/' . $day,
+                    'opens'     => $opens,
+                    'closes'    => $closes,
+                );
+            }
+        }
+
+        return $specs;
+    }
+
+    /**
+     * 星期 token → schema.org dayOfWeek 名称
+     *
+     * @param string $token
+     * @return string 无法识别时返回空串
+     */
+    private static function day_name( $token ) {
+        $token = trim( (string) $token );
+        $cn = array(
+            '周一' => 'Monday', '周二' => 'Tuesday', '周三' => 'Wednesday', '周四' => 'Thursday',
+            '周五' => 'Friday', '周六' => 'Saturday', '周日' => 'Sunday', '周天' => 'Sunday',
+            '星期一' => 'Monday', '星期二' => 'Tuesday', '星期三' => 'Wednesday', '星期四' => 'Thursday',
+            '星期五' => 'Friday', '星期六' => 'Saturday', '星期日' => 'Sunday',
+        );
+        if ( isset( $cn[ $token ] ) ) {
+            return $cn[ $token ];
+        }
+
+        $en = array(
+            'mo' => 'Monday', 'tu' => 'Tuesday', 'we' => 'Wednesday', 'th' => 'Thursday',
+            'fr' => 'Friday', 'sa' => 'Saturday', 'su' => 'Sunday',
+        );
+        // 按前两个字母判定：Mo / Mon / Monday 都归一
+        $head = substr( strtolower( $token ), 0, 2 );
+
+        return isset( $en[ $head ] ) ? $en[ $head ] : '';
+    }
+
+    /**
+     * 时间文本补零：9:00 → 09:00
+     *
+     * @param string $value
+     * @return string
+     */
+    private static function normalize_time( $value ) {
+        list( $h, $m ) = array_pad( explode( ':', (string) $value ), 2, '00' );
+        return sprintf( '%02d:%02d', (int) $h, (int) $m );
     }
 
     // ==================== AJAX 处理 ====================
@@ -243,6 +468,20 @@ class YIMAI_GSO_GEO_Entity {
         $email       = isset( $_POST['entity_email'] ) ? sanitize_email( wp_unslash( $_POST['entity_email'] ) ) : '';
         $phone       = isset( $_POST['entity_phone'] ) ? sanitize_text_field( wp_unslash( $_POST['entity_phone'] ) ) : '';
         $address     = isset( $_POST['entity_address'] ) ? sanitize_textarea_field( wp_unslash( $_POST['entity_address'] ) ) : '';
+
+        // t8：LocalBusiness 结构化字段
+        $latitude  = isset( $_POST['entity_latitude'] ) ? sanitize_text_field( wp_unslash( $_POST['entity_latitude'] ) ) : '';
+        $longitude = isset( $_POST['entity_longitude'] ) ? sanitize_text_field( wp_unslash( $_POST['entity_longitude'] ) ) : '';
+        $postal    = isset( $_POST['entity_postal_code'] ) ? sanitize_text_field( wp_unslash( $_POST['entity_postal_code'] ) ) : '';
+        $locality  = isset( $_POST['entity_address_locality'] ) ? sanitize_text_field( wp_unslash( $_POST['entity_address_locality'] ) ) : '';
+        $region    = isset( $_POST['entity_address_region'] ) ? sanitize_text_field( wp_unslash( $_POST['entity_address_region'] ) ) : '';
+        $country   = isset( $_POST['entity_address_country'] ) ? sanitize_text_field( wp_unslash( $_POST['entity_address_country'] ) ) : 'CN';
+        $hours     = isset( $_POST['entity_opening_hours'] ) ? sanitize_textarea_field( wp_unslash( $_POST['entity_opening_hours'] ) ) : '';
+
+        // 坐标只接受合法范围，否则留空（宁可降级 Organization，也不写错坐标）
+        $latitude  = ( is_numeric( $latitude ) && (float) $latitude >= -90 && (float) $latitude <= 90 ) ? (string) (float) $latitude : '';
+        $longitude = ( is_numeric( $longitude ) && (float) $longitude >= -180 && (float) $longitude <= 180 ) ? (string) (float) $longitude : '';
+        $country   = $country ? strtoupper( $country ) : 'CN';
 
         // 校验实体类型
         if ( ! array_key_exists( $type, self::ENTITY_TYPES ) ) {
@@ -268,6 +507,13 @@ class YIMAI_GSO_GEO_Entity {
             'entity_email'       => $email,
             'entity_phone'       => $phone,
             'entity_address'     => $address,
+            'entity_latitude'         => $latitude,
+            'entity_longitude'        => $longitude,
+            'entity_postal_code'      => $postal,
+            'entity_address_locality' => $locality,
+            'entity_address_region'   => $region,
+            'entity_address_country'  => $country,
+            'entity_opening_hours'    => $hours,
             'same_as'            => $same_as,
         );
 

@@ -39,6 +39,16 @@ class YIMAI_GSO_AI_Platform_Adapter {
     /** @var string 文章适配缓存 post_meta key */
     const META_KEY = 'yimai_gso_platform_adapt';
 
+    /**
+     * 本请求里 adapter 自己真实输出的 Schema @type（t9 F-2）
+     *
+     * output_platform_schema()（wp_head 13）写入，output_platform_meta()（wp_head 14）
+     * 读取 —— 保证「先写后读」，adapter 自己产出的 Person / WebPage 等节点也能进 coverage。
+     *
+     * @var array
+     */
+    private $platform_emitted_types = array();
+
     public static function get_instance() {
         if ( null === self::$instance ) {
             self::$instance = new self();
@@ -56,11 +66,12 @@ class YIMAI_GSO_AI_Platform_Adapter {
             return;
         }
 
-        // 前端：输出平台 Meta 标签（在 Schema 之后）
-        add_action( 'wp_head', array( $this, 'output_platform_meta' ), 12 );
-
-        // 前端：追加平台优化的 Schema
+        // 前端：追加平台优化的 Schema（先输出节点）
         add_action( 'wp_head', array( $this, 'output_platform_schema' ), 13 );
+
+        // 前端：输出平台 Meta 标签（t9 F-2：读到写之后 —— 必须晚于 13 才能把本 adapter
+        // 刚输出的节点计入 ai-schema-coverage；14 在所有 schema 发射器之后，不遮挡任何节点）
+        add_action( 'wp_head', array( $this, 'output_platform_meta' ), 14 );
 
         // 文章保存：预生成平台适配内容
         add_action( 'save_post', array( $this, 'on_post_save' ), 20, 3 );
@@ -167,36 +178,37 @@ class YIMAI_GSO_AI_Platform_Adapter {
             return;
         }
 
-        // 仅对 singular 页面输出（文章/页面/自定义类型）
-        if ( ! is_singular() ) {
+        // singular 页面（文章/页面/自定义类型）+ **站点首页**
+        //
+        // t9 F-1：站点首页（「最新文章」型首页）is_singular() 为假，但 Schema_Generator
+        // 确实在那里输出了 WebSite/Organization 等节点，meta 若整段 return 就会漏报。
+        // 这里只放行 is_front_page()，不放行 is_home()：
+        //   · 「最新文章」设为首页时 is_front_page() 与 is_home() 同时为真 → 已被覆盖；
+        //   · 静态首页 + 单独「文章页」时，/blog 只是 is_home()，不属首页 ——
+        //     保持 t8 之前的行为（二级归档页不输出平台 meta），避免把归档页当成首页
+        //     去声明一份只有 WebSite 的 coverage。
+        $is_front = is_front_page();
+        if ( ! is_singular() && ! $is_front ) {
             return;
         }
 
-        $post_id = get_queried_object_id();
-        if ( ! $post_id ) {
+        $post_id = $is_front ? 0 : get_queried_object_id();
+        if ( ! $is_front && ! $post_id ) {
             return;
         }
 
-        // 从缓存读取适配数据
-        $adapt_data = $this->get_post_adapt_data( $post_id );
+        // 从缓存读取适配数据（首页无 post_id 时为空数组，不影响其它标签）
+        $adapt_data = $post_id ? $this->get_post_adapt_data( $post_id ) : array();
 
         // 汇总性标签
         $platform_names = array();
         $content_formats = array();
-        $schema_list = array();
 
         foreach ( $this->active_keys as $key ) {
             $platform = $this->platforms[ $key ];
             if ( ! empty( $platform['adaptations']['meta_tags'] ) ) {
                 $platform_names[] = $key;
                 $content_formats[] = $platform['adaptations']['content_format'];
-
-                // 收集 Schema 优先级
-                foreach ( $platform['adaptations']['schema_priority'] as $schema_type ) {
-                    if ( ! in_array( $schema_type, $schema_list, true ) ) {
-                        $schema_list[] = $schema_type;
-                    }
-                }
             }
         }
 
@@ -204,36 +216,127 @@ class YIMAI_GSO_AI_Platform_Adapter {
             return;
         }
 
+        // t8：ai-schema-coverage 只声明本页真实输出的 @type。
+        //   原先直接罗列各平台 adaptations.schema_priority（FAQPage/Product/Recipe/HowTo…），
+        //   等于对外声称页面已输出这些结构化数据，而实际一篇博客只有 Article —— 属于
+        //   失实标注，AI 引擎按标注核验会直接判页面不可信。
+        $schema_list = $this->get_emitted_schema_types( $post_id );
+
         echo "\n<!-- 一麦GSO AI Platform Meta (L6) -->\n";
 
         // 汇总标签
         echo '<meta name="ai-platforms" content="' . esc_attr( implode( ',', $platform_names ) ) . '">' . "\n";
         echo '<meta name="ai-content-format" content="' . esc_attr( implode( ',', array_unique( $content_formats ) ) ) . '">' . "\n";
-        echo '<meta name="ai-schema-coverage" content="' . esc_attr( implode( ',', $schema_list ) ) . '">' . "\n";
+        // 有真实输出才声明；一页没有结构化数据时不写这个标签（不空喊）
+        if ( ! empty( $schema_list ) ) {
+            echo '<meta name="ai-schema-coverage" content="' . esc_attr( implode( ',', $schema_list ) ) . '">' . "\n";
+        }
 
         // 引用可用性
         $citation_available = ( ! empty( $adapt_data['citation_count'] ) && $adapt_data['citation_count'] > 0 ) ? 'true' : 'false';
         echo '<meta name="ai-citation-available" content="' . esc_attr( $citation_available ) . '">' . "\n";
 
-        // 实体类型（从 GEO 实体模块读取）
-        if ( class_exists( 'YIMAI_GSO_GEO_Entity' ) ) {
-            $entity_data = YIMAI_GSO_GEO_Entity::get_entity_data();
-            if ( ! empty( $entity_data['entity_type'] ) ) {
-                echo '<meta name="ai-entity-type" content="' . esc_attr( $entity_data['entity_type'] ) . '">' . "\n";
+        // 实体类型：只写本页真实输出的类型（实体未配置 / 被主题接管 / 冲突插件在位时不写）
+        if ( class_exists( 'YIMAI_GSO_GEO_Entity' ) && method_exists( 'YIMAI_GSO_GEO_Entity', 'get_emitted_type' ) ) {
+            $entity_type = YIMAI_GSO_GEO_Entity::get_emitted_type();
+            if ( ! empty( $entity_type ) ) {
+                echo '<meta name="ai-entity-type" content="' . esc_attr( $entity_type ) . '">' . "\n";
             }
         }
 
         // 各平台专属标签（简洁输出，每个平台一行）
+        //
+        // t9 F-3：schema 段只能写本页真实输出的 @type。原先这里仍用平台偏好
+        // schema_priority（FAQPage,Product,Recipe,HowTo…），与上面已改成真实值的
+        // ai-schema-coverage 自相矛盾 —— 等于旧的失实宣称从后门原样保留。
+        // 本页没有任何真实输出时，整段 schema 不写，只留 format。
         foreach ( $this->active_keys as $key ) {
             $platform = $this->platforms[ $key ];
             if ( empty( $platform['adaptations']['meta_tags'] ) ) {
                 continue;
             }
-            $schema_prio = implode( ',', $platform['adaptations']['schema_priority'] );
-            echo '<meta name="ai-platform:' . esc_attr( $key ) . '" content="' . esc_attr( 'schema:' . $schema_prio . '; format:' . $platform['adaptations']['content_format'] ) . '">' . "\n";
+            $format  = (string) $platform['adaptations']['content_format'];
+            $content = ! empty( $schema_list )
+                ? 'schema:' . implode( ',', $schema_list ) . '; format:' . $format
+                : 'format:' . $format;
+            echo '<meta name="ai-platform:' . esc_attr( $key ) . '" content="' . esc_attr( $content ) . '">' . "\n";
         }
 
         echo "<!-- /一麦GSO AI Platform Meta -->\n";
+    }
+
+    /**
+     * 本页真实输出的 Schema @type 列表（t8）
+     *
+     * 数据源只有两处，都是「已经 echo 出去的」：
+     * 1. YIMAI_GSO_Schema_Generator（wp_head 10）在输出前登记的 @type；
+     * 2. YIMAI_GSO_GEO_Entity（wp_head 11）实际输出的实体 @type（可能被降级为 Organization）。
+     *
+     * 平台配置里的 schema_priority 只是「该平台更喜欢什么」，不是本页事实，不再用它声明覆盖度。
+     *
+     * @param int $post_id
+     * @return array
+     */
+    private function get_emitted_schema_types( $post_id ) {
+        $types = array();
+
+        if ( class_exists( 'YIMAI_GSO_Schema_Generator' ) && method_exists( 'YIMAI_GSO_Schema_Generator', 'get_emitted_types' ) ) {
+            $types = array_merge( $types, (array) YIMAI_GSO_Schema_Generator::get_emitted_types() );
+        }
+
+        if ( class_exists( 'YIMAI_GSO_GEO_Entity' ) && method_exists( 'YIMAI_GSO_GEO_Entity', 'get_emitted_type' ) ) {
+            $entity_type = YIMAI_GSO_GEO_Entity::get_emitted_type();
+            if ( ! empty( $entity_type ) ) {
+                $types[] = (string) $entity_type;
+            }
+        }
+
+        // t9 F-2：adapter 自己在 wp_head 13 输出的节点（Person / WebPage / CreativeWork …）
+        if ( ! empty( $this->platform_emitted_types ) ) {
+            $types = array_merge( $types, $this->platform_emitted_types );
+        }
+
+        $types = array_values( array_unique( array_filter( array_map( 'strval', $types ) ) ) );
+
+        return (array) apply_filters( 'yimai_gso_ai_schema_coverage', $types, $post_id );
+    }
+
+    /**
+     * 登记 adapter 自己输出的 Schema @type（t9 F-2）
+     *
+     * @param array $schemas
+     * @return void
+     */
+    private function register_platform_emitted_types( $schemas ) {
+        foreach ( (array) $schemas as $schema ) {
+            $this->collect_platform_schema_types( $schema );
+        }
+    }
+
+    /**
+     * 递归收集单个节点及子节点里的 @type（与 Schema_Generator 同口径）
+     *
+     * @param mixed $node
+     * @return void
+     */
+    private function collect_platform_schema_types( $node ) {
+        if ( ! is_array( $node ) ) {
+            return;
+        }
+
+        if ( isset( $node['@type'] ) ) {
+            foreach ( (array) $node['@type'] as $type ) {
+                if ( is_string( $type ) && '' !== $type && ! in_array( $type, $this->platform_emitted_types, true ) ) {
+                    $this->platform_emitted_types[] = $type;
+                }
+            }
+        }
+
+        foreach ( $node as $value ) {
+            if ( is_array( $value ) ) {
+                $this->collect_platform_schema_types( $value );
+            }
+        }
     }
 
     // ==================== Schema 增强 ====================
@@ -292,6 +395,10 @@ class YIMAI_GSO_AI_Platform_Adapter {
         if ( empty( $schemas ) ) {
             return;
         }
+
+        // t9 F-2：本 adapter 自己输出的节点同样要进 ai-schema-coverage
+        // （meta 已挪到 wp_head 14，晚于这里的 13，先写后读才成立）
+        $this->register_platform_emitted_types( $schemas );
 
         echo "\n<!-- 一麦GSO AI Platform Enhanced Schema (L6) -->\n";
         foreach ( $schemas as $schema ) {
@@ -474,9 +581,10 @@ class YIMAI_GSO_AI_Platform_Adapter {
                 continue;
             }
             $has_llms_platforms = true;
-            $schema_prio = implode( ', ', $platform['adaptations']['schema_priority'] );
+            // t8：不再写「X Schema optimized」——平台偏好（schema_priority）不等于本页真的
+            //   输出了那些 @type，写死在 llms.txt 里会被 AI 引擎当事实核验后判页面失实。
             $lines[] = '- **' . esc_html( $platform['name'] ) . '**: ' .
-                       $schema_prio . ' Schema optimized, ' .
+                       esc_html( $platform['adaptations']['content_format'] ) . ' 内容格式；' .
                        esc_html( $platform['note'] );
         }
 

@@ -54,6 +54,8 @@ class YIMAI_GSO_Sitemap_Generator {
     public function add_rewrite_rules() {
         add_rewrite_rule( '^sitemap\.xml$', 'index.php?yimai_gso_sitemap=1', 'top' );
         add_rewrite_rule( '^sitemap-post\.xml$', 'index.php?yimai_gso_sitemap_post=1', 'top' );
+        // t8：页面单独成图（原先 page 混在 sitemap-post.xml 里，页面 @type=WebPage 与文章混报）
+        add_rewrite_rule( '^sitemap-page\.xml$', 'index.php?yimai_gso_sitemap_page=1', 'top' );
         add_rewrite_rule( '^sitemap-taxonomy-(\w+)\.xml$', 'index.php?yimai_gso_sitemap_taxonomy=$matches[1]', 'top' );
         add_rewrite_rule( '^sitemap\.html$', 'index.php?yimai_gso_sitemap_html=1', 'top' );
         add_rewrite_rule( '^robots\.txt$', 'index.php?yimai_gso_robots=1', 'top' );
@@ -65,6 +67,7 @@ class YIMAI_GSO_Sitemap_Generator {
     public function add_query_vars( $vars ) {
         $vars[] = 'yimai_gso_sitemap';
         $vars[] = 'yimai_gso_sitemap_post';
+        $vars[] = 'yimai_gso_sitemap_page';
         $vars[] = 'yimai_gso_sitemap_taxonomy';
         $vars[] = 'yimai_gso_sitemap_html';
         $vars[] = 'yimai_gso_robots';
@@ -76,6 +79,9 @@ class YIMAI_GSO_Sitemap_Generator {
      */
     public function maybe_flush_rewrite_rules() {
         $current_version = defined( 'YIMAI_GSO_VERSION' ) ? YIMAI_GSO_VERSION : '0';
+        // t8：新增 sitemap-page.xml 子图，重写规则变了 —— 用独立后缀强制刷新一次，
+        // 不必为此提升插件版本号（主题/插件版本头保持原样）
+        $current_version .= '-submap-v1';
         $flush_version = get_option( 'yimai_gso_sitemap_flush_version', '' );
         if ( $flush_version !== $current_version ) {
             flush_rewrite_rules();
@@ -96,6 +102,11 @@ class YIMAI_GSO_Sitemap_Generator {
         
         if ( ! empty( $wp_query->query_vars['yimai_gso_sitemap_post'] ) ) {
             $this->render_post_sitemap();
+            exit;
+        }
+        
+        if ( ! empty( $wp_query->query_vars['yimai_gso_sitemap_page'] ) ) {
+            $this->render_page_sitemap();
             exit;
         }
         
@@ -123,10 +134,24 @@ class YIMAI_GSO_Sitemap_Generator {
         @header( 'Content-Type: application/xml; charset=utf-8' );
         echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         echo '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-        echo "\t" . '<sitemap>' . "\n";
-        echo "\t\t" . '<loc>' . esc_url( home_url( '/sitemap-post.xml' ) ) . '</loc>' . "\n";
-        echo "\t\t" . '<lastmod>' . esc_html( $this->get_lastmod() ) . '</lastmod>' . "\n";
-        echo "\t" . '</sitemap>' . "\n";
+
+        // 文章子图：只包含 post_type != page 的支持类型（t8：page 不再混进文章图）
+        $post_types = $this->get_post_sitemap_types();
+        if ( ! empty( $post_types ) && $this->has_indexable_posts( $post_types ) ) {
+            echo "\t" . '<sitemap>' . "\n";
+            echo "\t\t" . '<loc>' . esc_url( home_url( '/sitemap-post.xml' ) ) . '</loc>' . "\n";
+            echo "\t\t" . '<lastmod>' . esc_html( $this->get_lastmod( $post_types ) ) . '</lastmod>' . "\n";
+            echo "\t" . '</sitemap>' . "\n";
+        }
+
+        // 页面子图：page 独立成图（t8 新增）
+        if ( $this->page_sitemap_enabled() && $this->has_indexable_posts( array( 'page' ) ) ) {
+            echo "\t" . '<sitemap>' . "\n";
+            echo "\t\t" . '<loc>' . esc_url( home_url( '/sitemap-page.xml' ) ) . '</loc>' . "\n";
+            echo "\t\t" . '<lastmod>' . esc_html( $this->get_lastmod( array( 'page' ) ) ) . '</lastmod>' . "\n";
+            echo "\t" . '</sitemap>' . "\n";
+        }
+
         foreach ( $this->taxonomies as $taxonomy ) {
             if ( $this->taxonomy_has_terms( $taxonomy ) ) {
                 echo "\t" . '<sitemap>' . "\n";
@@ -142,7 +167,26 @@ class YIMAI_GSO_Sitemap_Generator {
      * 渲染文章Sitemap
      */
     private function render_post_sitemap() {
-        $post_ids = $this->get_posts();
+        $this->render_urlset( $this->get_posts( 5000, $this->get_post_sitemap_types() ) );
+    }
+
+    /**
+     * 渲染页面Sitemap（t8：page 独立成图，不再混进 sitemap-post.xml）
+     */
+    private function render_page_sitemap() {
+        if ( ! $this->page_sitemap_enabled() ) {
+            @status_header( 404 );
+            exit;
+        }
+        $this->render_urlset( $this->get_posts( 5000, array( 'page' ) ) );
+    }
+
+    /**
+     * 输出 urlset（文章子图 / 页面子图共用）
+     *
+     * @param array $post_ids 已按 noindex 规则过滤的文章 ID 列表
+     */
+    private function render_urlset( $post_ids ) {
 
         @header( 'Content-Type: application/xml; charset=utf-8' );
         echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
@@ -217,8 +261,10 @@ class YIMAI_GSO_Sitemap_Generator {
     private function render_sitemap_html() {
         $post_ids = $this->get_posts();
         $post_count = count( $post_ids );
-        $categories = get_categories( array( 'hide_empty' => false ) );
-        $tags = get_tags( array( 'hide_empty' => false, 'number' => 100 ) );
+        $categories = $this->get_terms( 'category' );
+        $tags = $this->get_terms( 'post_tag' );
+        $categories = is_wp_error( $categories ) ? array() : $categories;
+        $tags = is_wp_error( $tags ) ? array() : $tags;
         
         header( 'Content-Type: text/html; charset=utf-8' );
         ?>
@@ -290,6 +336,9 @@ class YIMAI_GSO_Sitemap_Generator {
         <h2>🔗 XML Sitemap 链接</h2>
         <p><a href="<?php echo esc_url( home_url( '/sitemap.xml' ) ); ?>"><?php echo esc_url( home_url( '/sitemap.xml' ) ); ?></a></p>
         <p><a href="<?php echo esc_url( home_url( '/sitemap-post.xml' ) ); ?>"><?php echo esc_url( home_url( '/sitemap-post.xml' ) ); ?></a></p>
+        <?php if ( $this->page_sitemap_enabled() ) : ?>
+        <p><a href="<?php echo esc_url( home_url( '/sitemap-page.xml' ) ); ?>"><?php echo esc_url( home_url( '/sitemap-page.xml' ) ); ?></a></p>
+        <?php endif; ?>
     </div>
 </body>
 </html>
@@ -301,6 +350,12 @@ class YIMAI_GSO_Sitemap_Generator {
      */
     private function render_robots() {
         $robots_content = YIMAI_GSO_Settings::get( 'yimai_gso_robots_content', '' );
+
+        // t8：后台保存的自定义 robots 内容同样要清掉非法地图声明
+        if ( class_exists( 'YIMAI_GSO_Crawler_Editor' ) && method_exists( 'YIMAI_GSO_Crawler_Editor', 'sanitize_robots_text' ) ) {
+            $robots_content = YIMAI_GSO_Crawler_Editor::sanitize_robots_text( $robots_content );
+        }
+
         $site_url = home_url( '/' );
         
         @header( 'Content-Type: text/plain; charset=utf-8' );
@@ -334,14 +389,18 @@ class YIMAI_GSO_Sitemap_Generator {
             echo "\n# 禁止访问 WordPress 默认的 ?robots=1\n";
             echo "Disallow: /?robots=1\n";
 
-            // Sitemap 地址
+            // Sitemap 地址（t8：只声明真正的 XML 地图。
+            //   /sitemap.html 是给人看的索引页、llms.txt 是给大模型看的内容清单，
+            //   两者都不是 sitemap 协议的一部分，声明出来徒增无效抓取。）
             echo "\n# Sitemap\n";
             echo "Sitemap: " . esc_url( home_url( '/sitemap.xml' ) ) . "\n";
-            echo "Sitemap: " . esc_url( home_url( '/sitemap.html' ) ) . "\n";
-            echo "Sitemap: " . esc_url( home_url( '/llms.txt' ) ) . "\n";
             
             // AI 爬虫规则
             $crawler_block = apply_filters( 'yimai_gso_robots_crawler_block', '', $robots_content );
+            // t8：第三方过滤进来的内容同样做一次地图声明清洗
+            if ( class_exists( 'YIMAI_GSO_Crawler_Editor' ) && method_exists( 'YIMAI_GSO_Crawler_Editor', 'sanitize_robots_text' ) ) {
+                $crawler_block = YIMAI_GSO_Crawler_Editor::sanitize_robots_text( $crawler_block );
+            }
             if ( ! empty( $crawler_block ) ) {
                 echo $crawler_block;
             } else {
@@ -359,43 +418,254 @@ class YIMAI_GSO_Sitemap_Generator {
     /**
      * 获取文章列表（分批查询，避免一次性加载过多数据到内存）
      */
-    private function get_posts( $limit = 5000 ) {
+    private function get_posts( $limit = 5000, $post_types = null ) {
+        if ( null === $post_types ) {
+            $post_types = $this->post_types;
+        }
+        // 全局被设为 noindex 的内容类型不生成 URL
+        $post_types = array_values( array_diff( (array) $post_types, self::noindex_post_types() ) );
+        if ( empty( $post_types ) ) {
+            return array();
+        }
+
         $args = array(
-            'post_type' => $this->post_types,
+            'post_type' => $post_types,
             'post_status' => 'publish',
             'posts_per_page' => $limit,
             'orderby' => 'modified',
             'order' => 'DESC',
             'no_found_rows' => true,
             'update_post_term_cache' => false,
-            'update_post_meta_cache' => false,
+            // t8：noindex 判定需要 post meta，一次性预热缓存，避免逐篇 N 次查询
+            'update_post_meta_cache' => true,
             'fields' => 'ids', // 只查ID，大幅减少内存占用
         );
         
-        return get_posts( $args );
+        $ids = get_posts( $args );
+        if ( empty( $ids ) ) {
+            return array();
+        }
+        // t8：sitemap 不收录自带 noindex 的 URL（单篇 yimai_gso_noindex=1 / 全局类型 noindex）
+        return array_values( array_filter( array_map( 'absint', (array) $ids ), array( __CLASS__, 'is_post_indexable' ) ) );
     }
     
     /**
-     * 获取分类/标签列表
+     * 获取分类/标签列表（只返回可收录的 term）
      */
     private function get_terms( $taxonomy ) {
-        return get_terms( array(
+        $terms = get_terms( array(
             'taxonomy' => $taxonomy,
             'hide_empty' => true,
             'number' => 5000,
         ) );
+        if ( is_wp_error( $terms ) || empty( $terms ) ) {
+            return $terms;
+        }
+        // t8：带 noindex 的 term（含 uncategorized）不进 sitemap
+        return array_values( array_filter( $terms, array( __CLASS__, 'is_term_indexable' ) ) );
     }
     
     /**
-     * 检查分类是否有内容
+     * 检查分类是否有可收录的内容
      */
     private function taxonomy_has_terms( $taxonomy ) {
-        global $wpdb;
-        $count = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM $wpdb->term_taxonomy WHERE taxonomy = %s AND count > 0",
-            $taxonomy
-        ) );
-        return $count > 0;
+        $terms = $this->get_terms( $taxonomy );
+        return ! is_wp_error( $terms ) && ! empty( $terms );
+    }
+
+    // ==================== t8：子图类型 / noindex 判定 ====================
+
+    /**
+     * 文章子图包含的类型：支持类型中排除 page
+     *
+     * @return array
+     */
+    private function get_post_sitemap_types() {
+        return array_values( array_diff( $this->post_types, array( 'page' ) ) );
+    }
+
+    /**
+     * 是否提供页面子图
+     *
+     * @return bool
+     */
+    private function page_sitemap_enabled() {
+        return in_array( 'page', $this->post_types, true );
+    }
+
+    /**
+     * 是否存在可收录内容（用于决定 sitemap 索引里是否列出该子图）
+     *
+     * @param array $post_types
+     * @return bool
+     */
+    private function has_indexable_posts( $post_types ) {
+        return ! empty( $this->get_posts( 1, $post_types ) );
+    }
+
+    /**
+     * 全局 noindex 的内容类型（设置 → 发布 → 索引控制，主文件 output_noindex_meta 同源）
+     *
+     * @return array
+     */
+    private static function noindex_post_types() {
+        if ( ! class_exists( 'YIMAI_GSO_Settings' ) ) {
+            return array();
+        }
+        $raw = YIMAI_GSO_Settings::get( 'noindex_post_types', '' );
+        if ( is_array( $raw ) ) {
+            return array_values( array_filter( array_map( 'trim', $raw ) ) );
+        }
+        if ( ! is_string( $raw ) || '' === $raw ) {
+            return array();
+        }
+        return array_values( array_filter( array_map( 'trim', explode( ',', $raw ) ) ) );
+    }
+
+    /**
+     * 单篇内容是否可进入 sitemap
+     *
+     * 规则（与主文件 output_noindex_meta 对齐）：
+     * 1. 单篇 meta yimai_gso_noindex=1 → 不进；
+     * 2. 单篇显式 =0 → 进；
+     * 3. 未声明 → 看全局 noindex_post_types。
+     *
+     * @param int $post_id
+     * @return bool
+     */
+    public static function is_post_indexable( $post_id ) {
+        $post_id = absint( $post_id );
+        if ( ! $post_id ) {
+            return false;
+        }
+
+        $flag    = get_post_meta( $post_id, 'yimai_gso_noindex', true );
+        $flag    = is_string( $flag ) ? trim( $flag ) : $flag;
+        $noindex = false;
+
+        if ( '1' === (string) $flag ) {
+            $noindex = true;
+        } elseif ( '0' === (string) $flag ) {
+            $noindex = false;
+        } else {
+            $noindex = in_array( (string) get_post_type( $post_id ), self::noindex_post_types(), true );
+        }
+
+        if ( $noindex ) {
+            return false;
+        }
+
+        return (bool) apply_filters( 'yimai_gso_sitemap_post_indexable', true, $post_id );
+    }
+
+    /**
+     * 「未分类」分类判断（uncategorized 或站点默认分类）
+     *
+     * @param WP_Term $term
+     * @return bool
+     */
+    public static function is_uncategorized_term( $term ) {
+        if ( ! $term instanceof WP_Term ) {
+            return false;
+        }
+        if ( 'category' !== $term->taxonomy ) {
+            return false;
+        }
+        if ( 'uncategorized' === $term->slug ) {
+            return true;
+        }
+        return (int) get_option( 'default_category' ) === (int) $term->term_id;
+    }
+
+    /**
+     * 分类法 term 是否可进入 sitemap
+     *
+     * 本插件对所有分类/标签/自定义分类归档默认输出 noindex（见主文件 output_noindex_meta），
+     * 因此 term 未显式声明 index 时，默认不进 sitemap —— 避免「sitemap 提交的 URL 自己带
+     * noindex」这种自相矛盾。站点若放开分类法收录，用
+     * yimai_gso_sitemap_taxonomy_indexable 过滤器改回 true。
+     *
+     * @param WP_Term|int $term
+     * @return bool
+     */
+    public static function is_term_indexable( $term ) {
+        if ( is_numeric( $term ) ) {
+            $term = get_term( (int) $term );
+        }
+        if ( ! $term instanceof WP_Term ) {
+            return false;
+        }
+
+        // 1) 未分类永远不进 sitemap
+        if ( self::is_uncategorized_term( $term ) ) {
+            return false;
+        }
+
+        // 2) term 级显式标记（本插件 / Yoast / Rank Math / AIOSEO）
+        $declared = self::term_noindex_flag( $term );
+        if ( true === $declared ) {
+            return false;
+        }
+        if ( false === $declared ) {
+            return (bool) apply_filters( 'yimai_gso_sitemap_term_indexable', true, $term );
+        }
+
+        // 3) 未声明：跟随插件默认的「分类法归档 noindex」策略
+        $default = (bool) apply_filters( 'yimai_gso_sitemap_taxonomy_indexable', false, $term );
+        return (bool) apply_filters( 'yimai_gso_sitemap_term_indexable', $default, $term );
+    }
+
+    /**
+     * 读取 term 级 noindex 声明
+     *
+     * @param WP_Term $term
+     * @return bool|null true=明确 noindex，false=明确 index，null=未声明
+     */
+    private static function term_noindex_flag( $term ) {
+        $keys = array( 'yimai_gso_noindex', 'yimai_gso_term_noindex' );
+        foreach ( $keys as $key ) {
+            $value = get_term_meta( $term->term_id, $key, true );
+            if ( is_string( $value ) ) {
+                $value = strtolower( trim( $value ) );
+            }
+            if ( '1' === (string) $value || 'true' === $value || 'noindex' === $value ) {
+                return true;
+            }
+            if ( '0' === (string) $value || 'false' === $value || 'index' === $value ) {
+                return false;
+            }
+        }
+
+        // Yoast：0=默认 1=noindex 2=index
+        $yoast = get_term_meta( $term->term_id, '_yoast_wpseo_meta-robots-noindex', true );
+        if ( '1' === (string) $yoast ) {
+            return true;
+        }
+        if ( '2' === (string) $yoast ) {
+            return false;
+        }
+
+        // Rank Math：数组，可能含 noindex
+        $rank_math = get_term_meta( $term->term_id, 'rank_math_robots', true );
+        if ( is_array( $rank_math ) && ! empty( $rank_math ) ) {
+            if ( in_array( 'noindex', $rank_math, true ) ) {
+                return true;
+            }
+            if ( in_array( 'index', $rank_math, true ) ) {
+                return false;
+            }
+        }
+
+        // AIOSEO：数组 / JSON
+        $aioseo = get_term_meta( $term->term_id, 'aioseo_robots_meta', true );
+        if ( is_string( $aioseo ) ) {
+            $aioseo = json_decode( $aioseo, true );
+        }
+        if ( is_array( $aioseo ) && isset( $aioseo['noindex'] ) ) {
+            return in_array( (string) $aioseo['noindex'], array( '1', 'true', 'noindex' ), true );
+        }
+
+        return null;
     }
     
     /**
@@ -461,10 +731,17 @@ class YIMAI_GSO_Sitemap_Generator {
     /**
      * 获取最后修改时间
      */
-    private function get_lastmod() {
+    private function get_lastmod( $post_types = null ) {
+        if ( null === $post_types ) {
+            $post_types = $this->post_types;
+        }
+        $types = array_values( array_diff( (array) $post_types, self::noindex_post_types() ) );
+        if ( empty( $types ) ) {
+            return current_time( 'c' );
+        }
         $last_post = wp_get_recent_posts( array(
             'numberposts' => 1,
-            'post_type'   => $this->post_types,
+            'post_type'   => $types,
             'post_status' => 'publish',
             'orderby'     => 'modified',
             'order'       => 'DESC',
@@ -553,17 +830,20 @@ class YIMAI_GSO_Sitemap_Generator {
         if ( strpos( $sitemap_dir, '..' ) !== false || strpos( $sitemap_dir, '..\\' ) !== false ) {
             return false;
         }
-        
-        // 定义允许的文件名
-        $allowed_files = ['sitemap.xml', 'sitemap-post.xml'];
-        
+
         // 生成主Sitemap
         $sitemap_content = $this->build_sitemap_content();
         file_put_contents( $sitemap_dir . '/sitemap.xml', $sitemap_content );
         
-        // 生成文章Sitemap
+        // 生成文章Sitemap（t8：只含 post_type != page）
         $post_sitemap = $this->build_post_sitemap_content();
         file_put_contents( $sitemap_dir . '/sitemap-post.xml', $post_sitemap );
+
+        // 生成页面Sitemap（t8：page 独立成图）
+        if ( $this->page_sitemap_enabled() ) {
+            $page_sitemap = $this->build_page_sitemap_content();
+            file_put_contents( $sitemap_dir . '/sitemap-page.xml', $page_sitemap );
+        }
         
         // 生成分类/标签Sitemap
         foreach ( $this->taxonomies as $taxonomy ) {
@@ -597,6 +877,15 @@ class YIMAI_GSO_Sitemap_Generator {
     private function build_post_sitemap_content() {
         ob_start();
         $this->render_post_sitemap();
+        return ob_get_clean();
+    }
+
+    /**
+     * 构建页面Sitemap内容（t8）
+     */
+    private function build_page_sitemap_content() {
+        ob_start();
+        $this->render_page_sitemap();
         return ob_get_clean();
     }
     
