@@ -704,31 +704,173 @@ class YIMAI_GSO_Heading_Analyzer {
             array( 'role' => 'user',   'content' => $user_message ),
         ), 2048 );
 
+        // AI 不可用 / 返回不可解析时，不再返回「空建议 + 一句提示」。
+        //
+        // 旧行为：optimizations=[]、overall='AI分析暂时无法处理，请稍后重试'，
+        // 前端会把它渲染成「所有H2标题已包含关键词且表达精炼，无需优化」，
+        // 用户看到的就是「点了没反应 / 点了没建议」。现在一律降级为规则建议，
+        // 保证每次点击都有可执行的条目，并在 notice 里说明为什么是规则建议。
         if ( is_wp_error( $response ) ) {
-            return $response;
+            return $this->build_rule_suggestions(
+                $post_id,
+                $h2_texts,
+                $primary_keyword,
+                'AI 调用失败（' . $response->get_error_message() . '），已改用规则建议'
+            );
         }
 
-        $content_raw = $response['choices'][0]['message']['content'] ?? '';
-        $content_raw = preg_replace( '/^```json\s*/m', '', $content_raw );
-        $content_raw = preg_replace( '/^```\s*/m', '', $content_raw );
-        $content_raw = trim( $content_raw );
+        $content_raw = $this->extract_json_payload( $response['choices'][0]['message']['content'] ?? '' );
+        $data        = json_decode( $content_raw, true );
 
-        $data = json_decode( $content_raw, true );
+        $optimizations = array();
+        if ( is_array( $data ) && isset( $data['optimizations'] ) && is_array( $data['optimizations'] ) ) {
+            foreach ( $data['optimizations'] as $item ) {
+                if ( ! is_array( $item ) ) {
+                    continue;
+                }
+                $original = trim( (string) ( $item['original'] ?? '' ) );
+                if ( '' === $original ) {
+                    continue;
+                }
+                $suggested = trim( (string) ( $item['suggested'] ?? '' ) );
+                $optimizations[] = array(
+                    'original'  => $original,
+                    'suggested' => $suggested,
+                    // keep=true 或没有给出新标题，都按「无需修改」处理
+                    'keep'      => ! empty( $item['keep'] ) || '' === $suggested,
+                    'reason'    => trim( (string) ( $item['reason'] ?? '' ) ),
+                );
+            }
+        }
 
-        if ( json_last_error() !== JSON_ERROR_NONE || ! isset( $data['optimizations'] ) ) {
-            // 解析失败回退
-            return array(
-                'optimizations' => array(),
-                'overall'       => 'AI分析暂时无法处理，请稍后重试',
+        if ( empty( $optimizations ) ) {
+            return $this->build_rule_suggestions(
+                $post_id,
+                $h2_texts,
+                $primary_keyword,
+                'AI 返回内容无法解析为建议，已改用规则建议'
             );
         }
 
         $result = array(
-            'optimizations' => $data['optimizations'],
-            'overall'       => $data['overall'] ?? '',
+            'optimizations' => $optimizations,
+            'overall'       => trim( (string) ( $data['overall'] ?? '' ) ),
+            'source'        => 'ai',
+            'notice'        => '',
         );
 
         // 缓存到 post_meta
+        update_post_meta( $post_id, 'yimai_gso_heading_optimization', $result );
+
+        return $result;
+    }
+
+    /**
+     * 从 AI 原始返回里抠出 JSON 主体
+     *
+     * 模型常见三种脏输出：整块 ```json 包裹、结尾残留 ```、JSON 前后带解释性文字。
+     * 旧实现只用 /^```json/m 去掉开头的围栏，结尾残留与前后说明都会让 json_decode 失败，
+     * 进而走到「无需优化」的假成功分支。
+     *
+     * @param string $raw
+     * @return string
+     */
+    private function extract_json_payload( $raw ) {
+        $raw = (string) $raw;
+        // 去 BOM
+        $raw = preg_replace( '/^\xEF\xBB\xBF/', '', $raw );
+        // 去 ```json / ``` 围栏（含结尾）
+        $raw = preg_replace( '/```[a-zA-Z]*\s*/', '', $raw );
+        $raw = trim( $raw );
+
+        // 前后夹带说明文字时，取第一个 { 到最后一个 } 之间
+        $start = strpos( $raw, '{' );
+        $end   = strrpos( $raw, '}' );
+        if ( false !== $start && false !== $end && $end > $start ) {
+            $raw = substr( $raw, $start, $end - $start + 1 );
+        }
+
+        return trim( $raw );
+    }
+
+    /**
+     * 规则建议（AI 不可用时的降级路径）
+     *
+     * 只做「确定性、可解释」的编辑，不臆造内容：
+     *  - 已含核心关键词且长度 6~30 字 → 保留（keep=true）
+     *  - 不含核心关键词且拼接后不超过 34 字 → 关键词放在最前面
+     *  - 超过 30 字 → 截断并给出原因
+     * 其余情况只给原因、不改写。
+     *
+     * @param int    $post_id
+     * @param array  $h2_texts        H2 纯文本列表
+     * @param string $primary_keyword 核心关键词
+     * @param string $notice          为什么走了规则建议
+     * @return array
+     */
+    private function build_rule_suggestions( $post_id, $h2_texts, $primary_keyword, $notice ) {
+        $optimizations = array();
+
+        foreach ( $h2_texts as $raw_text ) {
+            $text = trim( wp_strip_all_tags( (string) $raw_text ) );
+            $text = preg_replace( '/\s+/u', ' ', $text );
+            if ( '' === $text ) {
+                continue;
+            }
+
+            $len    = mb_strlen( $text );
+            $has_kw = ( '' !== $primary_keyword ) && ( false !== mb_stripos( $text, $primary_keyword ) );
+
+            if ( $has_kw && $len >= 6 && $len <= 30 ) {
+                $optimizations[] = array(
+                    'original'  => $text,
+                    'suggested' => '',
+                    'keep'      => true,
+                    'reason'    => '含核心关键词，长度适中',
+                );
+                continue;
+            }
+
+            if ( ! $has_kw && '' !== $primary_keyword ) {
+                $candidate = $primary_keyword . '｜' . $text;
+                if ( mb_strlen( $candidate ) <= 34 ) {
+                    $optimizations[] = array(
+                        'original'  => $text,
+                        'suggested' => $candidate,
+                        'keep'      => false,
+                        'reason'    => '未含核心关键词「' . $primary_keyword . '」',
+                    );
+                    continue;
+                }
+            }
+
+            if ( $len > 30 ) {
+                $optimizations[] = array(
+                    'original'  => $text,
+                    'suggested' => mb_substr( $text, 0, 24 ) . '…',
+                    'keep'      => false,
+                    'reason'    => '标题偏长（' . $len . ' 字），建议压到 30 字以内',
+                );
+                continue;
+            }
+
+            $optimizations[] = array(
+                'original'  => $text,
+                'suggested' => '',
+                'keep'      => true,
+                'reason'    => '' !== $primary_keyword ? '结构可用，可人工微调' : '未设置核心关键词，建议先补充关键词',
+            );
+        }
+
+        $result = array(
+            'optimizations' => $optimizations,
+            'overall'       => ( '' !== $primary_keyword )
+                ? '规则建议：每个 H2 尽量含一次核心关键词「' . $primary_keyword . '」，单条控制在 30 字以内。'
+                : '规则建议：先到「SEO元数据」给这篇文章补核心关键词，标题优化才有依据。',
+            'source'        => 'rule',
+            'notice'        => $notice,
+        );
+
         update_post_meta( $post_id, 'yimai_gso_heading_optimization', $result );
 
         return $result;
@@ -754,7 +896,13 @@ class YIMAI_GSO_Heading_Analyzer {
         }
 
         $analyzer = self::get_instance();
-        $result   = $analyzer->generate_ai_suggestions( $post_id );
+        // 兜住异常：AI 侧任何 Throwable 都要变成一条可读的 JSON 错误，
+        // 否则前端只会收到一个非 JSON 的 500 响应，表现为「点了没反应」
+        try {
+            $result = $analyzer->generate_ai_suggestions( $post_id );
+        } catch ( Throwable $e ) {
+            wp_send_json_error( array( 'message' => '生成建议时出现异常：' . $e->getMessage() ) );
+        }
 
         if ( is_wp_error( $result ) ) {
             wp_send_json_error( array( 'message' => $result->get_error_message() ) );
@@ -798,29 +946,41 @@ class YIMAI_GSO_Heading_Analyzer {
         $content = $post->post_content;
         $applied = 0;
 
+        // 待替换映射：归一化后的原标题 => 新标题（每条最多命中一次）
+        $pending = array();
         foreach ( $optimizations as $opt ) {
-            $original = trim( $opt['original'] ?? '' );
-            $suggested = trim( $opt['suggested'] ?? '' );
-            if ( empty( $original ) || empty( $suggested ) ) {
+            $original  = trim( wp_strip_all_tags( (string) ( $opt['original'] ?? '' ) ) );
+            $original  = preg_replace( '/\s+/u', ' ', $original );
+            $suggested = trim( (string) ( $opt['suggested'] ?? '' ) );
+            if ( '' === $original || '' === $suggested ) {
                 continue;
             }
+            $pending[ $original ] = $suggested;
+        }
 
-            // 在 H2 标签内替换标题文本
-            // 匹配 <h2...>原标题</h2> → <h2...>新标题</h2>
-            $pattern = '/<h([2])[^>]*>\s*' . preg_quote( $original, '/' ) . '\s*<\/h\1>/isu';
-            $replacement = '<h2>' . $suggested . '</h2>';
-            $new_content = preg_replace( $pattern, $replacement, $content, 1, $count );
-            if ( $count > 0 ) {
-                $content = $new_content;
-                $applied++;
-            } else {
-                // 尝试更宽松的匹配（可能包含HTML标签内的标题文本）
-                $pattern2 = '/<h2[^>]*>.*?' . preg_quote( $original, '/' ) . '.*?<\/h2>/isu';
-                $content = preg_replace( $pattern2, $replacement, $content, 1, $count2 );
-                if ( $count2 > 0 ) {
+        if ( ! empty( $pending ) ) {
+            $content = preg_replace_callback(
+                '/<h2\b([^>]*)>(.*?)<\/h2>/isu',
+                function ( $m ) use ( &$pending, &$applied ) {
+                    // H2 里可能含 <strong>/<em>/<a>，先取纯文本再比对；
+                    // 旧实现拿纯文本去匹配原始 HTML，遇见内嵌标签就整条匹配不上
+                    $inner = trim( wp_strip_all_tags( $m[2] ) );
+                    $inner = preg_replace( '/\s+/u', ' ', $inner );
+
+                    if ( ! isset( $pending[ $inner ] ) ) {
+                        return $m[0];
+                    }
+
+                    $suggested = $pending[ $inner ];
+                    unset( $pending[ $inner ] );
                     $applied++;
-                }
-            }
+
+                    // 保留原属性（class / id 锚点），只替换文字。
+                    // 旧实现直接输出 <h2>，样式类与目录锚点会被一并丢掉。
+                    return '<h2' . $m[1] . '>' . esc_html( $suggested ) . '</h2>';
+                },
+                $content
+            );
         }
 
         if ( $applied === 0 ) {

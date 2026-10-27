@@ -3633,33 +3633,15 @@ class YIMAI_GSO_Admin {
         <div class="wrap yimai-gso-wrap yimai-gso-center-wrap yimai-gso-sidebar-layout">
 
             <?php
-            // 侧边栏默认只展开一个分组。
+            // 侧边栏默认全部收起。
             //
             // 旧实现把 collapsed 硬编码在分组上，admin.js 又用 localStorage 记住展开状态：
             // 用户手动点开过一次，之后每次进后台都是「全展开」，一屏二十多个菜单把内容顶到下面
-            // （手机端尤其严重）。现在改为服务端决定：优先展开当前页面所在的分组，
-            // 当前页面不属于任何分组（如默认的仪表盘）时展开第一个分组，其余一律收起。
-            $yimai_gso_tab_groups = array(
-                'sys'     => array( 'settings', 'tutorial', 'updater' ),
-                'content' => array( 'single', 'rewrite', 'generate', 'ai-excerpt', 'detection', 'image-library', 'history' ),
-                'seo'     => array( 'seo-score', 'seo-meta', 'internal-links', 'schema', 'seo-push', 'heading', 'auto-alt', 'canonical', 'optimizer-404' ),
-                'geo'     => array( 'l5-overview', 'geo-audit', 'l5-diagnosis', 'l5-crawler', 'freshness', 'llms-txt', 'seo-geo-bridge', 'l5-alerts' ),
-                'auto'    => array( 'autopilot' ),
-            );
-            $yimai_gso_open_group = '';
-            foreach ( $yimai_gso_tab_groups as $yimai_gso_group_key => $yimai_gso_group_tabs ) {
-                if ( in_array( $active_tab, $yimai_gso_group_tabs, true ) ) {
-                    $yimai_gso_open_group = $yimai_gso_group_key;
-                    break;
-                }
-            }
-            if ( '' === $yimai_gso_open_group ) {
-                $yimai_gso_open_group = 'sys';
-            }
+            // （手机端尤其严重）。现在改为服务端决定 + 前端单手风琴：
+            // 进入后台时只看到「仪表盘」，所有分组都是收起的，需要哪个分组再点开。
             $yimai_gso_group_class = array();
-            foreach ( array_keys( $yimai_gso_tab_groups ) as $yimai_gso_group_key ) {
-                $yimai_gso_group_class[ $yimai_gso_group_key ] = 'yimai-gso-sidebar-group'
-                    . ( $yimai_gso_group_key === $yimai_gso_open_group ? '' : ' collapsed' );
+            foreach ( array( 'sys', 'content', 'seo', 'geo', 'auto' ) as $yimai_gso_group_key ) {
+                $yimai_gso_group_class[ $yimai_gso_group_key ] = 'yimai-gso-sidebar-group collapsed';
             }
             ?>
 

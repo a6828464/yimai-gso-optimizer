@@ -4709,6 +4709,7 @@ function esc(s) {
         generatedContent: '',
         generatedExcerpt: '',
         keywords: '',
+        generatedTags: '',
         pendingImagePrompts: []
     };
 
@@ -4766,7 +4767,13 @@ function esc(s) {
                             singleState.generatedContent = res.data.content;
                             singleState.generatedExcerpt = res.data.excerpt || '';
                             singleState.keywords = res.data.keywords || '';
+                            // AI 生成的标签：单篇生成以前完全丢弃，导致发布出去没有标签
+                            singleState.generatedTags = res.data.tags || '';
                             singleState.pendingImagePrompts = res.data.pending_image_prompts || [];
+                            // 回填到标签框：用户能看到、能改，留空则服务端用 AI 标签兜底
+                            if (singleState.generatedTags && !$.trim($('#yimai-gso-single-tags').val())) {
+                                $('#yimai-gso-single-tags').val(singleState.generatedTags);
+                            }
 
                             renderSingleResult(res.data);
                         } else {
@@ -4827,6 +4834,7 @@ function esc(s) {
                         excerpt: singleState.generatedExcerpt,
                         category: $('#yimai-gso-single-category').val(),
                         tags: $('#yimai-gso-single-tags').val(),
+                        ai_tags: singleState.generatedTags || '',
                         status: status,
                         keywords: singleState.keywords,
                         pending_image_prompts: JSON.stringify(singleState.pendingImagePrompts),
@@ -5915,27 +5923,61 @@ function esc(s) {
 
         optimize: function(postId) {
             var $btn = $('.yimai-gso-ha-optimize-btn[data-id="' + postId + '"]');
-            $btn.prop('disabled', true).text('优化中...');
-            $.post(yimaiGsoData.ajaxUrl, { action: 'yimai_gso_heading_optimize', nonce: yimaiGsoData.nonce, post_id: postId }, function(res) {
-                $btn.prop('disabled', false).text('一键优化');
-                if (!res.success) { alert(res.data.message || '优化失败'); return; }
+            var originText = $btn.data('origin-text') || $btn.text();
+            $btn.data('origin-text', originText);
+            $btn.prop('disabled', true).text('AI 分析中…');
+
+            // 大模型正常要 20~60 秒。超过 8 秒补一句说明，
+            // 否则用户会以为「点了没反应」而重复点击。
+            var slowTimer = setTimeout(function() {
+                $btn.text('AI 分析中…（较慢，请勿重复点）');
+            }, 8000);
+
+            function done() {
+                clearTimeout(slowTimer);
+                $btn.prop('disabled', false).text(originText);
+            }
+
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_heading_optimize',
+                nonce: yimaiGsoData.nonce,
+                post_id: postId
+            }, function(res) {
+                done();
+                // res.data 可能为 null（wp_send_json_error 无参），
+                // 旧写法 res.data.message 会抛 TypeError，整个回调静默中断
+                if (!res || !res.success) {
+                    alert((res && res.data && res.data.message) || '优化失败，请重试');
+                    return;
+                }
+                if (!res.data) {
+                    alert('服务端返回空数据，请重试');
+                    return;
+                }
                 HeadingPanel.showOptimizeModal(res.data, postId);
-            }, 'json').fail(function() {
-                $btn.prop('disabled', false).text('一键优化');
-                alert('网络请求失败');
+            }, 'json').fail(function(xhr, status) {
+                done();
+                alert('网络请求失败（HTTP ' + ((xhr && xhr.status) || '?') + ' / ' + status + '），请查看浏览器控制台或 PHP 错误日志');
             });
         },
 
         showOptimizeModal: function(data, postId) {
             var opts = data.optimizations || [];
             var overall = data.overall || '';
+            var isRule = data.source === 'rule';
             var html = '<div id="yimai-gso-ha-optimize-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:99998;"></div>'
-                + '<div id="yimai-gso-ha-optimize-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:640px;max-height:80vh;overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);z-index:99999;padding:24px;">'
-                + '<h3 style="margin:0 0 16px;font-size:16px;">🤖 AI 标题优化建议</h3>'
-                + '<p style="font-size:13px;color:#64748b;margin:0 0 16px;">以下是根据AI分析得到的H2标题优化建议，勾选你希望应用的优化项，点击"应用所选优化"。</p>';
+                + '<div id="yimai-gso-ha-optimize-modal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:640px;max-width:calc(100vw - 32px);max-height:80vh;overflow-y:auto;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);z-index:99999;padding:24px;">'
+                + '<h3 style="margin:0 0 16px;font-size:16px;">' + (isRule ? '🧩 H2 标题规则建议' : '🤖 AI 标题优化建议') + '</h3>'
+                + '<p style="font-size:13px;color:#64748b;margin:0 0 16px;">以下是根据分析得到的 H2 标题优化建议，勾选你希望应用的优化项，点击"应用所选优化"——只替换 H2 标题文字，正文段落不动。</p>';
+
+            if (data.notice) {
+                html += '<div style="padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;color:#9a3412;font-size:12px;margin-bottom:12px;">⚠️ ' + esc(data.notice) + '</div>';
+            }
 
             if (opts.length === 0) {
-                html += '<div style="padding:20px;background:#f0f4ff;border-radius:10px;color:#4338ca;font-size:14px;">所有H2标题已包含关键词且表达精炼，无需优化。</div>';
+                html += '<div style="padding:20px;background:#f0f4ff;border-radius:10px;color:#4338ca;font-size:14px;">'
+                    + (isRule ? '规则检查：这些 H2 标题没有需要改动的地方。' : '所有H2标题已包含关键词且表达精炼，无需优化。')
+                    + '</div>';
             } else {
                 html += '<div style="margin-bottom:16px;">';
                 for (var i = 0; i < opts.length; i++) {
@@ -5997,8 +6039,11 @@ function esc(s) {
                 post_id: postId, optimizations: JSON.stringify(optimizations)
             }, function(res) {
                 $('#yimai-gso-ha-optimize-overlay, #yimai-gso-ha-optimize-modal').remove();
-                if (!res.success) { alert('应用失败：' + (res.data.message || '')); return; }
-                alert('✅ 已成功优化 ' + res.data.applied + ' 个标题！');
+                if (!res || !res.success) {
+                    alert('应用失败：' + ((res && res.data && res.data.message) || '服务端未返回原因'));
+                    return;
+                }
+                alert('✅ 已成功优化 ' + ((res.data && res.data.applied) || 0) + ' 个 H2 标题。\n如需撤销，到文章编辑页「修订版本」里恢复上一版即可。');
                 // 用最新分析结果更新表格行 + 底部分析面板
                 var d = res.data.analysis;
                 if (d) {

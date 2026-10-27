@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.12.0
+ * Version: 2.12.1
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.12.0' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.12.1' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -1312,19 +1312,48 @@ class YIMAI_GSO_Plugin {
             wp_send_json_error( array( 'message' => '标题和正文不能为空。' ), 400 );
         }
 
+        // 标签与分类：单篇生成此前既不传 post_category，也没有任何标签兜底，
+        // 所以「单篇生成」的文章在「所有文章」里是零标签，而自动发布那条链路
+        // 走的是 merge_tags(手填, AI 标签, 标题)，两者口径必须对齐。
+        $manual_tags  = sanitize_text_field( wp_unslash( $_POST['tags'] ?? '' ) );
+        $ai_tags      = sanitize_text_field( wp_unslash( $_POST['ai_tags'] ?? '' ) );
+        $ai_keywords  = sanitize_text_field( wp_unslash( $_POST['keywords'] ?? '' ) );
+        $category_id  = absint( $_POST['category'] ?? 0 );
+
+        if ( $category_id > 0 ) {
+            $cat = get_category( $category_id );
+            if ( ! $cat || is_wp_error( $cat ) ) {
+                $category_id = 0;
+            }
+        }
+
         $post_id = wp_insert_post( array(
-            'post_title'   => $title,
-            'post_content' => $content,
-            'post_excerpt' => sanitize_textarea_field( wp_unslash( $_POST['excerpt'] ?? '' ) ),
-            'post_status'  => $status,
-            'post_type'    => 'post',
+            'post_title'    => $title,
+            'post_content'  => $content,
+            'post_excerpt'  => sanitize_textarea_field( wp_unslash( $_POST['excerpt'] ?? '' ) ),
+            'post_status'   => $status,
+            'post_type'     => 'post',
+            'post_category' => $category_id > 0 ? array( $category_id ) : array(),
         ), true );
         if ( is_wp_error( $post_id ) ) {
             wp_send_json_error( array( 'message' => $post_id->get_error_message() ), 400 );
         }
-        if ( ! empty( $_POST['tags'] ) ) {
-            wp_set_post_tags( $post_id, sanitize_text_field( wp_unslash( $_POST['tags'] ) ), false );
+
+        // 标签优先级：手填 > AI 生成 > AI 关键词兜底（全部走同一套过滤：2~15 字、排除标题泄漏）
+        $final_tags = $this->merge_tags( $manual_tags, $ai_tags, $title );
+        if ( '' === $final_tags ) {
+            $final_tags = $this->merge_tags( '', $ai_keywords, $title );
         }
+        if ( '' !== $final_tags ) {
+            wp_set_post_tags( $post_id, $final_tags, false );
+        }
+
+        // 关键词落库：标题结构分析的「关键词覆盖率」读的就是这个 meta，
+        // 单篇生成以前从不写入，所以覆盖率恒为 0%
+        if ( '' !== $ai_keywords ) {
+            update_post_meta( $post_id, 'yimai_gso_keywords', $ai_keywords );
+        }
+
         update_post_meta( $post_id, 'yimai_gso_generated', '1' );
         wp_send_json_success( array(
             'post_id'  => $post_id,
