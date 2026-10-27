@@ -976,3 +976,93 @@
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
 }
+
+/* ==========================================================================
+   10. 侧边栏：移动端改成「紧凑条 + 抽屉」
+   --------------------------------------------------------------------------
+   历史问题（用户原话）：「手机端一打开，所有菜单栏全部挤在上面这一块，内容在下面」。
+   成因有两处叠加：
+     ① admin.css 的 ≤960px 把 .yimai-gso-sidebar-nav 改成 flex-direction:row + wrap，
+        二十多个菜单项横向换行，堆出十几行按钮；
+     ② 分组默认展开状态被 localStorage 记住，用户手动点开过一次就永久全展开。
+   ② 已改到服务端（只展开当前页所在分组）+ 手风琴，见 class-admin.php / admin.js；
+   这里负责 ①：≤960px 时侧边栏收成一条，导航默认 display:none，
+   点「菜单」按钮才展开，展开时限高 60vh 内部滚动，正文永远在首屏。
+   桌面端（>960px）不命中任何一条，渲染结果与改动前逐像素一致。
+   ========================================================================== */
+@media (max-width: 960px) {
+    .yimai-gso-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--yimai-gso-border);
+    }
+
+    /* 品牌头从「居中大块渐变」压成一条工具条 */
+    .yimai-gso-sidebar-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        text-align: left;
+    }
+
+    .yimai-gso-sidebar-brand-icon {
+        width: 34px;
+        height: 34px;
+        margin-bottom: 0;
+        border-radius: 9px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
+    }
+
+    .yimai-gso-brand-logo {
+        width: 26px;
+        height: 26px;
+    }
+
+    .yimai-gso-sidebar-brand-text {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .yimai-gso-sidebar-brand-name {
+        font-size: 14px;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 副标题在手机上只是噪音，收起来换菜单按钮的空间 */
+    .yimai-gso-sidebar-brand-text p {
+        display: none;
+    }
+
+    .yimai-gso-mobile-nav-toggle {
+        display: inline-flex;
+    }
+
+    /* 导航默认收起 */
+    .yimai-gso-sidebar-nav {
+        display: none;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        padding: 10px 12px;
+        gap: 6px;
+        max-height: 60vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-top: 1px solid var(--yimai-gso-border);
+    }
+
+    /* 展开态：竖向单列，撑满可用宽度 */
+    .yimai-gso-sidebar.yimai-gso-nav-open .yimai-gso-sidebar-nav {
+        display: flex;
+    }
+
+    .yimai-gso-sidebar-tab {
+        flex: 0 0 auto;
+        width: 100%;
+        min-width: 0;
+        justify-content: flex-start;
+    }
+}

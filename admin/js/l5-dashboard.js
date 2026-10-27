@@ -461,20 +461,27 @@
         ajaxGet('yimai_gso_l5_crawler_top_pages', { days: days, limit: 15 }, function (resp) {
             if (!resp || !resp.success) return;
             var data = resp.data || [];
-            var html = '<table class="yimai-gso-l5-table"><thead><tr><th style="width:50%">页面</th><th style="width:18%">访问次数</th><th style="width:32%">爬虫</th></tr></thead><tbody>';
+            var html = '<table class="yimai-gso-l5-table"><thead><tr><th style="width:44%">页面</th><th style="width:13%">成功</th><th style="width:13%">失败</th><th style="width:30%">爬虫</th></tr></thead><tbody>';
             data.forEach(function (p) {
                 // 安全修正（S1）：post_title / request_url / crawlers 均来自服务端的爬虫记录
                 //（其中 request_url 由攻击者可控的请求数据写入），必须转义后再拼接。
                 var title = escHtml(p.post_title || p.request_url || '-');
                 var url   = p.edit_url ? escHtml(p.edit_url) : '#';
                 var link  = p.edit_url ? '<a href="' + url + '" target="_blank">' + title + '</a>' : title;
+                // 状态码拆分：404 撞库不能算进「抓取成功」，否则机器人扫站会让面板虚高
+                var okHits   = (typeof p.ok_hits !== 'undefined') ? (parseInt(p.ok_hits, 10) || 0) : (parseInt(p.hits, 10) || 0);
+                var failHits = parseInt(p.fail_hits || 0, 10) || 0;
+                var rawUrl   = p.request_url || '';
+                var failCell = failHits > 0
+                    ? '<span class="yimai-gso-l5-fail-hits" title="' + escHtml(rawUrl) + '">' + escHtml(failHits) + '</span>'
+                    : '<span class="yimai-gso-l5-zero-hits">—</span>';
                 // 截断爬虫名超过4个时显示 "前3个 +N"
                 var crawlers = p.crawlers || '';
                 var crawlerList = crawlers.split(',').map(function (s) { return s.trim(); });
                 var crawlerDisplay = crawlerList.length > 3
                     ? escHtml(crawlerList.slice(0, 3).join(', ') + ' +' + (crawlerList.length - 3))
                     : escHtml(crawlers);
-                html += '<tr><td>' + link + '</td><td><strong>' + escHtml(p.hits) + '</strong></td><td class="yimai-gso-l5-crawler-cell" title="' + escHtml(crawlers) + '">' + crawlerDisplay + '</td></tr>';
+                html += '<tr><td>' + link + '</td><td><strong>' + escHtml(okHits) + '</strong></td><td>' + failCell + '</td><td class="yimai-gso-l5-crawler-cell" title="' + escHtml(crawlers) + '">' + crawlerDisplay + '</td></tr>';
             });
             html += '</tbody></table>';
             $('#yimai-gso-l5-top-pages-list').html(html);

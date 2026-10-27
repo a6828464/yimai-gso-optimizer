@@ -59,6 +59,12 @@ class YIMAI_GSO_Crawler_Tracker {
     /** 数据库表名 */
     const TABLE_NAME = 'geo_crawler_logs';
 
+    /** 日志保留天数：超出部分由每日 cron 清理（表会随爬虫访问持续增长） */
+    const RETENTION_DAYS = 90;
+
+    /** 清理 cron 钩子名 */
+    const CLEANUP_HOOK = 'yimai_gso_crawler_log_cleanup';
+
     public static function get_instance() {
         if ( null === self::$instance ) {
             self::$instance = new self();
@@ -69,6 +75,8 @@ class YIMAI_GSO_Crawler_Tracker {
     private function __construct() {
         // 在 shutdown 阶段异步写入日志，不阻塞用户请求
         add_action( 'shutdown', array( $this, 'maybe_log' ), 999 );
+        // 每日清理过期日志（保留 RETENTION_DAYS 天）
+        add_action( self::CLEANUP_HOOK, array( __CLASS__, 'cleanup_old_logs' ) );
     }
 
     // ==================== 爬虫识别 ====================
@@ -163,6 +171,8 @@ class YIMAI_GSO_Crawler_Tracker {
         if ( false === get_transient( 'yimai_gso_crawler_table_checked' ) ) {
             set_transient( 'yimai_gso_crawler_table_checked', 1, HOUR_IN_SECONDS );
             self::create_table();
+            // 老站点升级不会重跑激活钩子，清理任务在这里补注册（幂等，每小时最多检查一次）
+            self::schedule_cleanup();
         }
     }
 
@@ -260,7 +270,7 @@ class YIMAI_GSO_Crawler_Tracker {
         $table = self::table_name();
         self::ensure_table();
 
-        $since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
+        $since = self::since_datetime( $days );
 
         // 按爬虫聚合
         $by_crawler = $wpdb->get_results( $wpdb->prepare(
@@ -280,8 +290,25 @@ class YIMAI_GSO_Crawler_Tracker {
             $since
         ) );
 
+        // 状态码拆分：404 撞库与真实抓取必须分开算，否则机器人扫站会让曲线虚高
+        $ok   = 0;
+        $fail = 0;
+        $split = $wpdb->get_row( $wpdb->prepare(
+            "SELECT SUM(CASE WHEN response_code = 200 THEN 1 ELSE 0 END) AS ok_hits,
+                    SUM(CASE WHEN response_code <> 200 THEN 1 ELSE 0 END) AS fail_hits
+             FROM `{$table}`
+             WHERE visit_time >= %s",
+            $since
+        ), ARRAY_A );
+        if ( $split ) {
+            $ok   = (int) $split['ok_hits'];
+            $fail = (int) $split['fail_hits'];
+        }
+
         return array(
             'total_visits' => (int) $total,
+            'ok_visits'    => $ok,
+            'fail_visits'  => $fail,
             'by_crawler'   => $by_crawler ?: array(),
             'days'         => $days,
         );
@@ -299,10 +326,14 @@ class YIMAI_GSO_Crawler_Tracker {
         $table = self::table_name();
         self::ensure_table();
 
-        $since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
+        $since = self::since_datetime( $days );
 
         return $wpdb->get_results( $wpdb->prepare(
             "SELECT request_url, COUNT(*) as hits,
+                    SUM(CASE WHEN response_code = 200 THEN 1 ELSE 0 END) as ok_hits,
+                    SUM(CASE WHEN response_code <> 200 THEN 1 ELSE 0 END) as fail_hits,
+                    SUM(CASE WHEN response_code = 404 THEN 1 ELSE 0 END) as hits_404,
+                    MAX(response_code) as max_code,
                     GROUP_CONCAT(DISTINCT crawler_name ORDER BY crawler_name SEPARATOR ', ') as crawlers
              FROM `{$table}`
              WHERE visit_time >= %s
@@ -311,5 +342,82 @@ class YIMAI_GSO_Crawler_Tracker {
              LIMIT %d",
             $since, $limit
         ), ARRAY_A ) ?: array();
+    }
+
+    // ==================== 保留策略 ====================
+
+    /**
+     * 计算统计窗口起点（站点本地时间）
+     *
+     * visit_time 由 current_time('mysql') 写入，是站点本地时间；
+     * 原先用 gmdate() 取 UTC 起点，在 +08:00 站点上窗口整体偏移 8 小时。
+     *
+     * @param int $days
+     * @return string 'Y-m-d H:i:s'
+     */
+    private static function since_datetime( $days ) {
+        $days = max( 1, (int) $days );
+        return gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days", current_time( 'timestamp' ) ) );
+    }
+
+    /**
+     * 注册每日清理任务（激活时调用，幂等）
+     */
+    public static function schedule_cleanup() {
+        if ( ! wp_next_scheduled( self::CLEANUP_HOOK ) ) {
+            wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::CLEANUP_HOOK );
+        }
+    }
+
+    /**
+     * 注销清理任务（停用/卸载时调用）
+     */
+    public static function unschedule_cleanup() {
+        $timestamp = wp_next_scheduled( self::CLEANUP_HOOK );
+        if ( $timestamp ) {
+            wp_unschedule_event( $timestamp, self::CLEANUP_HOOK );
+        }
+    }
+
+    /**
+     * 清理超过保留期的日志（分批删，避免一次性 DELETE 长时间锁表）
+     *
+     * @return int 删除行数
+     */
+    public static function cleanup_old_logs() {
+        global $wpdb;
+        $table = self::table_name();
+        self::ensure_table();
+
+        $cutoff = gmdate(
+            'Y-m-d H:i:s',
+            strtotime( '-' . self::RETENTION_DAYS . ' days', current_time( 'timestamp' ) )
+        );
+
+        $deleted = 0;
+        $batch   = 5000;
+        do {
+            $rows = $wpdb->query( $wpdb->prepare(
+                "DELETE FROM `{$table}` WHERE visit_time < %s LIMIT %d",
+                $cutoff,
+                $batch
+            ) );
+            $rows = (int) $rows;
+            $deleted += $rows;
+        } while ( $rows === $batch );
+
+        return $deleted;
+    }
+
+    /**
+     * 表内现有行数（供后台展示与运维判断）
+     *
+     * @return int
+     */
+    public static function count_rows() {
+        global $wpdb;
+        $table = self::table_name();
+        self::ensure_table();
+        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$table}`" );
     }
 }

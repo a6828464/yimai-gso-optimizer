@@ -8755,36 +8755,55 @@ sugHtml = '<div style="display:flex;align-items:center;gap:6px"><span style="fon
 
     // ==================== 侧边栏折叠面板 ====================
     (function() {
-        var STORAGE_KEY = 'yimai_gso_sidebar_groups';
         var $groups = $('.yimai-gso-sidebar-group');
-
         if (!$groups.length) return;
 
-        // 读取 localStorage 保存的展开状态
-        var saved = {};
-        try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) {}
-
+        // 展开状态由服务端决定（只展开当前页面所在分组，见 class-admin.php 的 $yimai_gso_open_group）。
+        // 这里不再用 localStorage 记忆状态：持久化会让「用户手动展开过一次」变成
+        // 之后每次进后台都全部展开，手机上二十多个菜单直接把内容顶到屏幕外。
+        // 改为单开手风琴：点开一个，其余自动收起，侧边栏始终只有一个分组是展开的。
         $groups.each(function() {
             var $group = $(this);
-            var groupId = $group.data('group') || '';
-            var $label  = $group.find('.yimai-gso-sidebar-group-label');
+            var $label = $group.find('.yimai-gso-sidebar-group-label');
 
-            // 恢复上次状态（localStorage 优先，其次看有没有 .collapsed class）
-            if (saved.hasOwnProperty(groupId)) {
-                $group.toggleClass('collapsed', !saved[groupId]);
-            }
-
-            // 点击标签切换折叠
             $label.off('click.sidebarGroup').on('click.sidebarGroup', function(e) {
                 e.stopPropagation();
-                $group.toggleClass('collapsed');
-                // 保存状态
-                try {
-                    var state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-                    state[groupId] = !$group.hasClass('collapsed');
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-                } catch(e) {}
+                var willOpen = $group.hasClass('collapsed');
+                $groups.addClass('collapsed');
+                $group.toggleClass('collapsed', !willOpen);
             });
+        });
+    })();
+
+    // ==================== 移动端侧边栏开关 ====================
+    (function() {
+        var $sidebar = $('.yimai-gso-sidebar');
+        var $toggle  = $('.yimai-gso-mobile-nav-toggle');
+        if (!$sidebar.length || !$toggle.length) return;
+
+        function setOpen(open) {
+            $sidebar.toggleClass('yimai-gso-nav-open', open);
+            $toggle.attr('aria-expanded', open ? 'true' : 'false');
+        }
+
+        $toggle.off('click.mobileNav').on('click.mobileNav', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(!$sidebar.hasClass('yimai-gso-nav-open'));
+        });
+
+        // 选完菜单立刻收起，避免菜单盖住正文
+        $('.yimai-gso-sidebar-nav').off('click.mobileNav').on('click.mobileNav', '.yimai-gso-sidebar-tab', function() {
+            if (window.matchMedia('(max-width: 960px)').matches) {
+                setOpen(false);
+            }
+        });
+
+        // 视口拉回桌面宽度时清掉移动态，避免旋转屏幕后残留收起状态
+        $(window).off('resize.mobileNav').on('resize.mobileNav', function() {
+            if (!window.matchMedia('(max-width: 960px)').matches) {
+                setOpen(false);
+            }
         });
     })();
 

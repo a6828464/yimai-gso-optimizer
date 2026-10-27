@@ -2820,6 +2820,34 @@ body.wp-admin div.wrap.yimai-gso-wrap {
     margin: 0 0 6px 0;
     line-height: 1.25;
 }
+/* 移动端菜单开关：桌面端不显示，≤960px 由 responsive.css 打开。
+   手机/平板上侧边栏默认收起成一条紧凑栏，点这个按钮才展开导航，
+   避免二十多个菜单项把正文顶到屏幕外（历史问题：菜单全挤在上面）。 */
+.yimai-gso-mobile-nav-toggle {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, .55);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .16);
+    color: #fff;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.yimai-gso-mobile-nav-toggle:hover,
+.yimai-gso-mobile-nav-toggle:focus {
+    background: rgba(255, 255, 255, .28);
+    color: #fff;
+}
+.yimai-gso-mobile-nav-toggle .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
 /* ===== 修复「保存提醒出现在 LOGO 下方且看不清」=====
    根因一：WP common.js 把 .notice 移到 .wrap 内第一个 h1/h2 后（已改 div）；
    根因二：通知若仍落在侧边栏渐变头部内，其 p 会继承上面的半透明白字。

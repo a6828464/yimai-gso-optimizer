@@ -70,6 +70,8 @@ class YIMAI_GSO_Crawler_Dashboard {
 
         $result = array(
             'total_visits'    => (int) $stats['total_visits'],
+            'ok_visits'       => isset( $stats['ok_visits'] ) ? (int) $stats['ok_visits'] : 0,
+            'fail_visits'     => isset( $stats['fail_visits'] ) ? (int) $stats['fail_visits'] : 0,
             'unique_crawlers' => $unique_crawlers,
             'unique_pages'    => $unique_pages,
             'today_count'     => $today_count,
@@ -310,51 +312,37 @@ class YIMAI_GSO_Crawler_Dashboard {
 
         $pages = YIMAI_GSO_Crawler_Tracker::get_top_pages( $days, $limit );
 
-        // 尝试解析每页的 post_id 并获取文章标题
-        $url_parts = array();
+        // 解析每页对应的文章标题。
+        //
+        // 旧实现用「URL 最后一段 = post_name」反查，且 SQL 不带 post_status 过滤，
+        // 于是草稿/修订/页面会命中并顶替真实文章的标题（[草稿标题] + [草稿编辑链接]），
+        // 管理员看到「未发布的文章被爬了」这种假警报。basename 还会把
+        // /blog/page/2 解析成 "2"、/app 解析成 "app"，进一步放大误配。
+        //
+        // 现在的口径：
+        //  1. 先用 url_to_postid() 走 WordPress 自己的重写规则解析；
+        //  2. 只认 post_status = publish 的 post/page，草稿一律不显示标题；
+        //  3. 解析不出来就原样显示 URL 路径，不再猜。
         foreach ( $pages as &$page ) {
-            $page['hits'] = (int) $page['hits'];
+            $page['hits']      = (int) $page['hits'];
+            $page['ok_hits']   = isset( $page['ok_hits'] ) ? (int) $page['ok_hits'] : 0;
+            $page['fail_hits'] = isset( $page['fail_hits'] ) ? (int) $page['fail_hits'] : 0;
+            $page['hits_404']  = isset( $page['hits_404'] ) ? (int) $page['hits_404'] : 0;
             $page['post_title'] = '';
             $page['edit_url']   = '';
 
-            // 从 URL 中尝试提取 slug
-            $path = parse_url( $page['request_url'], PHP_URL_PATH );
-            if ( $path ) {
-                $path = untrailingslashit( $path );
-                $slug = basename( $path );
-                $url_parts[] = $slug;
+            $path = (string) parse_url( $page['request_url'], PHP_URL_PATH );
+            $page['post_title'] = '' !== $path ? '/' . ltrim( $path, '/' ) : $page['request_url'];
+
+            $post_id = url_to_postid( $page['request_url'] );
+            if ( $post_id > 0
+                && in_array( get_post_status( $post_id ), array( 'publish' ), true )
+                && in_array( get_post_type( $post_id ), array( 'post', 'page' ), true ) ) {
+                $page['post_title'] = get_the_title( $post_id );
+                $page['edit_url']   = get_edit_post_link( $post_id, 'raw' );
             }
         }
-
-        // 批量查找 post_id
-        if ( ! empty( $url_parts ) ) {
-            global $wpdb;
-            $placeholders = implode( ',', array_fill( 0, count( $url_parts ), '%s' ) );
-            $results = $wpdb->get_results( $wpdb->prepare(
-                "SELECT ID, post_title, post_name FROM {$wpdb->posts} WHERE post_name IN ({$placeholders})",
-                ...$url_parts
-            ), ARRAY_A );
-
-            $slug_map = array();
-            if ( $results ) {
-                foreach ( $results as $r ) {
-                    $slug_map[ $r['post_name'] ] = $r;
-                }
-            }
-
-            foreach ( $pages as &$page ) {
-                $path = parse_url( $page['request_url'], PHP_URL_PATH );
-                $slug = basename( untrailingslashit( $path ) );
-
-                if ( isset( $slug_map[ $slug ] ) ) {
-                    $page['post_title'] = $slug_map[ $slug ]['post_title'];
-                    $page['edit_url']   = get_edit_post_link( $slug_map[ $slug ]['ID'], 'raw' );
-                } else {
-                    // 如果找不到，显示 URL 最后一段
-                    $page['post_title'] = '/' . ltrim( $path, '/' );
-                }
-            }
-        }
+        unset( $page );
 
         $ttl = ( $days <= 7 ) ? 5 * MINUTE_IN_SECONDS : 30 * MINUTE_IN_SECONDS;
         set_transient( $cache_key, $pages, $ttl );

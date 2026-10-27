@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.11.0
+ * Version: 2.12.0
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.11.0' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.12.0' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -1165,6 +1165,8 @@ class YIMAI_GSO_Plugin {
         // GEO: 创建 AI 爬虫日志表
         if ( class_exists( 'YIMAI_GSO_Crawler_Tracker' ) ) {
             YIMAI_GSO_Crawler_Tracker::create_table();
+            // 每日清理超期日志（表随爬虫访问持续增长，无保留策略会无限膨胀）
+            YIMAI_GSO_Crawler_Tracker::schedule_cleanup();
         }
 
         // L5: 创建引荐流量日志表和预警日志表
@@ -1208,6 +1210,11 @@ class YIMAI_GSO_Plugin {
         // L5: 清除预警检测 cron
         if ( class_exists( 'YIMAI_GSO_Alert_Engine' ) ) {
             YIMAI_GSO_Alert_Engine::unschedule_crons();
+        }
+
+        // GEO: 清除爬虫日志清理 cron
+        if ( class_exists( 'YIMAI_GSO_Crawler_Tracker' ) ) {
+            YIMAI_GSO_Crawler_Tracker::unschedule_cleanup();
         }
 
         // 已退役的 GEO 自动化模块遗留任务（T2：模块已删除，此处按字面量清理）

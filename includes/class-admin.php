@@ -3632,6 +3632,37 @@ class YIMAI_GSO_Admin {
 
         <div class="wrap yimai-gso-wrap yimai-gso-center-wrap yimai-gso-sidebar-layout">
 
+            <?php
+            // 侧边栏默认只展开一个分组。
+            //
+            // 旧实现把 collapsed 硬编码在分组上，admin.js 又用 localStorage 记住展开状态：
+            // 用户手动点开过一次，之后每次进后台都是「全展开」，一屏二十多个菜单把内容顶到下面
+            // （手机端尤其严重）。现在改为服务端决定：优先展开当前页面所在的分组，
+            // 当前页面不属于任何分组（如默认的仪表盘）时展开第一个分组，其余一律收起。
+            $yimai_gso_tab_groups = array(
+                'sys'     => array( 'settings', 'tutorial', 'updater' ),
+                'content' => array( 'single', 'rewrite', 'generate', 'ai-excerpt', 'detection', 'image-library', 'history' ),
+                'seo'     => array( 'seo-score', 'seo-meta', 'internal-links', 'schema', 'seo-push', 'heading', 'auto-alt', 'canonical', 'optimizer-404' ),
+                'geo'     => array( 'l5-overview', 'geo-audit', 'l5-diagnosis', 'l5-crawler', 'freshness', 'llms-txt', 'seo-geo-bridge', 'l5-alerts' ),
+                'auto'    => array( 'autopilot' ),
+            );
+            $yimai_gso_open_group = '';
+            foreach ( $yimai_gso_tab_groups as $yimai_gso_group_key => $yimai_gso_group_tabs ) {
+                if ( in_array( $active_tab, $yimai_gso_group_tabs, true ) ) {
+                    $yimai_gso_open_group = $yimai_gso_group_key;
+                    break;
+                }
+            }
+            if ( '' === $yimai_gso_open_group ) {
+                $yimai_gso_open_group = 'sys';
+            }
+            $yimai_gso_group_class = array();
+            foreach ( array_keys( $yimai_gso_tab_groups ) as $yimai_gso_group_key ) {
+                $yimai_gso_group_class[ $yimai_gso_group_key ] = 'yimai-gso-sidebar-group'
+                    . ( $yimai_gso_group_key === $yimai_gso_open_group ? '' : ' collapsed' );
+            }
+            ?>
+
             <!-- 左侧边栏导航 -->
             <aside class="yimai-gso-sidebar">
                 <div class="yimai-gso-sidebar-header">
@@ -3645,14 +3676,20 @@ class YIMAI_GSO_Admin {
                         <div class="yimai-gso-sidebar-brand-name">一麦GSO双擎优化</div>
                         <p>SEO排名与GEO引用双引擎协同优化</p>
                     </div>
+                    <!-- 移动端菜单开关：桌面端由 CSS 隐藏。手机/平板上侧边栏默认收起成一条，
+                         否则全部分组的菜单会把内容顶到屏幕外（≤960px 时的历史问题）。 -->
+                    <button type="button" class="yimai-gso-mobile-nav-toggle" aria-expanded="false" aria-controls="yimai-gso-sidebar-nav">
+                        <span class="dashicons dashicons-menu-alt3"></span>
+                        <span class="yimai-gso-mobile-nav-toggle-text">菜单</span>
+                    </button>
                 </div>
-                <nav class="yimai-gso-sidebar-nav">
+                <nav class="yimai-gso-sidebar-nav" id="yimai-gso-sidebar-nav">
                     <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'dashboard' ? 'active' : ''; ?>" data-tab="dashboard">
                         <span class="dashicons dashicons-dashboard"></span>
                         <span>仪表盘</span>
                     </button>
 
-                    <div class="yimai-gso-sidebar-group collapsed" data-group="sys">
+                    <div class="<?php echo esc_attr( $yimai_gso_group_class['sys'] ); ?>" data-group="sys">
                         <div class="yimai-gso-sidebar-group-label"><span class="dashicons dashicons-admin-generic"></span> 系统设置</div>
                         <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'settings' ? 'active' : ''; ?>" data-tab="settings">
                             <span class="dashicons dashicons-admin-settings"></span>
@@ -3668,7 +3705,7 @@ class YIMAI_GSO_Admin {
                         </button>
                     </div>
 
-                    <div class="yimai-gso-sidebar-group" data-group="content">
+                    <div class="<?php echo esc_attr( $yimai_gso_group_class['content'] ); ?>" data-group="content">
                         <div class="yimai-gso-sidebar-group-label"><span class="dashicons dashicons-welcome-write-blog"></span> 内容创作</div>
                         <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'single' ? 'active' : ''; ?>" data-tab="single">
                             <span class="dashicons dashicons-welcome-write-blog"></span>
@@ -3700,7 +3737,7 @@ class YIMAI_GSO_Admin {
                         </button>
                     </div>
 
-                    <div class="yimai-gso-sidebar-group collapsed" data-group="seo">
+                    <div class="<?php echo esc_attr( $yimai_gso_group_class['seo'] ); ?>" data-group="seo">
                         <div class="yimai-gso-sidebar-group-label"><span class="dashicons dashicons-search"></span> SEO 优化</div>
                         <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'seo-score' ? 'active' : ''; ?>" data-tab="seo-score">
                             <span class="dashicons dashicons-chart-bar"></span>
@@ -3741,7 +3778,7 @@ class YIMAI_GSO_Admin {
                     </div>
 
                     <?php $l5_meta = $this->get_feature_meta( 'l5_dashboard' ); ?>
-                    <div class="yimai-gso-sidebar-group collapsed" data-group="geo">
+                    <div class="<?php echo esc_attr( $yimai_gso_group_class['geo'] ); ?>" data-group="geo">
                         <div class="yimai-gso-sidebar-group-label"><span class="dashicons dashicons-admin-site"></span> GEO优化</div>
                         <?php if ( $l5_meta['available'] ) : ?>
                         <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'l5-overview' ? 'active' : ''; ?>" data-tab="l5-overview">
@@ -3803,7 +3840,7 @@ class YIMAI_GSO_Admin {
                         <?php endif; ?>
                     </div>
 
-                    <div class="yimai-gso-sidebar-group collapsed" data-group="auto">
+                    <div class="<?php echo esc_attr( $yimai_gso_group_class['auto'] ); ?>" data-group="auto">
                         <div class="yimai-gso-sidebar-group-label"><span class="dashicons dashicons-clock"></span> 自动化</div>
                         <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'autopilot' ? 'active' : ''; ?>" data-tab="autopilot">
                             <span class="dashicons dashicons-clock"></span>

@@ -1069,3 +1069,15 @@
         height: 200px;
     }
 }
+
+/* 被爬最多页面：抓取成功 / 失败 分列着色
+   —— 404 撞库以前和真实抓取混在一起显示（同一列数字），
+      现在失败单独一列，红色标出，避免「被爬 190 次」的误读。 */
+.yimai-gso-l5-fail-hits {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.yimai-gso-l5-zero-hits {
+    color: #cbd5e1;
+}
