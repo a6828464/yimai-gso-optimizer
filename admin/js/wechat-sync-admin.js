@@ -10,7 +10,7 @@
  *     这里只切换 is-success / is-error 这类状态类，以及用 is-muted 之类的徽章变体。
  *  2) 不拼 HTML 字符串。表格行、徽章全部用 createElement/textContent 建节点，
  *     服务端返回的文案（含微信 errmsg）永远不会被当成 HTML 解析。
- *  3) 三个动作共用一个 nonce（yimai_gso_wx_admin），由 PHP 通过 wp_localize_script 传下来。
+ *  3) 所有动作共用一个 nonce（yimai_gso_wx_admin），由 PHP 通过 wp_localize_script 传下来。
  *
  * @since 2.10.0
  */
@@ -458,5 +458,332 @@
                 renderPreview('');
             });
         }
+    }());
+
+    /* ==================== 从历史文章选择同步 ==================== */
+
+    /**
+     * 历史文章清单：搜索 + 状态筛选 + 加载更多 + 逐行「同步这一篇」
+     *
+     * 数据全部由 ajax_history 出（只读查询），同步动作复用已有的
+     * yimai_gso_wx_sync_now —— 也就是说这里不新增任何写接口，
+     * 只是把「点哪一篇」这件事从页头那颗固定按钮变成可选。
+     *
+     * 行里放的是 data-yimai-wx-history-sync 而不是 data-yimai-wx-action，
+     * 刻意与上方任务表的行内操作分开：两套行的状态语义不同（任务行看队列状态，
+     * 历史行看文章状态），共用一个委托处理器早晚会互相误伤。
+     */
+    (function bindHistoryPicker() {
+        var root = document.getElementById('yimai-gso-wx-history');
+        if (!root) {
+            return;
+        }
+
+        var listEl = document.getElementById('yimai-gso-wx-history-list');
+        var keywordEl = document.getElementById('yimai-gso-wx-history-keyword');
+        var statusEl = document.getElementById('yimai-gso-wx-history-status');
+        var searchBtn = document.getElementById('yimai-gso-wx-history-search');
+        var moreBtn = document.getElementById('yimai-gso-wx-history-more');
+        var countEl = document.getElementById('yimai-gso-wx-history-count');
+        var noticeEl = document.getElementById('yimai-gso-wx-history-result');
+
+        var tbody = null;      // <tbody>：首次渲染时建好，之后只增删行
+        var page = 0;          // 已加载到第几页
+        var loading = false;   // 防重复请求（连点搜索 / 加载更多）
+
+        /**
+         * 本面板自己的提示区
+         *
+         * 不复用页底那条 #yimai-gso-wx-page-result：它在「最近同步任务」下面，
+         * 同步完页面会滚到半屏外，用户得自己去找结果。这里就近提示，滚动最小。
+         */
+        function pickerNotice() {
+            return noticeEl || pageNotice();
+        }
+
+        /**
+         * 造一个徽章节点（文章状态与公众号同步状态共用）
+         */
+        function makeBadge(label, badge) {
+            var span = document.createElement('span');
+            span.className = 'yimai-gso-badge ' + (badge || 'is-muted');
+            span.textContent = label || '—';
+            return span;
+        }
+
+        /**
+         * 用一段说明替换整个列表（空结果 / 加载失败 / 首次加载都用它）
+         */
+        function renderPlaceholder(text) {
+            if (!listEl) {
+                return;
+            }
+            listEl.textContent = '';
+            var p = document.createElement('p');
+            p.className = 'yimai-gso-field-hint';
+            p.textContent = text;
+            listEl.appendChild(p);
+            tbody = null;
+        }
+
+        /**
+         * 建表头（列与「最近同步任务」对齐：文章 / 状态 / 更新时间 / 公众号 / 操作）
+         */
+        function ensureTable() {
+            if (tbody || !listEl) {
+                return tbody;
+            }
+
+            listEl.textContent = '';
+
+            var wrap = document.createElement('div');
+            wrap.className = 'yimai-gso-table-wrap';
+
+            var table = document.createElement('table');
+            table.className = 'yimai-gso-table';
+
+            var thead = document.createElement('thead');
+            var headRow = document.createElement('tr');
+            ['文章', '状态', '更新时间', '公众号', '操作'].forEach(function (label, index) {
+                var th = document.createElement('th');
+                th.textContent = label;
+                if (index === 1 || index === 2 || index === 4) {
+                    th.className = 'is-nowrap';
+                }
+                headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+
+            tbody = document.createElement('tbody');
+            table.appendChild(thead);
+            table.appendChild(tbody);
+            wrap.appendChild(table);
+            listEl.appendChild(wrap);
+
+            return tbody;
+        }
+
+        /**
+         * 追加一行
+         */
+        function appendRow(item) {
+            var body = ensureTable();
+            if (!body) {
+                return;
+            }
+
+            var tr = document.createElement('tr');
+            tr.setAttribute('data-yimai-wx-history-row', item.postId);
+            tr.setAttribute('data-yimai-wx-history-state', item.state || '');
+
+            // 文章：标题（能编辑就链到编辑页）+ 分类 · 文章 ID
+            var titleCell = document.createElement('td');
+            if (item.editUrl) {
+                var link = document.createElement('a');
+                link.href = item.editUrl;
+                link.textContent = item.title;
+                titleCell.appendChild(link);
+            } else {
+                var plain = document.createElement('span');
+                plain.textContent = item.title;
+                titleCell.appendChild(plain);
+            }
+            var meta = document.createElement('p');
+            meta.className = 'yimai-gso-field-hint';
+            var metaText = [];
+            if (item.categories && item.categories.length) {
+                metaText.push(item.categories.join(' · '));
+            }
+            metaText.push('#' + item.postId);
+            meta.textContent = metaText.join(' · ');
+            titleCell.appendChild(meta);
+            tr.appendChild(titleCell);
+
+            var statusCell = document.createElement('td');
+            statusCell.className = 'is-nowrap';
+            statusCell.appendChild(makeBadge(item.statusLabel, item.statusBadge));
+            tr.appendChild(statusCell);
+
+            var dateCell = document.createElement('td');
+            dateCell.className = 'is-nowrap';
+            dateCell.textContent = item.date || '—';
+            tr.appendChild(dateCell);
+
+            var stateCell = document.createElement('td');
+            stateCell.className = 'is-nowrap';
+            stateCell.setAttribute('data-yimai-wx-history-badge', '');
+            stateCell.appendChild(makeBadge(item.stateLabel, item.stateBadge));
+            tr.appendChild(stateCell);
+
+            var actionCell = document.createElement('td');
+            actionCell.className = 'is-nowrap';
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'button button-small';
+            btn.setAttribute('data-yimai-wx-history-sync', '1');
+            btn.setAttribute('data-post-id', item.postId);
+            btn.textContent = '同步这一篇';
+            actionCell.appendChild(btn);
+            tr.appendChild(actionCell);
+
+            body.appendChild(tr);
+        }
+
+        /**
+         * 拉一页
+         *
+         * @param {boolean} reset true = 从第一页重来（搜索 / 切状态）
+         */
+        function fetchPage(reset) {
+            if (loading) {
+                return;
+            }
+            loading = true;
+
+            if (reset) {
+                page = 0;
+                renderPlaceholder(t('loading', '加载中…'));
+            }
+
+            if (searchBtn) {
+                setBusy(searchBtn, true, t('searching', '搜索中…'));
+            }
+            if (moreBtn) {
+                setBusy(moreBtn, true, t('loading', '加载中…'));
+            }
+
+            post('yimai_gso_wx_history', {
+                page: page + 1,
+                status: statusEl ? statusEl.value : 'all',
+                keyword: keywordEl ? keywordEl.value : ''
+            }).then(function (payload) {
+                var items = (payload && payload.items) ? payload.items : [];
+
+                if (reset) {
+                    renderPlaceholder('');
+                }
+
+                for (var i = 0; i < items.length; i++) {
+                    appendRow(items[i]);
+                }
+
+                // 一条都没有时 ensureTable 不会被调用，这里单独兜一句人话
+                if (!items.length && !tbody) {
+                    renderPlaceholder(t('empty', '没有符合条件的文章，换个关键词或状态再试。'));
+                }
+
+                page = payload.page || (page + 1);
+
+                if (countEl) {
+                    countEl.textContent = '共 ' + (payload.total || 0) + ' 篇';
+                }
+                if (moreBtn) {
+                    moreBtn.hidden = !payload.hasMore;
+                }
+            }).catch(function (error) {
+                if (!tbody) {
+                    renderPlaceholder(t('listFail', '历史文章没加载出来，改一下关键词再试一次。'));
+                    if (countEl) {
+                        countEl.textContent = '加载失败';
+                    }
+                }
+                showNotice(pickerNotice(), false, (error && error.message) ? error.message : t('failed', '操作失败'));
+            }).then(function () {
+                loading = false;
+                if (searchBtn) {
+                    setBusy(searchBtn, false);
+                }
+                if (moreBtn) {
+                    setBusy(moreBtn, false);
+                }
+            });
+        }
+
+        /* ---- 事件 ---- */
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', function () {
+                fetchPage(true);
+            });
+        }
+
+        if (keywordEl) {
+            keywordEl.addEventListener('keydown', function (event) {
+                // 回车就搜索：这是后台搜索框的默认期待，别让人去够按钮
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    fetchPage(true);
+                }
+            });
+        }
+
+        if (statusEl) {
+            statusEl.addEventListener('change', function () {
+                fetchPage(true);
+            });
+        }
+
+        if (moreBtn) {
+            moreBtn.addEventListener('click', function () {
+                fetchPage(false);
+            });
+        }
+
+        root.addEventListener('click', function (event) {
+            var btn = (event.target && typeof event.target.closest === 'function')
+                ? event.target.closest('[data-yimai-wx-history-sync]')
+                : null;
+            if (!btn) {
+                return;
+            }
+
+            event.preventDefault();
+
+            var postId = btn.getAttribute('data-post-id') || '';
+            if (!postId) {
+                showNotice(pickerNotice(), false, t('noPost', '没有拿到文章 ID，请刷新页面后重试。'));
+                return;
+            }
+
+            var row = (typeof btn.closest === 'function') ? btn.closest('tr') : null;
+
+            setBusy(btn, true, t('syncing', '同步中…（单篇最长约 2 分钟）'));
+
+            post('yimai_gso_wx_sync_now', { post_id: postId })
+                .then(function (payload) {
+                    updateHistoryBadge(row, payload);
+                    // 同步成功后统计卡与「最近同步任务」表都变了，但这里不整页刷新（会吞掉提示），
+                    // 所以明说一句刷新能看最新数据，和页头那颗按钮的口径保持一致
+                    showNotice(pickerNotice(), true, (payload.message || '已写入草稿箱') + ' 刷新页面可更新上方统计与下方任务列表。');
+                })
+                .catch(function (error) {
+                    if (error && error.payload) {
+                        updateHistoryBadge(row, error.payload);
+                    }
+                    showNotice(pickerNotice(), false, (error && error.message) ? error.message : t('failed', '操作失败'));
+                })
+                .then(function () {
+                    setBusy(btn, false);
+                });
+        });
+
+        /**
+         * 就地更新这一行的「公众号」列（不重排列表，避免刚点的行位置跳动）
+         */
+        function updateHistoryBadge(row, payload) {
+            if (!row || !payload || typeof payload.state === 'undefined') {
+                return;
+            }
+            row.setAttribute('data-yimai-wx-history-state', payload.state);
+            var cell = row.querySelector('[data-yimai-wx-history-badge]');
+            if (!cell) {
+                return;
+            }
+            cell.textContent = '';
+            cell.appendChild(makeBadge(payload.label, payload.badge));
+        }
+
+        // 首屏自动列出最近的若干篇：多数时候用户要的就是「最近那几篇」
+        fetchPage(true);
     }());
 }());

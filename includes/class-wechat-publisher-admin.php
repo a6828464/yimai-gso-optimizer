@@ -8,10 +8,10 @@
  * 界面改版永远不会碰坏同步逻辑，同步逻辑出问题也不用改界面。
  *
  * 四个入口：
- *  1) 子菜单「公众号同步」：状态统计 → 只进草稿箱的说明 → 同步设置 → 最近任务表
+ *  1) 子菜单「公众号同步」：状态统计 → 从历史文章选择同步 → 同步设置 → 最近任务表
  *  2) 文章编辑页 metabox（side）：当前状态 / 立即同步 / 不同步这篇文章
  *  3) 文章列表列「公众号」：状态徽标
- *  4) 三个 AJAX 端点：retry / skip / sync_now
+ *  4) 四个 AJAX 端点：retry / skip / sync_now / history（历史清单，只读）
  *
  * 界面只用 docs/UI组件规范.md 里的 .yimai-gso-* 组件类，
  * 本文件不输出任何内联样式，也不自定义颜色。
@@ -34,7 +34,7 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
     /** 设置表单 nonce action（与 action 同名，便于对照排查） */
     const SAVE_NONCE = 'yimai_gso_wx_sync_save';
 
-    /** 三个 AJAX 端点共用的 nonce action */
+    /** 所有 AJAX 端点共用的 nonce action（retry / skip / sync_now / history） */
     const AJAX_NONCE = 'yimai_gso_wx_admin';
 
     /** metabox 的 nonce */
@@ -49,6 +49,9 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
 
     /** 错误原因列的截断长度（悬停看全文） */
     const ERROR_CHARS = 60;
+
+    /** 「从历史文章选择」每页条数：一屏能扫完、又不至于每次都要翻页 */
+    const HISTORY_LIMIT = 8;
 
     /** 本页 JS 的 handle */
     const JS_HANDLE = 'yimai-gso-wx-sync';
@@ -78,6 +81,7 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
         add_action( 'wp_ajax_yimai_gso_wx_retry', array( __CLASS__, 'ajax_retry' ) );
         add_action( 'wp_ajax_yimai_gso_wx_skip', array( __CLASS__, 'ajax_skip' ) );
         add_action( 'wp_ajax_yimai_gso_wx_sync_now', array( __CLASS__, 'ajax_sync_now' ) );
+        add_action( 'wp_ajax_yimai_gso_wx_history', array( __CLASS__, 'ajax_history' ) );
     }
 
     /* ==================== 菜单与资源 ==================== */
@@ -103,7 +107,7 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
      * 只在「公众号同步」页和文章编辑页加载本模块 JS。
      *
      * 为什么不并进 class-admin.php 的 enqueue_assets：那里是所有插件页共用的底座，
-     * 而同步页的交互（图片选择器、三个 AJAX、表格行状态回写）只有这两处用得上；
+     * 而同步页的交互（图片选择器、四个 AJAX、表格行状态回写）只有这两处用得上；
      * 挂全局等于让每个后台页都白下载一份。
      *
      * 版本号取 filemtime：改完 JS 立刻生效，不必为了看一眼效果去 bump 插件版本。
@@ -164,6 +168,10 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
                     'coverAlt'    => '兜底封面',
                     'coverEmpty'  => '未选择。文章没有特色图片时会用这张图当封面。',
                     'noPost'      => '没有拿到文章 ID，请刷新页面后重试。',
+                    'loading'     => '加载中…',
+                    'searching'   => '搜索中…',
+                    'empty'       => '没有符合条件的文章，换个关键词或状态再试。',
+                    'listFail'    => '历史文章没加载出来，改一下关键词再试一次。',
                 ),
             )
         );
@@ -204,11 +212,12 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
                     <div>
                         <h1><span class="dashicons dashicons-megaphone"></span>公众号同步</h1>
                         <p class="yimai-gso-page-desc">
-                            把已发布的文章按公众号排版重写一遍，送进公众号草稿箱。
+                            把文章按公众号排版重写一遍，送进公众号草稿箱。
+                            可以同步刚发布的那一篇，也可以从历史文章里挑任意一篇（已发布、草稿都行）。
                             草稿只在公众号后台可见，群发这一步永远留给你自己做。
                         </p>
                         <?php if ( $latest_id <= 0 ) : ?>
-                            <p class="yimai-gso-field-hint">当前还没有已发布的文章，先发一篇再回来同步。</p>
+                            <p class="yimai-gso-field-hint">当前还没有已发布的文章；下方的「历史文章」里可以先挑草稿同步。</p>
                         <?php endif; ?>
                     </div>
                     <div class="yimai-gso-actions">
@@ -258,6 +267,8 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
                         <p class="yimai-gso-stat-v"><?php echo (int) $stats['today']; ?></p>
                     </div>
                 </div>
+
+                <?php self::render_history_picker(); ?>
 
                 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                     <input type="hidden" name="action" value="<?php echo esc_attr( self::SAVE_ACTION ); ?>" />
@@ -433,6 +444,73 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
 
                 <div class="yimai-gso-notice" id="yimai-gso-wx-page-result" aria-live="polite" hidden><p></p></div>
 
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * 「从历史文章选择同步」面板
+     *
+     * 存在的理由：页头那颗「立即同步最新一篇」只能同步最近发布的那一篇，其余文章
+     * 要么去编辑页点一次，要么只能进数据库改。运营真正要的是「把三个月前那篇再发
+     * 一遍」和「这篇草稿先推过去看看公众号排版」，所以这里给一份可搜索、可按状态筛的清单。
+     *
+     * 列表数据走 AJAX（见 ajax_history）：文章多时首屏不该等一次全量查询，
+     * 统计卡与设置表单先渲染出来，清单后到。
+     */
+    private static function render_history_picker() {
+        // 模块没加载时页面顶部已经有红色提示，这里再摆一个空壳只会让人以为还有第二处问题
+        if ( ! self::publisher_ready() ) {
+            return;
+        }
+
+        // 状态选项直接从后端口径生成：这里是唯一事实来源，界面不另抄一份中文名
+        $statuses = array();
+        foreach ( YIMAI_GSO_Wechat_Publisher::syncable_statuses() as $status ) {
+            $statuses[ $status ] = YIMAI_GSO_Wechat_Publisher::status_label( $status );
+        }
+        ?>
+        <div class="yimai-gso-section" id="yimai-gso-wx-history">
+            <div class="yimai-gso-section-head">
+                <h2><span class="dashicons dashicons-backup"></span>从历史文章选择同步</h2>
+                <span class="yimai-gso-badge is-muted" id="yimai-gso-wx-history-count">正在加载…</span>
+            </div>
+            <div class="yimai-gso-section-body">
+                <p class="yimai-gso-field-hint">
+                    已发布、草稿、待审的文章都能挑。选中一篇点「同步这一篇」，它就会按公众号排版写进公众号草稿箱。
+                    <strong>草稿被同步不会变成已发布文章</strong>：本站前台仍然看不见它，公众号侧也不会自动群发。
+                </p>
+
+                <div class="yimai-gso-field">
+                    <label class="yimai-gso-field-label" for="yimai-gso-wx-history-keyword">查找文章</label>
+                    <div class="yimai-gso-field-control">
+                        <input type="search"
+                               id="yimai-gso-wx-history-keyword"
+                               placeholder="输入标题或正文关键词，回车搜索；留空则列出最近的 <?php echo (int) self::HISTORY_LIMIT; ?> 篇"
+                               autocomplete="off" />
+                        <select id="yimai-gso-wx-history-status">
+                            <option value="all">全部状态</option>
+                            <?php foreach ( $statuses as $value => $label ) : ?>
+                                <option value="<?php echo esc_attr( (string) $value ); ?>"><?php echo esc_html( (string) $label ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="yimai-gso-actions">
+                            <button type="button" class="yimai-gso-btn-modern-primary" id="yimai-gso-wx-history-search">搜索</button>
+                            <button type="button" class="yimai-gso-btn-modern-secondary" id="yimai-gso-wx-history-more" hidden>加载更多</button>
+                        </div>
+                        <p class="yimai-gso-field-hint">
+                            草稿 / 待审文章的「阅读原文」会留空——它们还没有公开地址，需要的话同步后到公众号后台补。
+                        </p>
+                    </div>
+                </div>
+
+                <div id="yimai-gso-wx-history-list" aria-live="polite">
+                    <p class="yimai-gso-field-hint">正在加载历史文章…</p>
+                </div>
+
+                <?php // 结果提示放在清单正下方：页底那条提示离这里半屏远，同步完还得让用户自己去找 ?>
+                <div class="yimai-gso-notice" id="yimai-gso-wx-history-result" aria-live="polite" hidden><p></p></div>
             </div>
         </div>
         <?php
@@ -669,6 +747,8 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
         $job      = self::get_job( $post_id );
         $media_id = (string) get_post_meta( $post_id, self::meta_key( 'media' ), true );
         $optout   = (bool) get_post_meta( $post_id, self::meta_key( 'optout' ), true );
+        // 2.13.0 起草稿 / 待审也能同步（人工意图），私密、定时、回收站仍然不允许
+        $syncable = self::publisher_ready() && YIMAI_GSO_Wechat_Publisher::is_syncable_status( $post->post_status );
 
         $state    = '';
         $attempts = 0;
@@ -719,18 +799,24 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
             <?php endif; ?>
 
             <?php if ( 'publish' !== $post->post_status ) : ?>
-                <p class="yimai-gso-field-hint">这篇文章还没发布。队列只处理已发布文章，发布后会自动进队列，也可以回来点「立即同步」。</p>
+                <p class="yimai-gso-field-hint">
+                    <?php if ( $syncable ) : ?>
+                        这篇还是「<?php echo esc_html( YIMAI_GSO_Wechat_Publisher::status_label( $post->post_status ) ); ?>」：本站前台看不到它，但可以直接点「立即同步」推进公众号草稿箱。同步不会改变文章的发布状态，公众号侧的「阅读原文」会留空。
+                    <?php else : ?>
+                        当前状态（<?php echo esc_html( YIMAI_GSO_Wechat_Publisher::status_label( $post->post_status ) ); ?>）不支持同步。可同步的状态只有已发布、草稿、待审。
+                    <?php endif; ?>
+                </p>
             <?php endif; ?>
 
             <div class="yimai-gso-actions">
                 <?php
-                // 未发布的文章点「立即同步」只会得到一个 wx_skip 错误、并在任务表里多出一条「已跳过」，
-                // 与其让用户点了才知道，不如直接禁用按钮 + 上面那行提示说明原因。
+                // 不可同步的状态点「立即同步」只会得到一个 wx_skip 错误、并在任务表里多出一条
+                // 「已跳过」，与其让用户点了才知道，不如直接禁用按钮 + 上面那行提示说明原因。
                 ?>
                 <button type="button"
                         class="yimai-gso-btn-modern-primary"
                         id="yimai-gso-wx-sync-now"
-                        <?php echo ( 'publish' === $post->post_status ) ? '' : 'disabled'; ?>>立即同步</button>
+                        <?php echo $syncable ? '' : 'disabled'; ?>>立即同步</button>
             </div>
 
             <p class="yimai-gso-field-hint">
@@ -845,7 +931,7 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
     /* ==================== AJAX ==================== */
 
     /**
-     * 三个 AJAX 共用的校验：nonce + 能力
+     * 所有 AJAX 共用的校验：nonce + 能力
      *
      * nonce 用 $die = false：失败也要返回 JSON，
      * 好让界面提示「刷新页面重试」而不是弹一个 -1。
@@ -944,6 +1030,103 @@ class YIMAI_GSO_Wechat_Publisher_Admin {
 
         $payload['message'] = '已写入公众号草稿箱。请到公众号后台「草稿箱」复核封面、排版与摘要后手动发布。';
         wp_send_json_success( $payload );
+    }
+
+    /**
+     * 「从历史文章选择同步」的清单（只读查询，不产生任何同步动作）
+     *
+     * 查询口径与 Publisher::SYNCABLE_STATUSES 同一份：已发布 / 草稿 / 待审。
+     * 三个筛选条件都只用于缩小列表，改不了「哪些状态能同步」这个规则。
+     */
+    public static function ajax_history() {
+        self::verify_ajax();
+
+        $page    = isset( $_POST['page'] ) ? absint( $_POST['page'] ) : 1;
+        $page    = max( 1, $page );
+        $status  = isset( $_POST['status'] ) ? sanitize_key( wp_unslash( $_POST['status'] ) ) : 'all';
+        $keyword = isset( $_POST['keyword'] ) ? sanitize_text_field( wp_unslash( $_POST['keyword'] ) ) : '';
+        $keyword = trim( $keyword );
+
+        $statuses = YIMAI_GSO_Wechat_Publisher::syncable_statuses();
+        // 只接受白名单内的状态值：$_POST 里的其它字符串一律退回「全部」
+        if ( ! in_array( $status, $statuses, true ) ) {
+            $status = 'all';
+        }
+        if ( 'all' !== $status ) {
+            $statuses = array( $status );
+        }
+
+        $args = array(
+            'post_type'           => 'post',
+            'post_status'         => $statuses,
+            'posts_per_page'      => self::HISTORY_LIMIT,
+            'paged'               => $page,
+            'orderby'             => 'date',
+            'order'               => 'DESC',
+            'ignore_sticky_posts' => true,
+            'no_found_rows'       => false,
+        );
+        if ( '' !== $keyword ) {
+            $args['s'] = $keyword;
+        }
+
+        $query = new WP_Query( $args );
+        $posts = ( is_object( $query ) && is_array( $query->posts ) ) ? $query->posts : array();
+        $total = ( is_object( $query ) && isset( $query->found_posts ) ) ? (int) $query->found_posts : count( $posts );
+
+        $ids = array();
+        foreach ( $posts as $post ) {
+            if ( $post instanceof WP_Post ) {
+                $ids[] = (int) $post->ID;
+            }
+        }
+        // 一次查完这 8 篇各自的最新任务行，避免逐篇 get_job() 打出 8 次查询
+        $jobs = YIMAI_GSO_Wechat_Publisher::get_jobs_map( $ids );
+
+        $items = array();
+        foreach ( $posts as $post ) {
+            if ( ! $post instanceof WP_Post ) {
+                continue;
+            }
+
+            $post_id = (int) $post->ID;
+            $state   = isset( $jobs[ $post_id ]->state ) ? (string) $jobs[ $post_id ]->state : '';
+            $info    = self::state_info( $state );
+
+            $categories = array();
+            foreach ( (array) get_the_category( $post_id ) as $term ) {
+                if ( $term instanceof WP_Term ) {
+                    $categories[] = (string) $term->name;
+                }
+            }
+
+            $edit_url = get_edit_post_link( $post_id, 'raw' );
+            $title    = wp_strip_all_tags( (string) get_the_title( $post_id ) );
+
+            $items[] = array(
+                'postId'      => $post_id,
+                'title'       => '' !== trim( $title ) ? $title : '（无标题草稿）',
+                'status'      => (string) $post->post_status,
+                'statusLabel' => YIMAI_GSO_Wechat_Publisher::status_label( $post->post_status ),
+                'statusBadge' => YIMAI_GSO_Wechat_Publisher::status_badge( $post->post_status ),
+                // 用站点本地时间：排障时看到的「更新时间」要和后台列表一致
+                'date'        => (string) get_post_time( 'Y-m-d H:i', false, $post ),
+                'categories'  => array_slice( $categories, 0, 2 ),
+                'editUrl'     => is_string( $edit_url ) ? $edit_url : '',
+                'state'       => $state,
+                'stateLabel'  => $info['label'],
+                'stateBadge'  => $info['badge'],
+            );
+        }
+
+        wp_send_json_success(
+            array(
+                'items'   => $items,
+                'page'    => $page,
+                'total'   => $total,
+                'hasMore' => ( $page * self::HISTORY_LIMIT ) < $total,
+            )
+        );
     }
 
     /**

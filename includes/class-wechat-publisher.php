@@ -15,7 +15,7 @@
  *        ▲                  │
  *        │                  ├──可重试错误──▶ failed ──到点──▶（再次被抢占）
  *        │                  ├──第 5 次失败──▶ dead（放弃，等人工 retry）
- *        └──enqueue/retry───┴──文章已下线──▶ skipped
+ *        └──enqueue/retry───┴──状态不可同步──▶ skipped
  *
  * 三条硬约束（用户原话：不会重复、不会丢、不会卡死）：
  *  1) 不会重复：唯一键 (post_id, content_hash) 打底，并且同一篇文章只保留一行任务；
@@ -27,6 +27,10 @@
  *
  * 明确不做：本类只调用 draft/add 与 draft/update 两个写接口，草稿之后要不要群发
  * 由人在公众号后台决定。自动发布不在本模块职责内。
+ *
+ * 同步源（2.13.0 起）：已发布文章发布时自动入队；已发布 / 草稿 / 待审文章都可以由人
+ * 在后台「公众号同步 → 从历史文章选择」或文章编辑页手动挑一篇同步。草稿同步不会
+ * 改变本站的发布状态，也不会生成公开链接（微信侧「阅读原文」留空）。
  *
  * @package 一麦GSO SEO-GEO
  * @since 2.10.0
@@ -84,6 +88,24 @@ class YIMAI_GSO_Wechat_Publisher {
     const META_OPTOUT    = '_yimai_wx_optout';
     const META_MEDIA_ID  = '_yimai_wx_media_id';
     const META_SYNCED_AT = '_yimai_wx_synced_at';
+
+    /* ==================== 可同步的文章状态 ==================== */
+
+    /**
+     * 允许送进公众号草稿箱的文章状态
+     *
+     * publish 是常规路径（发布时自动入队）；draft / pending 只能由人显式挑进来：
+     * 「从历史文章选择同步」或文章编辑页的「立即同步」。
+     *
+     * 为什么放行草稿：运营习惯先在 WordPress 里把稿子写完、直接推一份到公众号
+     * 草稿箱看排版效果，等确认后再回本站发布。草稿被同步**不会**因此变成已发布
+     * 文章，前台可见性完全不变，所以这条不会把没定稿的内容放出去。
+     *
+     * 其余状态（private / future / trash / auto-draft / inherit）一律不同步：
+     * 私密稿、定时稿、回收站里的残稿推进公众号草稿箱，等于把「明确不想公开的内容」
+     * 搬到一个更容易被误发出去的地方，代价远大于收益。
+     */
+    const SYNCABLE_STATUSES = array( 'publish', 'draft', 'pending' );
 
     /* ==================== 钩子注册 ==================== */
 
@@ -206,6 +228,79 @@ class YIMAI_GSO_Wechat_Publisher {
      */
     public static function is_opted_out( $post_id ) {
         return (bool) get_post_meta( (int) $post_id, self::META_OPTOUT, true );
+    }
+
+    /* ==================== 状态口径 ==================== */
+
+    /**
+     * 这个文章状态能不能同步
+     *
+     * 后台挑文章、编辑页按钮、出队校验都走这一处，避免三处各写一份 in_array
+     * 而口径慢慢漂移。
+     *
+     * @param string $status WordPress 文章状态
+     * @return bool
+     */
+    public static function is_syncable_status( $status ) {
+        return in_array( (string) $status, self::SYNCABLE_STATUSES, true );
+    }
+
+    /**
+     * 可同步状态清单（后台筛选下拉与 WP_Query 共用这份口径）
+     *
+     * @return array
+     */
+    public static function syncable_statuses() {
+        return self::SYNCABLE_STATUSES;
+    }
+
+    /**
+     * 文章状态 → 人话
+     *
+     * 未知状态原样返回：WordPress 或别的插件新增状态时，界面不该显示成空白。
+     *
+     * @param string $status
+     * @return string
+     */
+    public static function status_label( $status ) {
+        $map = array(
+            'publish'    => '已发布',
+            'draft'      => '草稿',
+            'pending'    => '待审',
+            'private'    => '私密',
+            'future'     => '定时',
+            'trash'      => '回收站',
+            'auto-draft' => '自动草稿',
+            'inherit'    => '继承',
+        );
+
+        $status = (string) $status;
+        if ( isset( $map[ $status ] ) ) {
+            return $map[ $status ];
+        }
+        return '' === $status ? '未知' : $status;
+    }
+
+    /**
+     * 文章状态 → 徽章变体（取值与后台 state_info() 同一套）
+     *
+     * @param string $status
+     * @return string
+     */
+    public static function status_badge( $status ) {
+        switch ( (string) $status ) {
+            case 'publish':
+                return 'is-pass';
+            case 'pending':
+                return 'is-warn';
+            case 'private':
+            case 'future':
+                return 'is-info';
+            case 'trash':
+                return 'is-fail';
+            default:
+                return 'is-muted';
+        }
     }
 
     /* ==================== 触发点 ==================== */
@@ -461,6 +556,53 @@ class YIMAI_GSO_Wechat_Publisher {
         $table = self::get_table_name();
         $row   = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $job_id ) );
         return $row ? $row : null;
+    }
+
+    /**
+     * 一次取多篇文章各自的最新任务行（后台「从历史文章选择」列表用）
+     *
+     * 为什么要有这个：列表一屏 8 篇，逐篇 get_job() 就是 8 次查询；
+     * 这里一条 IN 查询全部拿回来，再按 id 倒序保留每篇的第一行（即最新那条）。
+     *
+     * @param array $post_ids
+     * @return array post_id => 任务行
+     */
+    public static function get_jobs_map( array $post_ids ) {
+        global $wpdb;
+
+        $ids = array();
+        foreach ( $post_ids as $post_id ) {
+            $post_id = absint( $post_id );
+            if ( $post_id > 0 ) {
+                $ids[ $post_id ] = $post_id;
+            }
+        }
+        if ( empty( $ids ) ) {
+            return array();
+        }
+
+        $table        = self::get_table_name();
+        $placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+        $sql          = "SELECT * FROM {$table} WHERE post_id IN ({$placeholders}) ORDER BY id DESC";
+
+        // ids 全是 absint 过的整数，占位符数量由数组长度决定，没有外部拼接
+        $prepared = call_user_func_array(
+            array( $wpdb, 'prepare' ),
+            array_merge( array( $sql ), array_values( $ids ) )
+        );
+        if ( ! is_string( $prepared ) || '' === $prepared ) {
+            return array();
+        }
+
+        $rows = $wpdb->get_results( $prepared );
+        $map  = array();
+        foreach ( (array) $rows as $row ) {
+            $post_id = isset( $row->post_id ) ? (int) $row->post_id : 0;
+            if ( $post_id > 0 && ! isset( $map[ $post_id ] ) ) {
+                $map[ $post_id ] = $row;
+            }
+        }
+        return $map;
     }
 
     /**
@@ -739,10 +881,18 @@ class YIMAI_GSO_Wechat_Publisher {
      */
     private static function process( $row ) {
         $post = get_post( (int) $row->post_id );
-        if ( ! $post || 'publish' !== $post->post_status ) {
+        if ( ! $post ) {
             // 用 wx_skip 这个错误码和真正的失败区分开：文章下线不是「同步坏了」，
             // 不该消耗重试预算，也不该在后台显示成红色错误。
-            return new WP_Error( 'wx_skip', '文章已下线或已删除，本次不同步' );
+            return new WP_Error( 'wx_skip', '文章已被删除，本次不同步' );
+        }
+        // 可同步范围见 SYNCABLE_STATUSES：已发布 + 草稿 + 待审（后两者只能人工挑进来）。
+        // 私密 / 定时 / 回收站一律不同步 —— 那些是明确不想公开的内容。
+        if ( ! self::is_syncable_status( $post->post_status ) ) {
+            return new WP_Error(
+                'wx_skip',
+                '文章当前状态是「' . self::status_label( $post->post_status ) . '」，不在可同步范围内，本次不同步'
+            );
         }
 
         if ( ! class_exists( 'YIMAI_GSO_Wx_Renderer' ) || ! class_exists( 'YIMAI_GSO_Wx_Api' ) ) {
@@ -796,7 +946,7 @@ class YIMAI_GSO_Wechat_Publisher {
         return array(
             'wx_media_id' => $media_id,
             'wx_thumb_id' => (string) $cover['media_id'],
-            'article_url' => (string) get_permalink( $post ),
+            'article_url' => self::source_url( $post ),
             'payload'     => self::build_payload( $cover, $content, 0 ),
         );
     }
@@ -848,11 +998,28 @@ class YIMAI_GSO_Wechat_Publisher {
             'author'                => self::author_name(),
             'digest'                => self::build_digest( $post ),
             'content'               => (string) $content,
-            'content_source_url'    => (string) get_permalink( $post ),
+            'content_source_url'    => self::source_url( $post ),
             'thumb_media_id'        => (string) $thumb_media_id,
             'need_open_comment'     => 0,
             'only_fans_can_comment' => 0,
         );
+    }
+
+    /**
+     * 草稿里的「阅读原文」地址
+     *
+     * 只有已发布文章才有公开地址。草稿 / 待审文章 get_permalink() 返回的是
+     * `?p=ID` 这类只对登录用户有效的预览链接，塞进公众号用户点开就是 404 或登录页，
+     * 所以这些状态一律留空（微信在没有地址时不显示「阅读原文」）。
+     *
+     * @param WP_Post $post
+     * @return string
+     */
+    private static function source_url( $post ) {
+        if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
+            return '';
+        }
+        return (string) get_permalink( $post );
     }
 
     /**
