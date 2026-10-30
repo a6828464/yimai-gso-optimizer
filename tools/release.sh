@@ -118,6 +118,17 @@ if [ -n "$rid" ]; then
   curl -sS -X DELETE "$GITEE_API/repos/$GITEE_REPO/releases/$rid" --data-urlencode "access_token=$GTOKEN" >/dev/null
 fi
 
+# Gitee 侧必须同时重建 tag：只删 release 不删 tag 会让 tag 永久停在旧提交。
+# 2026-10-31 实测：auto-latest 停在 1b1bf85（v2.4.0），Gitee 平台「源码包」
+# (auto-latest.zip / auto-latest.tar.gz) 与 tag 树长期是旧代码，而 Release 资产是新的。
+# Gitee API v5 没有删除 tag 的端点（DELETE /tags/{name} 实测 404，只有 GET），
+# 因此改用 git 协议删除远端 tag（git push :refs/tags/<tag>，实测有效）；
+# 删掉后下面创建 release 时 Gitee 会把 tag 指向 target_commitish。
+echo "  删除旧 tag ${TAG}（git 协议，Gitee API 无此端点）"
+if git -C "$PLUGIN_DIR" ls-remote --tags "https://gitee.com/${GITEE_REPO}.git" "refs/tags/${TAG}" 2>/dev/null | grep -q "${TAG}"; then
+  git -C "$PLUGIN_DIR" push "https://gitee.com/${GITEE_REPO}.git" ":refs/tags/${TAG}" 2>&1 | tail -1 || true
+fi
+
 body="$(printf '自动发布：main 分支 (%s)。后台「在线更新」使用该发行包。\n\n%s' "$UPDATED" "$NOTES")"
 response="$(curl -sfS -X POST "$GITEE_API/repos/$GITEE_REPO/releases" \
   --data-urlencode "access_token=$GTOKEN" \
