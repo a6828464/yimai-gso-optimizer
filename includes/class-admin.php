@@ -5608,7 +5608,7 @@ class YIMAI_GSO_Admin {
                                 <div class="yimai-gso-seo-push-field">
                                     <label>接口调用地址 <span class="yimai-gso-seo-push-required">*</span></label>
                                     <input type="text" name="yimai_gso_seo_push_baidu_api_address" value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'seo_push_baidu_api_address', '' ) ); ?>" class="large-text" placeholder="http://data.zz.baidu.com/urls?site=www.example.com&token=edk7yc4rEZP9pDQD" style="width:100%;max-width:600px">
-                                    <p class="description">登录百度搜索资源平台 > 资源提交 > <strong>普通收录</strong> > API提交 > 复制完整的「接口调用地址」粘贴到这里<br>官方格式：http://data.zz.baidu.com/urls?site=<strong>你的域名</strong>&token=<strong>你的密钥</strong></p>
+                                    <p class="description">登录百度搜索资源平台 > 资源提交 > <strong>普通收录</strong> > API提交 > 复制完整的「接口调用地址」粘贴到这里<br>官方格式：http://data.zz.baidu.com/urls?site=<strong>你的域名</strong>&token=<strong>你的密钥</strong><br>粘贴的地址只取其中的 <strong>token</strong>，site 域名会自动纠正为纯域名（地址里写成 https:// 或带路径也能用）</p>
                                 </div>
                                 <div class="yimai-gso-seo-push-field">
                                     <button type="button" class="button yimai-gso-sp-test-btn" data-platform="baidu">

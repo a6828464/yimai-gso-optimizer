@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.13.0
+ * Version: 2.14.0
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.13.0' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.14.0' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -716,7 +716,9 @@ class YIMAI_GSO_Plugin {
         //   改为优先读「微信分享卡片 → 首页分享标题」，未配置时仍回落站点名（行为不变）。
         //   归档/分类/搜索页没有单页标题，继续用站点名（与改动前一致）。
         if ( $post_id ) {
-            $title = get_the_title( $post_id );
+            // A1b：文章/页面优先用 AI 落库的 yimai_gso_seo_title（18-32 字，本来就是给搜索
+            //   与分享写的），为空才回落文章标题；品牌去重见 resolve_social_title()。
+            $title = $this->resolve_social_title( $post_id, get_the_title( $post_id ) );
         } elseif ( $is_site_home ) {
             $home_share_title = trim( (string) YIMAI_GSO_Settings::get( 'wechat_share_home_title', '' ) );
             $title = ( '' !== $home_share_title ) ? $home_share_title : get_bloginfo( 'name' );
@@ -791,7 +793,8 @@ class YIMAI_GSO_Plugin {
             return;
         }
 
-        $title  = get_the_title( $post_id );
+        // A1b：twitter:title 与 og:title 同源（yimai_gso_seo_title 优先），两处标题不能各写各的。
+        $title  = $this->resolve_social_title( $post_id, get_the_title( $post_id ) );
         $desc   = get_post_meta( $post_id, 'yimai_gso_excerpt', true );
         if ( empty( $desc ) ) $desc = get_post_meta( $post_id, '_yoast_wpseo_metadesc', true );
         if ( empty( $desc ) ) $desc = get_post_meta( $post_id, 'rank_math_description', true );
@@ -816,6 +819,43 @@ class YIMAI_GSO_Plugin {
         }
 
         echo $tw;
+    }
+
+    /**
+     * 社交卡片标题（A1b）
+     *
+     * 文章/页面优先用 AI 落库的 yimai_gso_seo_title（18-32 字，本来就是给搜索与分享写的），
+     * 为空才回落文章标题；标题里已含品牌时不再追加，避免「… | 一麦瑜伽 | 一麦瑜伽」这种
+     * 双品牌（与主题 document_title_parts 的去重口径一致）。
+     * 品牌取后台「站点标题」，读不到时用「一麦瑜伽」兜底。
+     *
+     * @param int    $post_id
+     * @param string $fallback_title
+     * @return string
+     */
+    private function resolve_social_title( $post_id, $fallback_title ) {
+        $title = trim( (string) $fallback_title );
+
+        $seo_title = trim( (string) get_post_meta( $post_id, 'yimai_gso_seo_title', true ) );
+        if ( '' !== $seo_title ) {
+            $title = $seo_title;
+        }
+
+        if ( '' === $title ) {
+            return '';
+        }
+
+        $site_name = trim( (string) get_bloginfo( 'name' ) );
+        $brand     = ( '' !== $site_name ) ? $site_name : '一麦瑜伽';
+
+        $brands = array( '一麦瑜伽', $site_name );
+        foreach ( $brands as $known_brand ) {
+            if ( '' !== $known_brand && false !== mb_stripos( $title, $known_brand ) ) {
+                return $title;
+            }
+        }
+
+        return $title . ' | ' . $brand;
     }
 
     /**

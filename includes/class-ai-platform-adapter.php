@@ -222,6 +222,11 @@ class YIMAI_GSO_AI_Platform_Adapter {
         //   失实标注，AI 引擎按标注核验会直接判页面不可信。
         $schema_list = $this->get_emitted_schema_types( $post_id );
 
+        // A1：首页门店节点。主题（yimaiyoga）在 wp_head(1) 用 @graph 输出两家门店的
+        //   HealthAndBeautyBusiness 节点，插件读不到别人已经 echo 的 HTML，所以按「主题
+        //   真实配置」判定它会不会输出，再把类型并进覆盖率去重。只做追加，不动 t8 数据源。
+        $schema_list = array_values( array_unique( array_merge( $schema_list, $this->get_theme_local_business_types() ) ) );
+
         echo "\n<!-- 一麦GSO AI Platform Meta (L6) -->\n";
 
         // 汇总标签
@@ -299,6 +304,47 @@ class YIMAI_GSO_AI_Platform_Adapter {
         $types = array_values( array_unique( array_filter( array_map( 'strval', $types ) ) ) );
 
         return (array) apply_filters( 'yimai_gso_ai_schema_coverage', $types, $post_id );
+    }
+
+    /**
+     * 首页由主题输出的本地商家 @type（A1）
+     *
+     * 主题（yimaiyoga）在首页用 @graph 输出两家门店的 HealthAndBeautyBusiness 节点，
+     * 但输出时机是 wp_head(1) —— 插件在 wp_head(14) 拿不到别人已经打印的 HTML。
+     * 因此这里按「主题真实配置」判定：
+     *   · yimai_config() 存在且 studios 至少有一家带名字 → 主题确实会输出门店节点；
+     *   · yimai_gso_theme_local_business_types 过滤器：换主题或主题改版时由主题自己声明。
+     * 只在 is_front_page() 生效；主题不输出门店节点时返回空数组，不空喊。
+     *
+     * @return array
+     */
+    private function get_theme_local_business_types() {
+        if ( ! is_front_page() ) {
+            return array();
+        }
+
+        $types = array();
+
+        if ( function_exists( 'yimai_config' ) ) {
+            $config  = yimai_config();
+            $studios = ( is_array( $config ) && isset( $config['studios'] ) && is_array( $config['studios'] ) )
+                ? $config['studios']
+                : array();
+
+            foreach ( $studios as $studio ) {
+                if ( is_array( $studio ) && '' !== trim( (string) ( $studio['name'] ?? '' ) ) ) {
+                    // 主题节点的字面 @type 是 HealthAndBeautyBusiness；它同时是 LocalBusiness
+                    // 的子类，两个都声明，按父类检索的引擎也能匹配。
+                    $types = array( 'HealthAndBeautyBusiness', 'LocalBusiness' );
+                    break;
+                }
+            }
+        }
+
+        $types = (array) apply_filters( 'yimai_gso_theme_local_business_types', $types );
+        $types = array_values( array_unique( array_filter( array_map( 'strval', $types ) ) ) );
+
+        return $types;
     }
 
     /**

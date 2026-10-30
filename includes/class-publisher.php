@@ -525,12 +525,18 @@ class YIMAI_GSO_Publisher {
             update_post_meta( $post_id, '_yoast_wpseo_metadesc', $excerpt );
             update_post_meta( $post_id, 'rank_math_description', $excerpt );
             update_post_meta( $post_id, 'description', $excerpt );
+            // A1：本站没装 Yoast / Rank Math，主题只认插件自己的 yimai_gso_excerpt。
+            // 摘要必须在发布时直写，否则 AI 生成的描述要等后台手动点「修复」才会上前台。
+            update_post_meta( $post_id, 'yimai_gso_excerpt', $excerpt );
         }
 
         if ( ! empty( $title ) ) {
             update_post_meta( $post_id, '_yoast_wpseo_title', $title );
             update_post_meta( $post_id, 'rank_math_title', $title );
             update_post_meta( $post_id, 'title', $title );
+            // A1：主题不读 Yoast / Rank Math 的标题 meta，必须落一份插件自己的标题键，
+            // 否则 AI 生成的 SEO 标题只停在数据库里，前台永远拿不到。
+            update_post_meta( $post_id, 'yimai_gso_seo_title', $title );
         }
     }
 

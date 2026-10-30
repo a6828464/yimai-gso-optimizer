@@ -274,31 +274,46 @@ class YIMAI_GSO_SEO_Pusher {
     /**
      * 构建百度推送API URL（严格按官方文档格式）
      * 官方示例：http://data.zz.baidu.com/urls?site=www.example.com&token=edk7yc4rEZP9pDQD
+     *
+     * A1：不再原样转发用户粘贴的地址。百度只认「site = 纯域名」，本站配置里却是
+     * site=https://www.nbyimai.com 这种非法写法，原样直发会被百度整批拒绝。
+     * 现在一律重建官方格式：
+     *   · site  = wp_parse_url( home_url(), PHP_URL_HOST )（纯域名，不带协议与路径）
+     *   · token = 地址里的 token 参数；地址为空或没带 token 时回退到单独保存的 token 设置
+     *   · host  = 仍必须命中白名单，否则返回 WP_Error（不把任意地址当跳板发出去）
      */
     private function get_baidu_api_url( $type = '' ) {
-        $api_address = YIMAI_GSO_Settings::get( 'seo_push_baidu_api_address', '' );
-        
-        // 优先使用用户粘贴的完整接口地址
-        if ( ! empty( $api_address ) ) {
-            $api_address = trim( $api_address );
-            // 去掉可能存在的 type 参数（普通收录不需要）
-            $api_address = preg_replace( '/[&?]type=[^&]*/', '', $api_address );
-            // SSRF防护：验证域名白名单
-            $parsed = wp_parse_url( $api_address );
-            $host   = isset( $parsed['host'] ) ? strtolower( $parsed['host'] ) : '';
+        $api_address = trim( (string) YIMAI_GSO_Settings::get( 'seo_push_baidu_api_address', '' ) );
+        $token       = '';
+
+        if ( '' !== $api_address ) {
+            // SSRF 防护：先验白名单；通过后只取 token，其余参数（含非法的 site）一律丢弃
+            $parsed        = wp_parse_url( $api_address );
+            $host          = isset( $parsed['host'] ) ? strtolower( $parsed['host'] ) : '';
             $allowed_hosts = array( 'data.zz.baidu.com', 'www.baidu.com' );
             if ( ! in_array( $host, $allowed_hosts, true ) ) {
                 return new WP_Error( 'baidu_invalid_url', '百度推送接口地址不合法，仅允许 data.zz.baidu.com' );
             }
-            return $api_address;
+
+            if ( ! empty( $parsed['query'] ) ) {
+                $query = array();
+                parse_str( (string) $parsed['query'], $query );
+                if ( ! empty( $query['token'] ) ) {
+                    $token = sanitize_text_field( (string) $query['token'] );
+                }
+            }
         }
-        
-        // 回退：仅用 token 自动拼接（site 用纯域名）
-        $token = YIMAI_GSO_Settings::get( 'seo_push_baidu_token', '' );
-        if ( empty( $token ) ) {
-            return new WP_Error( 'baidu_no_config', '未配置百度推送，请填写接口调用地址' );
+
+        if ( '' === $token ) {
+            $token = sanitize_text_field( (string) YIMAI_GSO_Settings::get( 'seo_push_baidu_token', '' ) );
         }
-        $site = parse_url( home_url(), PHP_URL_HOST );
+
+        if ( '' === $token ) {
+            return new WP_Error( 'baidu_no_config', '未配置百度推送，请填写接口调用地址或 token' );
+        }
+
+        $site = wp_parse_url( home_url(), PHP_URL_HOST );
+
         return self::API_BAIDU . '?site=' . $site . '&token=' . $token;
     }
     

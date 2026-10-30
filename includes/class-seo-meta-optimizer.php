@@ -507,20 +507,21 @@ class YIMAI_GSO_SEO_Meta_Optimizer {
                 "JSON 格式如下：\n" .
                 "{\n" .
                 "  \"seo_title\": \"SEO标题，建议包含产品名+核心卖点+品牌，18-32字\",\n" .
-                "  \"seo_description\": \"SEO描述，建议70-140字，突出产品特色和使用场景\",\n" .
+                "  \"seo_description\": \"SEO描述，68-78个汉字，突出产品特色与使用场景，前40字含核心词和行动动词\",\n" .
                 "  \"seo_keywords\": \"关键词1,关键词2,关键词3,关键词4\"\n" .
                 "}\n" .
-                "要求：1. 关键词自然精准，含产品词和长尾词；2. seo_title 要有吸引力，含促销/卖点词；3. 描述中自然融入价格区间或产品场景。";
+                "要求：1. 关键词自然精准，含产品词和长尾词；2. seo_title 要有吸引力，含促销/卖点词；3. 描述中自然融入价格区间或产品场景；4. seo_description 严格 68-78 个汉字（与文章同口径，超过会被强制截断）。";
         } else {
             $sys_prompt = "你是一位资深中文SEO编辑，擅长为WordPress文章生成适合搜索引擎与点击率优化的元数据。\n" .
                 "请严格返回 JSON，不要返回任何解释或 Markdown。\n" .
                 "JSON 格式如下：\n" .
                 "{\n" .
                 "  \"seo_title\": \"SEO标题，建议18-32字，保留核心关键词，适合Yoast/Rank Math\",\n" .
-                "  \"seo_description\": \"SEO描述，建议70-140字，概括价值点并引导点击\",\n" .
+                "  \"seo_description\": \"SEO描述，68-78个汉字；前40字必须含核心词+城市或商圈+行动动词；禁止铺垫句开头\",\n" .
                 "  \"seo_keywords\": \"关键词1,关键词2,关键词3,关键词4\"\n" .
                 "}\n" .
-                "要求：1. 关键词自然，禁止堆砌；2. 不要虚假承诺；3. 优先贴近文章真实内容；4. keywords 只返回逗号分隔文本。";
+                "要求：1. 关键词自然，禁止堆砌；2. 不要虚假承诺；3. 优先贴近文章真实内容；4. keywords 只返回逗号分隔文本；" .
+                "5. seo_description 严格写 68-78 个汉字（超过 78 字会被强制截断），开头 40 字内必须同时出现核心词、城市或商圈（如宁波、鄞州、江北、杉杉、来福士）和行动动词（预约、体验、查看、了解），禁止「随着…」「在当今…」这类铺垫句开头。";
         }
 
         $user_message = "文章标题：{$post->post_title}\n" .
@@ -872,7 +873,7 @@ class YIMAI_GSO_SEO_Meta_Optimizer {
         if ( '' === $description ) {
             $description = self::trim_text( wp_strip_all_tags( (string) $post->post_content ), 140 );
         }
-        $description = self::trim_text( preg_replace( '/\s+/u', ' ', $description ), 180 );
+        $description = self::truncate_description( preg_replace( '/\s+/u', ' ', $description ), 78 );
 
         $keywords = self::normalize_keywords( $keywords );
         if ( '' === $keywords ) {
@@ -903,6 +904,51 @@ class YIMAI_GSO_SEO_Meta_Optimizer {
         }
 
         return implode( ',', $clean );
+    }
+
+    /**
+     * SEO 描述按标点断句限长（A1）
+     *
+     * 搜索结果的 meta description 到 78 个汉字左右就被截断，超出的部分等于白写；
+     * 而直接硬截会把最后一个词切断（如「宁波普拉」）。所以先在句末标点收口：
+     * 从第 78 字往回找 12 字内的 。！？；， —— 找到就在该标点处截断（保留标点），
+     * 找不到才硬截。返回值恒为 ≤ $max_length 字的完整片段。
+     *
+     * @param string $text
+     * @param int    $max_length
+     * @return string
+     */
+    private static function truncate_description( $text, $max_length = 78 ) {
+        $text = trim( (string) $text );
+        if ( '' === $text ) {
+            return '';
+        }
+
+        $max_length = max( 1, (int) $max_length );
+        $length     = function_exists( 'mb_strlen' ) ? mb_strlen( $text ) : strlen( $text );
+
+        if ( $length <= $max_length ) {
+            return $text;
+        }
+
+        $head  = self::trim_text( $text, $max_length );
+        $chars = preg_split( '//u', $head, -1, PREG_SPLIT_NO_EMPTY );
+
+        if ( ! is_array( $chars ) || empty( $chars ) ) {
+            return $head;
+        }
+
+        $endings = array( '。', '！', '？', '；', '，' );
+        $count   = count( $chars );
+        $floor   = max( 0, $count - 12 );
+
+        for ( $i = $count - 1; $i >= $floor; $i-- ) {
+            if ( in_array( $chars[ $i ], $endings, true ) ) {
+                return trim( implode( '', array_slice( $chars, 0, $i + 1 ) ) );
+            }
+        }
+
+        return trim( $head );
     }
 
     private static function trim_text( $text, $max_length ) {

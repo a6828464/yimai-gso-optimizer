@@ -1,5 +1,19 @@
 # 更新日志
 
+## 2.14.0
+
+AI 标题与摘要真正上屏 + 描述口径统一到 78 字 + 百度和社交卡片纠正。**本版须与主题 ≥ 1.10.0 同批上线，先插件、后主题。**
+
+- **修复 AI 标题「只进数据库、不上前台」**：`write_seo_fields()` 此前只写 `_yoast_wpseo_title` / `rank_math_title` / `title` 三把键，本站没装 Yoast / Rank Math，主题也不读这三把键——AI 生成的标题永远停在后端。现在发布时同写 `yimai_gso_seo_title`，主题 1.10.0 与插件自己的 `og:title` / `twitter:title` 都读它
+- **修复 AI 摘要「要等后台手动点修复才上前台」**：`write_seo_fields()` 同写 `yimai_gso_excerpt`，发布那一刻就把摘要落到主题真正读的键上
+- **SEO 描述统一到 68-78 汉字并限长**：文章与产品两条 prompt 一并改为「68-78 个汉字 + 前 40 字含核心词/城市商圈/行动动词 + 禁铺垫句开头」；落库前 `truncate_description()` 取前 78 字并在末尾 12 字内回找 `。！？；，` 断句（含标点），找不到才硬截。空值仍回落 `post_excerpt`
+- **评分口径与生成口径对齐**：Meta 描述长度维度由「80-180 字满分、50-220 字给 25 分」改为「68-90 字满分 40、90-160 字线性递减 40→15、>160 记 10、50-67 记 25、<50 记 10」。按新口径写的 78 字描述不再被扣分（旧口径下 78 字只能拿 25/40，等于「写对了反被扣分」）。**历史文章的该维度分数会因此变化，属口径变化而非内容变化**
+- **`og:title` / `twitter:title` 读 AI 标题**：新增 `resolve_social_title()`，单篇优先取 `yimai_gso_seo_title`，空则回落文章标题；标题里已含「一麦瑜伽」或后台站点标题时不再追加，避免「… | 一麦瑜伽 | 一麦瑜伽」双品牌。微信 JSSDK 分享卡片读的也是 `og:title`，一并对齐
+- **修复百度推送地址被原样透传**：`get_baidu_api_url()` 不再把后台粘贴的地址直接打给百度——token 只从地址 query 里取（缺失回落 `seo_push_baidu_token`），`site` 一律用 `home_url()` 的 host 重建为纯域名，最终只返回 `http://data.zz.baidu.com/urls?site=纯域名&token=…`。后台里把地址写成 `https://` 或带路径也不会再推失败（`data.zz.baidu.com` / `www.baidu.com` 之外的 host 仍直接报错）
+- **AI 平台自报补齐首页门店类型**：`output_platform_meta()` 在原有 `@type` 覆盖率上追加主题真实输出的门店类型（`HealthAndBeautyBusiness` + `LocalBusiness`，按 `yimai_config()['studios']` 判定，仅首页，另有 `yimai_gso_theme_local_business_types` 过滤器可覆盖）；主题没有门店时返回空数组，不空喊。只做追加，不改原数据源
+- **新增 `tools/test-a1-seo-fixes.php`**（35 条断言，随 `tools/` 一起不进发布包）：覆盖标题/摘要落库、78 字断句、百度推送地址纠正、首页门店类型、68-90 字评分口径
+- 边界：`<title>` 由主题决定（主题 1.10.0 读同一把键）；评分递减段 90/91 与 160/161 有 1-2 分取整跳变，属分段设计
+
 ## 2.13.0
 
 公众号同步新增「从历史文章选择同步」：不再只能同步最新那一篇，可以挑任意一篇本站文章送进公众号草稿箱。**不涉及前台输出，可直接覆盖升级。**
