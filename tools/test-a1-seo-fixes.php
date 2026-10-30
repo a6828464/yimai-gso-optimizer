@@ -10,6 +10,7 @@
  *  - 百度推送地址一律重建官方格式（site 用纯域名、token 兜底、host 白名单）
  *  - 首页把主题门店节点计入 ai-schema-coverage（主题无门店配置时不声明）
  *  - 评分口径与 78 字描述对齐（68-90 字满分，A1b）
+ *  - llms.txt 分类默认关闭 + 一次性迁移幂等；分类 sitemap 关闭时 404（A-收尾）
  *
  * 为什么用 WP 桩而不是真站：本机没有 WordPress，这些方法只需要少数 WP 函数；
  * 真机验的是「前台标题/摘要真的变了」，见 docs/使用教程.md 的发布后检查清单。
@@ -60,6 +61,20 @@ function apply_filters( $tag, $value ) {
 function is_front_page() { return (bool) $GLOBALS['__front']; }
 function yimai_config( $invalidate = false ) { return $GLOBALS['__theme']; }
 
+/* option 层（llms 设置 / 迁移标记用，键为完整 option 名） */
+$GLOBALS['__wp_options'] = array();
+function get_option( $name, $default = false ) {
+    return array_key_exists( $name, $GLOBALS['__wp_options'] ) ? $GLOBALS['__wp_options'][ $name ] : $default;
+}
+function update_option( $name, $value, $autoload = null ) {
+    $GLOBALS['__wp_options'][ $name ] = $value;
+    return true;
+}
+function delete_transient( $key ) { return true; }
+function wp_parse_args( $args, $defaults = array() ) {
+    return array_merge( (array) $defaults, (array) $args );
+}
+
 class YIMAI_GSO_Settings {
     public static function get( $key, $default = '' ) {
         return array_key_exists( $key, $GLOBALS['__options'] ) ? $GLOBALS['__options'][ $key ] : $default;
@@ -71,6 +86,7 @@ require_once dirname( __DIR__ ) . '/includes/class-seo-meta-optimizer.php';
 require_once dirname( __DIR__ ) . '/includes/class-seo-pusher.php';
 require_once dirname( __DIR__ ) . '/includes/class-ai-platform-adapter.php';
 require_once dirname( __DIR__ ) . '/includes/class-seo-scorer.php';
+require_once dirname( __DIR__ ) . '/includes/class-llms-txt-generator.php';
 
 /* ---------------- 断言小工具 ---------------- */
 
@@ -219,6 +235,93 @@ check( '40 字过短（35）', 35 === desc_score( $scorer, 40 ), (string) desc_s
 
 $over = call_private( 'YIMAI_GSO_SEO_Scorer', 'score_meta_description', array( str_repeat( '测', 95 ), '', '' ), $scorer );
 check( '超长提示回到 68-90 口径', false !== strpos( implode( ' ', $over['tips'] ), '68-90' ), implode( ' ', $over['tips'] ) );
+
+/* ---------------- 7. llms.txt 分类默认值与一次性迁移（A-收尾） ---------------- */
+
+echo "== 7. llms.txt：include_categories 默认 0 ==\n";
+
+$llms = ( new ReflectionClass( 'YIMAI_GSO_LLMs_Txt_Generator' ) )->newInstanceWithoutConstructor();
+
+$GLOBALS['__wp_options'] = array();
+$llms_settings = $llms->get_settings();
+check( '默认 include_categories = 0', 0 === (int) $llms_settings['include_categories'], var_export( $llms_settings['include_categories'], true ) );
+
+echo "== 8. llms.txt：旧值迁移只跑一次 ==\n";
+
+$GLOBALS['__wp_options'] = array(
+    'yimai_gso_llms_txt_settings' => array( 'include_categories' => 1, 'intro' => '一麦瑜伽' ),
+);
+$llms->maybe_migrate_categories_default();
+$migrated = $GLOBALS['__wp_options']['yimai_gso_llms_txt_settings'];
+check( '旧值 1 迁移为 0', 0 === (int) $migrated['include_categories'], var_export( $migrated['include_categories'], true ) );
+check( '写入迁移标记', '1' === (string) ( $GLOBALS['__wp_options']['yimai_gso_llms_categories_migrated'] ?? '' ) );
+check( '迁移不清空其它设置', '一麦瑜伽' === ( $migrated['intro'] ?? '' ) );
+
+// 用户日后手动勾回「包含分类目录」：迁移不得再覆盖
+$GLOBALS['__wp_options']['yimai_gso_llms_txt_settings']['include_categories'] = 1;
+$llms->maybe_migrate_categories_default();
+check( '迁移只跑一次（手动开启不被覆盖）', 1 === (int) $GLOBALS['__wp_options']['yimai_gso_llms_txt_settings']['include_categories'] );
+
+/* ---------------- 9. taxonomy sitemap 关闭时 404 ---------------- */
+
+echo "== 9. taxonomy sitemap：关闭时 404、开启时维持 ==\n";
+
+// serve_sitemap() 里是 status_header(404); exit; —— 同进程测不了 exit，改用子进程跑真实代码
+$probe_file = sys_get_temp_dir() . '/gso-sitemap-probe-' . getmypid() . '.php';
+$class_file = dirname( __DIR__ ) . '/includes/class-sitemap-generator.php';
+
+$probe_code = <<<'PHP'
+<?php
+define( 'ABSPATH', __DIR__ . '/' );
+$GLOBALS['__enabled'] = ( '1' === ( $argv[1] ?? '0' ) );
+
+class YIMAI_GSO_Settings {
+    public static function get( $key, $default = '' ) {
+        return 'sitemap_taxonomy_enabled' === $key ? ( $GLOBALS['__enabled'] ? 1 : 0 ) : $default;
+    }
+}
+function sanitize_text_field( $v ) { return (string) $v; }
+function status_header( $code ) { echo 'STATUS:' . $code . "\n"; }
+function nocache_headers() {}
+function taxonomy_exists( $taxonomy ) { return true; }
+function get_terms( $args ) { return array(); }
+function esc_url( $url ) { return $url; }
+function esc_html( $value ) { return $value; }
+function home_url( $path = '' ) { return 'https://www.nbyimai.com' . $path; }
+class WP_Error {}
+function is_wp_error( $thing ) { return $thing instanceof WP_Error; }
+function get_term_link( $term ) { return ''; }
+
+require_once __CLASS_FILE__;
+
+$ref       = new ReflectionClass( 'YIMAI_GSO_Sitemap_Generator' );
+$generator = $ref->newInstanceWithoutConstructor();
+$wp_query  = new stdClass();
+$wp_query->query_vars = array( 'yimai_gso_sitemap_taxonomy' => 'category' );
+$generator->serve_sitemap();
+echo 'NO-EXIT';
+PHP;
+
+$probe_code = str_replace( '__CLASS_FILE__', var_export( $class_file, true ), $probe_code );
+file_put_contents( $probe_file, $probe_code );
+
+$run_probe = function ( $enabled ) use ( $probe_file ) {
+    $command = escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( $probe_file ) . ' ' . ( $enabled ? '1' : '0' ) . ' 2>&1';
+    $lines   = array();
+    $code    = 0;
+    exec( $command, $lines, $code );
+    return implode( "\n", $lines );
+};
+
+$off_output = $run_probe( false );
+check( '关闭时返回 404', false !== strpos( $off_output, 'STATUS:404' ), $off_output );
+check( '关闭时不输出 urlset', false === strpos( $off_output, '<urlset' ), $off_output );
+
+$on_output = $run_probe( true );
+check( '开启时输出 urlset', false !== strpos( $on_output, '<urlset' ), $on_output );
+check( '开启时不返回 404', false === strpos( $on_output, 'STATUS:404' ), $on_output );
+
+@unlink( $probe_file );
 
 /* ---------------- 汇总 ---------------- */
 

@@ -112,6 +112,16 @@ class YIMAI_GSO_Sitemap_Generator {
         
         if ( ! empty( $wp_query->query_vars['yimai_gso_sitemap_taxonomy'] ) ) {
             $taxonomy = sanitize_text_field( $wp_query->query_vars['yimai_gso_sitemap_taxonomy'] );
+
+            // A-收尾：分类归档是 noindex,follow，分类/标签 sitemap 默认关闭。
+            // 关闭时必须给真 404，否则这个没被主索引收录的端点仍是「存在」的孤儿，
+            // 和 noindex 自相矛盾。开关见后台「发布 → 索引控制」。
+            if ( ! self::taxonomy_sitemap_enabled() ) {
+                status_header( 404 );
+                nocache_headers();
+                exit;
+            }
+
             $this->render_taxonomy_sitemap( $taxonomy );
             exit;
         }
@@ -152,12 +162,15 @@ class YIMAI_GSO_Sitemap_Generator {
             echo "\t" . '</sitemap>' . "\n";
         }
 
-        foreach ( $this->taxonomies as $taxonomy ) {
-            if ( $this->taxonomy_has_terms( $taxonomy ) ) {
-                echo "\t" . '<sitemap>' . "\n";
-                echo "\t\t" . '<loc>' . esc_url( home_url( '/sitemap-taxonomy-' . $taxonomy . '.xml' ) ) . '</loc>' . "\n";
-                echo "\t\t" . '<lastmod>' . esc_html( $this->get_lastmod() ) . '</lastmod>' . "\n";
-                echo "\t" . '</sitemap>' . "\n";
+        // A-收尾：分类/标签 sitemap 关闭时，索引里也不列（端点会 404，列了就是死链）
+        if ( self::taxonomy_sitemap_enabled() ) {
+            foreach ( $this->taxonomies as $taxonomy ) {
+                if ( $this->taxonomy_has_terms( $taxonomy ) ) {
+                    echo "\t" . '<sitemap>' . "\n";
+                    echo "\t\t" . '<loc>' . esc_url( home_url( '/sitemap-taxonomy-' . $taxonomy . '.xml' ) ) . '</loc>' . "\n";
+                    echo "\t\t" . '<lastmod>' . esc_html( $this->get_lastmod() ) . '</lastmod>' . "\n";
+                    echo "\t" . '</sitemap>' . "\n";
+                }
             }
         }
         echo '</sitemapindex>' . "\n";
@@ -225,6 +238,12 @@ class YIMAI_GSO_Sitemap_Generator {
      * 渲染分类/标签Sitemap
      */
     private function render_taxonomy_sitemap( $taxonomy ) {
+        // 双保险：开关关闭时任何调用路径都 404（serve_sitemap 已拦一次）
+        if ( ! self::taxonomy_sitemap_enabled() ) {
+            @status_header( 404 );
+            exit;
+        }
+
         if ( ! taxonomy_exists( $taxonomy ) ) {
             @status_header( 404 );
             exit;
@@ -491,6 +510,23 @@ class YIMAI_GSO_Sitemap_Generator {
      */
     private function page_sitemap_enabled() {
         return in_array( 'page', $this->post_types, true );
+    }
+
+    /**
+     * 分类/标签 Sitemap 是否启用（A-收尾）
+     *
+     * 分类归档线上是 noindex, follow：sitemap 里再列一遍就是信号冲突，所以默认关闭
+     * （端点 404、索引不列、不再生成文件）。需要在后台「发布 → 索引控制」打开
+     * 「输出分类/标签 Sitemap」才恢复；与 llms.txt 的「包含分类目录」应同开同关。
+     *
+     * @return bool
+     */
+    private static function taxonomy_sitemap_enabled() {
+        if ( ! class_exists( 'YIMAI_GSO_Settings' ) ) {
+            return false;
+        }
+
+        return (bool) YIMAI_GSO_Settings::get( 'sitemap_taxonomy_enabled', 0 );
     }
 
     /**
@@ -845,13 +881,27 @@ class YIMAI_GSO_Sitemap_Generator {
             file_put_contents( $sitemap_dir . '/sitemap-page.xml', $page_sitemap );
         }
         
-        // 生成分类/标签Sitemap
+        // 生成分类/标签Sitemap（A-收尾：默认关闭；关闭时顺手清掉历史文件，
+        // 避免 uploads 里留着一份与「端点 404」矛盾的分类图）
         foreach ( $this->taxonomies as $taxonomy ) {
             // 额外的安全检查：只允许字母数字和短横线
             $safe_taxonomy = preg_replace('/[^a-zA-Z0-9\-_]/', '', $taxonomy);
-            if ( $this->taxonomy_has_terms( $taxonomy ) && strlen($safe_taxonomy) > 0 ) {
+            if ( strlen( $safe_taxonomy ) <= 0 ) {
+                continue;
+            }
+
+            $tax_sitemap_file = $sitemap_dir . '/sitemap-taxonomy-' . $safe_taxonomy . '.xml';
+
+            if ( ! self::taxonomy_sitemap_enabled() ) {
+                if ( file_exists( $tax_sitemap_file ) ) {
+                    @unlink( $tax_sitemap_file );
+                }
+                continue;
+            }
+
+            if ( $this->taxonomy_has_terms( $taxonomy ) ) {
                 $tax_sitemap = $this->build_taxonomy_sitemap_content( $taxonomy );
-                file_put_contents( $sitemap_dir . '/sitemap-taxonomy-' . $safe_taxonomy . '.xml', $tax_sitemap );
+                file_put_contents( $tax_sitemap_file, $tax_sitemap );
             }
         }
         

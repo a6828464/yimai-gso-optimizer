@@ -77,6 +77,9 @@ class YIMAI_GSO_LLMs_Txt_Generator {
         add_action( 'wp_ajax_yimai_gso_generate_llms_txt_preview', array( $this, 'ajax_generate_preview' ) );
         add_action( 'wp_ajax_yimai_gso_test_llms_txt_access', array( $this, 'ajax_test_access' ) );
         add_action( 'wp_ajax_yimai_gso_flush_rewrite_rules', array( $this, 'ajax_flush_rewrite_rules' ) );
+
+        // A-收尾：分类归档已是 noindex，旧站把 include_categories 从 1 迁到 0（只跑一次）
+        $this->maybe_migrate_categories_default();
     }
 
     /**
@@ -577,7 +580,7 @@ class YIMAI_GSO_LLMs_Txt_Generator {
             'intro'                  => '',
             'details'                => '',
             'core_pages'             => array(),
-            'include_categories'     => 1,
+            'include_categories'     => 0,
             'include_recent_posts'   => 1,
             'excluded_categories'    => array(),
             'max_posts'              => self::DEFAULT_MAX_POSTS,
@@ -587,6 +590,32 @@ class YIMAI_GSO_LLMs_Txt_Generator {
         $settings = get_option( self::OPTION_KEY, array() );
         
         return wp_parse_args( $settings, $defaults );
+    }
+
+    /**
+     * 一次性迁移：llms.txt 不再默认推荐分类（A-收尾）
+     *
+     * 背景：分类归档现在是 noindex, follow，llms.txt 再列分类链接等于一边叫 AI 去抓、
+     * 一边叫搜索引擎别收。旧站升级时把 include_categories 从 1 改成 0，并写迁移标记
+     * yimai_gso_llms_categories_migrated=1 —— 只跑一次，用户日后在后台手动勾回「包含
+     * 分类目录」不会被再次覆盖。
+     *
+     * 幂等：标记存在即返回；option 不存在（新站）时只写标记不改数据，默认值本身就是 0。
+     */
+    public function maybe_migrate_categories_default() {
+        if ( '1' === (string) get_option( 'yimai_gso_llms_categories_migrated', '' ) ) {
+            return;
+        }
+
+        $settings = get_option( self::OPTION_KEY, array() );
+        if ( is_array( $settings ) && ! empty( $settings['include_categories'] ) ) {
+            $settings['include_categories'] = 0;
+            update_option( self::OPTION_KEY, $settings );
+            // 迁移前算好的 llms.txt 里还有 Categories 段，清缓存让它按新设置重算
+            $this->z4();
+        }
+
+        update_option( 'yimai_gso_llms_categories_migrated', '1' );
     }
 
     /**

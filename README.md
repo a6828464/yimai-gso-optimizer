@@ -1,6 +1,6 @@
 # 一麦GSO双擎优化
 
-版本：2.14.0    
+版本：2.14.1    
 作者：一麦瑜伽
 
 一麦瑜伽官网专用的 WordPress AI 内容、SEO 与 GEO 双引擎优化插件。
@@ -53,7 +53,7 @@ v2.2.0 继续读取原有 `yimai_gso_` options、文章元数据和数据表。�
 ```
 find . -name '*.php' -print0 | xargs -0 -n1 php -l   # 全量语法
 php tools/test-wechat-publisher.php                  # 公众号同步：状态闸门 / 阅读原文 / 批量取数
-php tools/test-a1-seo-fixes.php                      # SEO 元数据：标题摘要落库 / 78 字断句 / 百度推送地址 / 首页门店类型 / 68-90 字评分口径
+php tools/test-a1-seo-fixes.php                      # SEO 元数据：标题摘要落库 / 78 字断句 / 百度推送地址 / 首页门店类型 / 68-90 字评分口径 / llms 分类默认关与迁移 / 分类 sitemap 404
 ```
 
 两个脚本均以「合计：N 通过，0 失败」结尾并用退出码表示结果，可直接接 CI。

@@ -6595,6 +6595,14 @@ class YIMAI_GSO_Admin {
                                 </div>
                                 <small class="yimai-gso-field-hint">勾选的文章类型将在全站范围内添加 noindex 标签。单篇文章可在编辑页的"索引状态"元数据框中单独覆盖。</small>
                             </div>
+                            <div class="yimai-gso-field-group" style="margin-top:16px;">
+                                <label>分类/标签 Sitemap</label>
+                                <label class="yimai-gso-radio" style="display:inline-flex;margin-right:12px;">
+                                    <input type="checkbox" name="yimai_gso_sitemap_taxonomy_enabled" value="1" <?php checked( YIMAI_GSO_Settings::get( 'sitemap_taxonomy_enabled', 0 ) ); ?>>
+                                    <span>输出分类/标签 Sitemap（默认关闭）</span>
+                                </label>
+                                <small class="yimai-gso-field-hint">分类归档当前为 noindex，关闭时 /sitemap-taxonomy-*.xml 直接返回 404、主 sitemap 索引也不列；与 llms.txt 的「包含分类目录」应同开同关，否则又是信号冲突。</small>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -7458,6 +7466,9 @@ class YIMAI_GSO_Admin {
                 ? implode( ',', array_map( 'sanitize_text_field', $_POST['yimai_gso_noindex_types'] ) )
                 : '';
             update_option( 'yimai_gso_noindex_post_types', $noindex_types );
+
+            // A-收尾：分类/标签 sitemap 开关（默认 0，与 llms.txt 分类推荐同口径）
+            YIMAI_GSO_Settings::set( 'sitemap_taxonomy_enabled', ! empty( $_POST['yimai_gso_sitemap_taxonomy_enabled'] ) ? 1 : 0 );
         }
 
         // 清除分类缓存
@@ -7771,6 +7782,7 @@ class YIMAI_GSO_Admin {
                                 <td>
                                     <input type="checkbox" name="yimai_gso_llms_txt_settings[include_categories]" value="1" <?php checked( ! empty( $settings['include_categories'] ) ); ?><?php echo ! $feature_meta['available'] ? ' disabled' : ''; ?>>
                                     <span>在 llms.txt 中列出文章分类</span>
+                                    <p class="description">分类归档当前为 noindex，开启后 llms.txt 会推荐不被收录的页面，可能造成信号冲突。默认关闭。</p>
                                 </td>
                             </tr>
                             <tr>

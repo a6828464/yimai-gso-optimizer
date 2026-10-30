@@ -1,5 +1,15 @@
 # 更新日志
 
+## 2.14.1
+
+收口两处「自己跟自己打架」的输出：`llms.txt` 不再推荐 noindex 的分类归档，taxonomy sitemap 端点默认关闭。**补丁版，无数据结构变更。**
+
+- **修复 `llms.txt` 一边叫 AI 去抓、一边叫搜索引擎别收**：分类归档是 `noindex, follow`，而 `llms.txt` 默认会列 5 个分类链接。默认值改为「不包含分类目录」；老站升级时一次性迁移（`include_categories` 1→0 + 清 `llms.txt` 缓存 + 写 `yimai_gso_llms_categories_migrated=1`）。**迁移幂等**：标记存在即跳过，用户日后在后台手动勾回「包含分类目录」不会被再次覆盖；新站只写标记、不动数据
+- **taxonomy sitemap 端点收口（默认关闭）**：新增设置 `sitemap_taxonomy_enabled`（默认 0）。关闭时 `/sitemap-taxonomy-category.xml`、`/sitemap-taxonomy-post_tag.xml` 直接返回 **404**（空 body + `no-cache` 头，`render_taxonomy_sitemap()` 里再拦一层），主 sitemap 索引不列这两个地址，cron 生成时跳过并清理历史 `sitemap-taxonomy-*.xml`。后台「索引控制」新增「输出分类/标签 Sitemap（默认关闭）」复选框
+- **后台补 noindex 冲突提示**：`llms.txt` 页「包含分类目录」复选框下新增说明，点明分类归档是 noindex、开了等于给 AI 递无效入口，需要时与 sitemap 开关同开同关
+- **测试**：`tools/test-a1-seo-fixes.php` 增加 9 条断言（默认值 0、迁移把 1→0 且写标记且保留其它设置、二次调用不覆盖手动开启、关闭时 404 且不输出 urlset、开启时输出 urlset 且不 404；404 断言用子进程跑真实 `serve_sitemap`，因为源码里是 `exit`）
+- 边界：打开 `sitemap_taxonomy_enabled` 只恢复「端点 200 + 文件生成」，**分类条目仍受 `is_term_indexable` 过滤**（默认 false）；要真正列出分类还需放开 `yimai_gso_sitemap_taxonomy_indexable` 过滤或改分类索引策略
+
 ## 2.14.0
 
 AI 标题与摘要真正上屏 + 描述口径统一到 78 字 + 百度和社交卡片纠正。**本版须与主题 ≥ 1.10.0 同批上线；顺序沿用 v1.9.3：先主题、后插件（回滚反向）。**
