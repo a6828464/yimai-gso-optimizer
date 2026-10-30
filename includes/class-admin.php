@@ -1903,6 +1903,17 @@ class YIMAI_GSO_Admin {
             'ads_law'     => '自动修正疗效、安全、退款等广告法高风险承诺。',
         );
         ?>
+        <!-- 批量换图面板（A-收尾：pexels → MT Photos） -->
+        <div class="yimai-gso-main-panel <?php echo $active_tab === 'batch-reimage' ? 'active' : ''; ?>" data-tab="batch-reimage">
+            <?php
+            if ( class_exists( 'YIMAI_GSO_Batch_Reimage' ) ) {
+                YIMAI_GSO_Batch_Reimage::render_panel();
+            } else {
+                echo '<p>批量换图模块未加载。</p>';
+            }
+            ?>
+        </div>
+
         <!-- 图片库面板 -->
         <div class="yimai-gso-main-panel <?php echo $active_tab === 'image-library' ? 'active' : ''; ?>" data-tab="image-library">
             <div id="yimai-gso-image-library-root">
@@ -3728,6 +3739,10 @@ class YIMAI_GSO_Admin {
                         <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'seo-meta' ? 'active' : ''; ?>" data-tab="seo-meta">
                             <span class="dashicons dashicons-chart-line"></span>
                             <span>SEO元数据</span>
+                        </button>
+                        <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'batch-reimage' ? 'active' : ''; ?>" data-tab="batch-reimage">
+                            <span class="dashicons dashicons-images-alt2"></span>
+                            <span>批量换图</span>
                         </button>
                         <button class="yimai-gso-sidebar-tab <?php echo $active_tab === 'internal-links' ? 'active' : ''; ?>" data-tab="internal-links">
                             <span class="dashicons dashicons-admin-links"></span>

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.14.1
+ * Version: 2.14.2
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.14.1' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.14.2' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -101,6 +101,7 @@ require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-image-handler.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-ai-image-generator.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-image-library.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-mtphotos-client.php';
+require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-batch-reimage.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-content-detector.php';
 
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-publisher.php';
@@ -298,6 +299,10 @@ class YIMAI_GSO_Plugin {
             }
             if ( class_exists( 'YIMAI_GSO_L5_Dashboard' ) ) {
                 YIMAI_GSO_L5_Dashboard::get_instance();
+            }
+            // 历史文章批量换图（后台面板 + AJAX；纯后台，前台/cron 不实例化）
+            if ( class_exists( 'YIMAI_GSO_Batch_Reimage' ) ) {
+                YIMAI_GSO_Batch_Reimage::get_instance();
             }
         }
 
