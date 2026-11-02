@@ -2778,7 +2778,10 @@ class YIMAI_GSO_Admin {
                 <?php if ( $can_update ) : ?>
                 <p>
                     <button type="button" class="button" id="yimai-gso-updater-check">检查更新</button>
-                    <button type="button" class="button button-primary" id="yimai-gso-updater-run" style="display:none">立即更新</button>
+                    <?php /* 常显、按状态启停：以前默认 display:none，检查失败或已最新时整个按钮消失，
+                             用户会以为根本没有更新入口。现在按钮永远在，只是不可点时用 title 说明原因。 */ ?>
+                    <button type="button" class="button button-primary" id="yimai-gso-updater-run"
+                            disabled title="先点「检查更新」">立即更新</button>
                 </p>
                 <pre id="yimai-gso-updater-log" style="display:none"></pre>
                 <?php else : ?>
