@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 一麦GSO双擎优化
  * Description: 一麦瑜伽官网专用的 AI 内容、SEO 与 GEO 双引擎优化插件，支持知识库导入、博客自动更新、结构化数据、内链和搜索可见度分析。
- * Version: 2.14.2
+ * Version: 2.14.4
  * Author: 一麦瑜伽
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -18,7 +18,7 @@ if ( defined( 'YIMAI_GSO_LOADED' ) ) {
 }
 define( 'YIMAI_GSO_LOADED', true );
 
-defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.14.2' );
+defined( 'YIMAI_GSO_VERSION' ) || define( 'YIMAI_GSO_VERSION', '2.14.4' );
 
 /**
  * 统一调试日志（T3 修复）
@@ -101,7 +101,11 @@ require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-image-handler.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-ai-image-generator.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-image-library.php';
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-mtphotos-client.php';
+YIMAI_GSO_MTPhotos_Client::init();
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-batch-reimage.php';
+// 正文外链图落地补扫：发布时 100s 内没抓完的 MT Photos 图，由每小时补扫收尾
+require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-image-localizer.php';
+YIMAI_GSO_Image_Localizer::init();
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-content-detector.php';
 
 require_once YIMAI_GSO_PLUGIN_DIR . 'includes/class-publisher.php';
@@ -473,6 +477,7 @@ class YIMAI_GSO_Plugin {
         add_action( 'wp_ajax_yimai_gso_publish_article', array( $this, 'ajax_publish_article' ) );
         add_action( 'wp_ajax_yimai_gso_generate_image', array( $this, 'ajax_generate_image' ) );
         add_action( 'wp_ajax_yimai_gso_test_api', array( $this, 'ajax_test_api' ) );
+        add_action( 'wp_ajax_yimai_gso_mt_tunnel_status', array( $this, 'ajax_mt_tunnel_status' ) );
         add_action( 'wp_ajax_yimai_gso_test_ai_image', array( $this, 'ajax_test_ai_image' ) );
         add_action( 'wp_ajax_yimai_gso_upload_image', array( $this, 'ajax_upload_image' ) );
         add_action( 'wp_ajax_yimai_gso_batch_generate_and_publish', array( $this, 'ajax_batch_generate_and_publish' ) );
@@ -1289,6 +1294,11 @@ class YIMAI_GSO_Plugin {
             YIMAI_GSO_Wechat_Publisher::unschedule();
         }
 
+        // 正文外链图落地补扫
+        if ( class_exists( 'YIMAI_GSO_Image_Localizer' ) ) {
+            YIMAI_GSO_Image_Localizer::unschedule();
+        }
+
         // 清理 transient 缓存
         delete_transient( 'yimai_gso_history_stats' );
         delete_transient( 'yimai_gso_guardian_schedule_checked' );
@@ -1547,6 +1557,22 @@ class YIMAI_GSO_Plugin {
     /**
      * AJAX: 测试 API 连通性
      */
+    /**
+     * 取图加速隧道状态（后台状态面板）
+     *
+     * 只读探测，不改任何配置；返回给前端渲染成人话 + 下一步。
+     */
+    public function ajax_mt_tunnel_status() {
+        check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => '权限不足' ) );
+        }
+        if ( ! class_exists( 'YIMAI_GSO_MTPhotos_Client' ) ) {
+            wp_send_json_error( array( 'message' => 'MT Photos 模块未加载' ) );
+        }
+        wp_send_json_success( YIMAI_GSO_MTPhotos_Client::probe_tunnel() );
+    }
+
     public function ajax_test_api() {
         check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {

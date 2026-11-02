@@ -6363,6 +6363,26 @@ class YIMAI_GSO_Admin {
                                     <small class="yimai-gso-field-hint">MT Photos 服务地址（外网可访问），结尾不要带 /</small>
                                 </div>
                                 <div class="yimai-gso-field-group">
+                                    <label>取图加速地址（可选）</label>
+                                    <input type="url" name="yimai_gso_mtphotos_fetch_host" class="large-text"
+                                           value="<?php echo esc_attr( YIMAI_GSO_Settings::get( 'mtphotos_fetch_host' ) ); ?>"
+                                           placeholder="http://100.64.0.1:18063">
+                                    <small class="yimai-gso-field-hint">服务器自己取图走这个地址（NAS 反向隧道），正文里仍写上面的公网地址；留空=一直走公网。默认值 <code>http://100.64.0.1:18063</code></small>
+                                </div>
+                                <div class="yimai-gso-field-group">
+                                    <label>
+                                        <input type="checkbox" name="yimai_gso_mtphotos_tunnel_enabled" value="1"
+                                               <?php checked( YIMAI_GSO_MTPhotos_Client::tunnel_enabled() ); ?>>
+                                        启用取图加速（NAS 反向隧道）
+                                    </label>
+                                    <small class="yimai-gso-field-hint">
+                                        只影响<b>后台生成文章时下载配图</b>走哪条链路：<b>会员访问网站永远读河源本机静态文件</b>，
+                                        与本开关无关。关掉立即回退公网地址，隧道本身也会在 15s 内自动断开（NAS 不再保持连接）。
+                                    </small>
+                                    <div id="mt-tunnel-status" style="margin-top:6px;font-size:13px;"></div>
+                                    <button type="button" class="button" id="mt-tunnel-check">刷新状态</button>
+                                </div>
+                                <div class="yimai-gso-field-group">
                                     <label>API Key（推荐）</label>
                                     <div class="yimai-gso-input-with-action">
                                         <input type="password" name="yimai_gso_mtphotos_api_key" class="large-text"
@@ -7400,6 +7420,7 @@ class YIMAI_GSO_Admin {
             'ai_image_custom_prompt',
             // MT Photos 配图
             'mtphotos_host', 'mtphotos_api_key', 'mtphotos_username', 'mtphotos_password',
+            'mtphotos_fetch_host', 'mtphotos_tunnel_enabled',
             'mtphotos_review_strictness', 'mtphotos_review_failover',
             'publish_time_jitter',
             'frontend_excerpt_enabled', 'frontend_excerpt_label',
@@ -7437,6 +7458,9 @@ class YIMAI_GSO_Admin {
                 if ( $marker_present && ! isset( $_POST['yimai_gso_auto_image_alt_enabled'] ) && ! isset( $_POST['auto_image_alt_enabled'] ) ) {
                     update_option( 'yimai_gso_auto_image_alt_enabled', 0 );
                 }
+            } elseif ( 'mtphotos_tunnel_enabled' === $field ) {
+                update_option( 'yimai_gso_mtphotos_tunnel_enabled', isset( $_POST['yimai_gso_mtphotos_tunnel_enabled'] ) ? 1 : 0 );
+                YIMAI_GSO_MTPhotos_Client::sync_state_file();
             } elseif ( 'mtphotos_review_enabled' === $field ) {
                 // checkbox 未勾选时不提交 → 直接置 0（MT Photos 审核开关）
                 update_option( 'yimai_gso_mtphotos_review_enabled', isset( $_POST['yimai_gso_mtphotos_review_enabled'] ) ? 1 : 0 );

@@ -152,6 +152,8 @@ class YIMAI_GSO_Settings {
             'ai_image_custom_prompt', 'ai_image_style',
             // MT Photos 配图配置
             'mtphotos_host', 'mtphotos_api_key', 'mtphotos_username', 'mtphotos_password',
+            'mtphotos_fetch_host',
+            'mtphotos_tunnel_enabled',
             'mtphotos_review_enabled', 'mtphotos_review_strictness', 'mtphotos_review_failover',
             // 发布配置
             'default_category', 'default_status',

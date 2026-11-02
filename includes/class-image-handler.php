@@ -472,6 +472,16 @@ class YIMAI_GSO_Image_Handler {
             }
         }
 
+        // 配了取图加速地址时，它的主机也必须在放行范围内：加速地址常是隧道/内网段
+        // （NAS 反向隧道用 100.64.0.0/10），不在这里判定就会被下面的私有网段规则拦掉。
+        $fetch_host = class_exists( 'YIMAI_GSO_MTPhotos_Client' ) ? YIMAI_GSO_MTPhotos_Client::fetch_host() : '';
+        if ( '' !== $fetch_host ) {
+            $fh = (string) wp_parse_url( $fetch_host, PHP_URL_HOST );
+            if ( '' !== $fh && $fh === $host_lc ) {
+                return true;
+            }
+        }
+
         // 一个地址都解析不出来 → 让后续下载自然失败，这里放行以免误伤
         foreach ( $ips as $ip ) {
             if ( ! self::is_public_ip( $ip ) ) {
@@ -501,6 +511,73 @@ class YIMAI_GSO_Image_Handler {
     }
 
     /**
+     * 下载远端图片到临时文件：重试 + 签名地址自动重签
+     *
+     * 为什么不靠「多试几次总是能成」：图片源在 Cloudflare 后面，境内服务器到 CF 的
+     * TLS 握手会偶发卡住几秒到几十秒。单次超时就判死刑，等于把一张「24h 后必裂」的
+     * 签名外链写进正文。这里做两件事：
+     *   1) 超时/连接失败 → 退避一次再试（总耗时受 PHP-FPM request_terminate_timeout 约束，
+     *      所以 20s 这类短超时只给 1 次，30s 以上才给 2 次）；
+     *   2) 401/403/404 → 基本是 auth_code 过期，重签后换 URL 重试。
+     *
+     * 配了「取图加速地址」（mtphotos_fetch_host）时，实际下载走加速地址，
+     * 调用方拿到的仍是公网地址语义——正文和附件 URL 不受影响。
+     *
+     * @param string $url
+     * @param int    $timeout  单次超时（秒）
+     * @param int    $attempts 0=按超时自动决定
+     * @return string|WP_Error 临时文件路径
+     */
+    private function download_remote_image( $url, $timeout = 30, $attempts = 0 ) {
+        $timeout  = max( 5, (int) $timeout );
+        $attempts = $attempts > 0 ? (int) $attempts : ( $timeout >= 30 ? 2 : 1 );
+
+        $current = (string) $url;
+        $last    = null;
+        $client  = null;
+
+        for ( $i = 1; $i <= $attempts; $i++ ) {
+            // 只改「这一次下载」的目标：正文/附件里仍存公网地址，读者照样打得开
+            $attempt_url = class_exists( 'YIMAI_GSO_MTPhotos_Client' )
+                ? YIMAI_GSO_MTPhotos_Client::rewrite_to_fetch_host( $current )
+                : $current;
+            $tmp = download_url( $attempt_url, $timeout );
+            if ( ! is_wp_error( $tmp ) ) {
+                // 打点看「这次到底是不是走了加速地址」：按 host 判断，避免调用方已经把
+                // URL 改写过（那时两者相等）导致永远不打点。
+                if ( class_exists( 'YIMAI_GSO_MTPhotos_Client' ) ) {
+                    $fetch_host = (string) wp_parse_url( YIMAI_GSO_MTPhotos_Client::fetch_host(), PHP_URL_HOST );
+                    if ( '' !== $fetch_host && $fetch_host === (string) wp_parse_url( $attempt_url, PHP_URL_HOST ) ) {
+                        YIMAI_GSO_MTPhotos_Client::mark_success();
+                    }
+                }
+                return $tmp;
+            }
+            $last = $tmp;
+            $msg  = (string) $tmp->get_error_message();
+
+            // 签名过期 / 被拒：重签一次再试（只对 MT Photos 自己的 gateway 地址有意义）
+            if ( preg_match( '/(401|403|404|unauthorized|forbidden|not found)/i', $msg )
+                && class_exists( 'YIMAI_GSO_MTPhotos_Client' )
+                && YIMAI_GSO_MTPhotos_Client::is_gateway_url( $current ) ) {
+                if ( null === $client ) {
+                    $client = new YIMAI_GSO_MTPhotos_Client();
+                }
+                $fresh = $client->refresh_image_url( $current, true );
+                if ( ! is_wp_error( $fresh ) ) {
+                    $current = $fresh;
+                }
+            }
+
+            if ( $i < $attempts ) {
+                sleep( 1 );
+            }
+        }
+
+        return $last;
+    }
+
+    /**
      * 将图片下载并上传到 WordPress 媒体库
      * 返回 attachment ID
      *
@@ -522,11 +599,14 @@ class YIMAI_GSO_Image_Handler {
         require_once ABSPATH . 'wp-admin/includes/media.php';
 
         // 下载图片到临时文件
-        $tmp = download_url( $image_url, $timeout );
+        // 一次就放弃的失败率不是 0：图片源走 Cloudflare，境内服务器到 CF 的 TLS 握手
+        // 会偶发卡死（cURL error 28: SSL connection timeout）。失败后自动重试；
+        // 401/403/404 先重签 auth_code（MT Photos 签名地址 24h 过期）再试。
+        $tmp = $this->download_remote_image( $image_url, $timeout );
         if ( is_wp_error( $tmp ) ) {
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[YIMAI_GSO_IMG] download failed for: ' . $image_url . ' → ' . $tmp->get_error_message() );
-            }
+            // 落地失败必须留痕：以前只在 WP_DEBUG 下记录，线上静默把外链写进正文，
+            // 结果就是「网站当时能看、24h 后裂图、公众号同步再失败一次」。
+            error_log( '[YIMAI_GSO_IMG] download failed for: ' . $image_url . ' → ' . $tmp->get_error_message() );
             return $tmp;
         }
 
@@ -666,9 +746,8 @@ class YIMAI_GSO_Image_Handler {
                     $result['first_attach_id'] = $attach_id;
                 }
             } else {
-                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( '[YIMAI_GSO_IMG] 下载图片失败: ' . $img_url . ' → ' . $attach_id->get_error_message() );
-                }
+                // 同上：失败必须留痕，否则正文里那张外链图会在 24h 后静默裂掉
+                error_log( '[YIMAI_GSO_IMG] 下载图片失败: ' . $img_url . ' → ' . $attach_id->get_error_message() );
             }
         }
 

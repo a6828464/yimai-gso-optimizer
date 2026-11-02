@@ -100,6 +100,7 @@ class YIMAI_GSO_Wx_Renderer {
     const QUALITY        = 82;      // 首次压缩质量
     const QUALITY_LOW    = 70;      // 仍超 900KB 时的兜底质量
     const MAX_IMAGE_SIZE = 921600;  // 900KB：uploadimg 硬上限 1MB，留余量
+    const RENDER_TIME_BUDGET = 70;  // 秒：PHP-FPM request_terminate_timeout=100，留 30s 给封面/建草稿/收尾
 
     /**
      * 本次渲染产生的告警（图片没转存、脚注为空等）。
@@ -107,6 +108,19 @@ class YIMAI_GSO_Wx_Renderer {
      * 每次 render 开头会重置，所以不会跨文章串味。
      */
     private static $warnings = array();
+
+    /**
+     * 本次渲染里转存失败的图片（每项一句话）。
+     *
+     * 为什么不只是告警：正文少一张图，草稿看上去「同步成功」了，读者端就是一处空白，
+     * 运营永远不会去翻日志。所以只要有图没转存，render() 直接返回 WP_Error，让队列
+     * 按退避重试（3 次内大多能补齐，因为失败源是网络抖动）。
+     */
+    private static $image_failures = array();
+
+    /** 成功转存过的图片缓存（src 哈希 → 微信 url），重试/再次同步都不必重新下载上传 */
+    const IMAGE_CACHE_PREFIX = 'yimai_gso_wx_img_';
+    const IMAGE_CACHE_TTL    = 604800; // 7 天：mmbiz CDN 地址长期有效，够覆盖排障与重发周期
 
     /* ==================== 对外接口 ==================== */
 
@@ -117,7 +131,18 @@ class YIMAI_GSO_Wx_Renderer {
      * @return string|WP_Error
      */
     public static function render( WP_Post $post ) {
-        return self::build( $post, true );
+        $out = self::build( $post, true );
+        if ( is_wp_error( $out ) ) {
+            return $out;
+        }
+        if ( ! empty( self::$image_failures ) ) {
+            return new WP_Error(
+                'wx_img_incomplete',
+                '有 ' . count( self::$image_failures ) . ' 张正文图片未能转存，本次不提交草稿（队列会自动重试；连续失败请换图或删图）：'
+                    . implode( '；', array_slice( self::$image_failures, 0, 5 ) )
+            );
+        }
+        return $out;
     }
 
     /**
@@ -149,7 +174,8 @@ class YIMAI_GSO_Wx_Renderer {
      * @return string|WP_Error
      */
     private static function build( $post, $with_images ) {
-        self::$warnings = array();
+        self::$warnings       = array();
+        self::$image_failures = array();
 
         if ( ! is_object( $post ) || ! isset( $post->post_content ) ) {
             return new WP_Error( 'wx_render_input', '没有拿到文章内容，无法生成公众号正文' );
@@ -431,8 +457,9 @@ class YIMAI_GSO_Wx_Renderer {
             $images[] = $img;
         }
 
-        $handled = 0;
-        $skipped = 0;
+        $handled  = 0;
+        $skipped  = 0;
+        $deadline = microtime( true ) + self::RENDER_TIME_BUDGET;
         foreach ( $images as $img ) {
             if ( ! $img->parentNode ) {
                 continue;
@@ -454,13 +481,20 @@ class YIMAI_GSO_Wx_Renderer {
                 $skipped++;
                 continue;
             }
+
+            // 时间预算：图片源慢的时候，一篇 3 张图能吃掉 100s 的 FPM 上限，
+            // 进程被杀会让整轮同步连错误都写不回去。到点就停手，让队列重试；
+            // 已成功的图走缓存，下一轮只补剩下的。
+            if ( microtime( true ) > $deadline ) {
+                self::$image_failures[] = '第 ' . ( $handled + 1 ) . ' 张起未转存：本次渲染时间预算（' . self::RENDER_TIME_BUDGET . 's）用尽，队列重试时会从这张继续';
+                break;
+            }
             $handled++;
 
             $result = self::transfer_image( $src, $handled );
             if ( is_wp_error( $result ) ) {
                 $alt = trim( (string) $img->getAttribute( 'alt' ) );
-                self::$warnings[] = '第 ' . $handled . ' 张图片未能转存（' . ( '' !== $alt ? $alt : $src ) . '）：' . $result->get_error_message();
-                self::replace_image_with_notice( $doc, $img, $alt );
+                self::$image_failures[] = '第 ' . $handled . ' 张（' . ( '' !== $alt ? $alt : $src ) . '）：' . $result->get_error_message();
                 continue;
             }
             $img->setAttribute( 'src', (string) $result );
@@ -472,13 +506,42 @@ class YIMAI_GSO_Wx_Renderer {
     }
 
     /**
+     * 单张图片转存入口：先查缓存，未命中再走一次真正下载/上传
+     *
+     * 缓存的意义不只是省时间：上传一张图要占一次 uploadimg 配额，而队列重试、手动重试、
+     * 内容小改再同步都会把同一篇图重跑一遍。命中缓存后重试只补「上次失败的那张」，
+     * 也才不会因为 PHP-FPM 100s 上限把整轮拖死。
+     *
+     * @param string $src
+     * @param int    $index
+     * @return string|WP_Error
+     */
+    private static function transfer_image( $src, $index ) {
+        // 缓存键去掉 auth_code：重签后 URL 变了但图没变，不该因此重新上传一张同样的图
+        $stable_src = preg_replace( '/([?&])auth_code=[^&]*/', '$1', (string) $src );
+        $cache_key  = self::IMAGE_CACHE_PREFIX . md5( (string) $stable_src );
+        $cached    = get_transient( $cache_key );
+        if ( is_string( $cached ) && '' !== $cached ) {
+            return $cached;
+        }
+
+        $result = self::transfer_image_once( $src, $index );
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        set_transient( $cache_key, (string) $result, self::IMAGE_CACHE_TTL );
+        return (string) $result;
+    }
+
+    /**
      * 单张图片：下载 → 压缩 → 上传，返回微信域名 url
      *
      * @param string $src
      * @param int    $index 第几张（用于文件名和告警定位）
      * @return string|WP_Error
      */
-    private static function transfer_image( $src, $index ) {
+    private static function transfer_image_once( $src, $index ) {
         // download_url() 定义在 wp-admin/includes/file.php，只有后台请求会加载它；
         // cron / 前台 / WP-CLI / REST 前端入口默认没有这个文件，直接调就是
         // Call to undefined function → 整个请求 500，而且在 cron 里是静默发生的。
@@ -487,9 +550,9 @@ class YIMAI_GSO_Wx_Renderer {
             require_once ABSPATH . 'wp-admin/includes/file.php';
         }
 
-        $tmp = download_url( $src, 30 );
+        $tmp = self::download_image_to_temp( $src );
         if ( is_wp_error( $tmp ) ) {
-            return new WP_Error( 'wx_img_download', '原图下载失败：' . $tmp->get_error_message() );
+            return $tmp;
         }
 
         $editor = wp_get_image_editor( $tmp );
@@ -541,71 +604,52 @@ class YIMAI_GSO_Wx_Renderer {
     }
 
     /**
-     * 图片转存失败时换成一行灰字提示（不中断整篇）
+     * 下载原图到临时文件：失败时对 MT Photos 签名地址重签一次再试
      *
-     * wpautop 常把独占一段的图片包成 <p><img></p>，此时若直接塞一个 <p> 进去就是
-     * <p><p>…</p></p>，微信的清洗器会把段落拆开、凭空多出两个空行。所以分三种情况：
-     *   - 父级 <p> 里只有这张图 → 连父级一起换成提示 <p>（最常见的形态）
-     *   - 父级 <p> 里还有文字 → 提示降级成 <span>，保持行内、不破坏段落
-     *   - 其它容器（figure / section / 裸正文）→ 按规格用提示 <p>
+     * 两类失败必须分开处理，否则会误判成「图挂了」：
+     *   - cURL 28 / 35：链路问题（服务器 → Cloudflare 的 TLS 抖动），换签名无用；
+     *   - 401 / 403 / 404：auth_code 过期（服务端 24h），重签后同一张图立刻可取。
      *
-     * @param DOMDocument $doc
-     * @param DOMElement  $img
-     * @param string      $alt
+     * @param string $src
+     * @return string|WP_Error 临时文件路径
      */
-    private static function replace_image_with_notice( DOMDocument $doc, DOMElement $img, $alt ) {
-        $parent = $img->parentNode;
-        if ( ! $parent ) {
-            return;
-        }
-        $label = '' !== $alt ? $alt : '图片';
-
-        $is_p = ( $parent instanceof DOMElement && 'p' === strtolower( $parent->nodeName ) );
-        if ( $is_p && self::is_lone_child( $parent, $img ) && $parent->parentNode ) {
-            $notice = self::notice_node( $doc, 'p', $label );
-            $parent->parentNode->replaceChild( $notice, $parent );
-            return;
+    private static function download_image_to_temp( $src ) {
+        if ( ! function_exists( 'download_url' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
         }
 
-        $notice = self::notice_node( $doc, $is_p ? 'span' : 'p', $label );
-        $parent->replaceChild( $notice, $img );
-    }
+        // 服务器自己取图走加速地址（若配置了），正文里的 src 不变
+        $fetch_src = class_exists( 'YIMAI_GSO_MTPhotos_Client' )
+            ? YIMAI_GSO_MTPhotos_Client::rewrite_to_fetch_host( $src )
+            : $src;
 
-    /**
-     * 构造提示节点
-     *
-     * @param DOMDocument $doc
-     * @param string      $tag
-     * @param string      $label
-     * @return DOMElement
-     */
-    private static function notice_node( DOMDocument $doc, $tag, $label ) {
-        $notice = $doc->createElement( $tag );
-        $notice->setAttribute( 'style', 'color:#94a3b8;font-size:14px' );
-        $notice->appendChild( $doc->createTextNode( '[图片未能转存：' . $label . ']' ) );
-        return $notice;
-    }
-
-    /**
-     * 该元素是否只装着这一个子元素（忽略空白文本）
-     *
-     * @param DOMElement $parent
-     * @param DOMNode    $child
-     * @return bool
-     */
-    private static function is_lone_child( DOMElement $parent, DOMNode $child ) {
-        foreach ( $parent->childNodes as $node ) {
-            if ( $node === $child ) {
-                continue;
-            }
-            if ( XML_ELEMENT_NODE === $node->nodeType ) {
-                return false;
-            }
-            if ( XML_TEXT_NODE === $node->nodeType && '' !== trim( (string) $node->nodeValue ) ) {
-                return false;
-            }
+        $tmp = download_url( $fetch_src, 20 );
+        if ( ! is_wp_error( $tmp ) ) {
+            return $tmp;
         }
-        return true;
+
+        $msg   = (string) $tmp->get_error_message();
+        $stale = (bool) preg_match( '/(401|403|404|unauthorized|forbidden|not found)/i', $msg );
+
+        if ( ! class_exists( 'YIMAI_GSO_MTPhotos_Client' ) || ! YIMAI_GSO_MTPhotos_Client::is_gateway_url( $src ) ) {
+            return new WP_Error( 'wx_img_download', '原图下载失败：' . $msg );
+        }
+
+        $client = new YIMAI_GSO_MTPhotos_Client();
+        $fresh  = $client->refresh_image_url( $src, $stale );
+        if ( is_wp_error( $fresh ) ) {
+            return new WP_Error( 'wx_img_download', '原图下载失败：' . $msg . '；重签失败：' . $fresh->get_error_message() );
+        }
+
+        $again = download_url(
+            class_exists( 'YIMAI_GSO_MTPhotos_Client' ) ? YIMAI_GSO_MTPhotos_Client::rewrite_to_fetch_host( $fresh ) : $fresh,
+            25
+        );
+        if ( ! is_wp_error( $again ) ) {
+            return $again;
+        }
+
+        return new WP_Error( 'wx_img_download', '原图下载失败：' . $msg . '；重签后再试仍失败：' . $again->get_error_message() );
     }
 
     /* ==================== 8：外链 → span + 脚注 ==================== */

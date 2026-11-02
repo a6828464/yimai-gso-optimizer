@@ -344,6 +344,265 @@ class YIMAI_GSO_MTPhotos_Client {
     }
 
     /**
+     * 让 WP 允许连加速地址
+     *
+     * WordPress 的 wp_http_validate_url() 把 100.64.0.0/10（CGNAT）和 10/172.16/192.168
+     * 一视同仁当「内网」，默认直接拒（实测 100.64.0.1 无论带不带端口都 REJECT）。
+     * 于是 download_url() 连隧道连不上，错误信息只有一句「URL 无效」。
+     * 这里只放行「后台配置的那一个取图加速 host」，不放行任意内网地址；
+     * 端口也要单独放行 18063（WP 默认只允许 80/443/8080）。
+     */
+    public static function init() {
+        add_filter( 'http_request_host_is_external', array( __CLASS__, 'allow_fetch_host' ), 10, 3 );
+        add_filter( 'http_allowed_safe_ports', array( __CLASS__, 'allow_fetch_port' ), 10, 3 );
+        // 开关一改就同步状态文件，NAS 侧 15s 内会跟着连/断
+        add_action( 'update_option_yimai_gso_mtphotos_tunnel_enabled', array( __CLASS__, 'sync_state_file' ) );
+        add_action( 'update_option_yimai_gso_mtphotos_fetch_host', array( __CLASS__, 'sync_state_file' ) );
+    }
+
+    /**
+     * 记录「走加速地址取图成功」的时刻
+     *
+     * 只在真正用了加速地址且下载成功时调用；后台状态面板据此显示「最近成功」，
+     * 避免只看端口 listening 就以为通了（端口在、NAS 卡死也一样取不到图）。
+     */
+    public static function mark_success() {
+        update_option( 'yimai_gso_mt_tunnel_last_success', time(), false );
+    }
+
+    public static function allow_fetch_host( $external, $host, $url ) {
+        $fetch = self::fetch_host();
+        if ( '' === $fetch ) {
+            return $external;
+        }
+        $fetch_host = (string) wp_parse_url( $fetch, PHP_URL_HOST );
+        if ( '' !== $fetch_host && strtolower( (string) $host ) === strtolower( $fetch_host ) ) {
+            return true;
+        }
+        return $external;
+    }
+
+    public static function allow_fetch_port( $ports, $host = '', $url = '' ) {
+        $fetch      = self::fetch_host();
+        $fetch_host = (string) wp_parse_url( $fetch, PHP_URL_HOST );
+        $fetch_port = (int) wp_parse_url( $fetch, PHP_URL_PORT );
+        if ( '' !== $fetch_host && strtolower( (string) $host ) === strtolower( $fetch_host ) && $fetch_port > 0 ) {
+            $ports[] = $fetch_port;
+        }
+        return $ports;
+    }
+
+    /**
+     * 取图加速地址（可选）
+     *
+     * 正文里存的是公网签名地址（读者要能打开），但服务器自己取图没必要绕公网：
+     * 设了加速地址（例如 NAS 反向隧道 100.64.0.1:18063）后，下载前把 host 换掉，
+     * 落盘的仍是同一张图，正文里保留公网 URL。
+     *
+     * @return string 末尾不带 /
+     */
+    public static function fetch_host() {
+        if ( ! self::tunnel_enabled() ) {
+            return '';
+        }
+        $host = trim( (string) YIMAI_GSO_Settings::get( 'mtphotos_fetch_host', '' ) );
+        return '' === $host ? '' : untrailingslashit( $host );
+    }
+
+    /** 加速开关（默认关：没配隧道时开了也没用，反而是多一跳） */
+    public static function tunnel_enabled() {
+        return 1 === (int) YIMAI_GSO_Settings::get( 'mtphotos_tunnel_enabled', 0 );
+    }
+
+    /** 状态文件路径：NAS 侧每 15s 拉它决定连/断 */
+    public static function state_file_path() {
+        return untrailingslashit( ABSPATH ) . '/mt-tunnel-state.txt';
+    }
+
+    /**
+     * 把开关状态写成 NAS 能读到的纯文本（on / off）
+     *
+     * NAS 上的 mt-tunnel.service 每 15s 拉一次这个文件：读到 off 就断开，
+     * 读到 on 才连。这样「停用」是真的把隧道拆掉，而不是只让插件不用它。
+     */
+    public static function sync_state_file() {
+        $path = self::state_file_path();
+        $want = self::tunnel_enabled() && '' !== trim( (string) YIMAI_GSO_Settings::get( 'mtphotos_fetch_host', '' ) ) ? 'on' : 'off';
+        $now  = is_file( $path ) ? trim( (string) @file_get_contents( $path ) ) : '';
+        if ( $now === $want ) {
+            return true;
+        }
+        return (bool) @file_put_contents( $path, $want . "\n", LOCK_EX );
+    }
+
+    /**
+     * 把公网图片地址改写到加速地址；未配置或非自定义域名时原样返回
+     *
+     * @param string $url
+     * @return string
+     */
+    public static function rewrite_to_fetch_host( $url ) {
+        $fetch = self::fetch_host();
+        if ( '' === $fetch ) {
+            return (string) $url;
+        }
+        $url   = (string) $url;
+        $parts = wp_parse_url( $url );
+        if ( empty( $parts['path'] ) ) {
+            return $url;
+        }
+
+        // 只改自家 gateway 图：pexels / 本站图换成隧道地址等于让 NAS 再回源一次
+        $is_gateway = ( false !== strpos( $parts['path'], '/gateway/' ) );
+        if ( ! $is_gateway ) {
+            return $url;
+        }
+        $query = isset( $parts['query'] ) ? ( '?' . $parts['query'] ) : '';
+        return $fetch . $parts['path'] . $query;
+    }
+
+    /**
+     * 隧道状态探测（后台状态面板用）
+     *
+     * 分三层说清「能不能用」，任何一层不通都给下一步：
+     *   1. 开关 / 地址有没有配 —— 配置问题
+     *   2. 本机有没有监听 100.64.0.1 的转发端口 —— 服务器侧（sshd -R）
+     *   3. 探一次真实 HTTP —— NAS 侧服务是否在线
+     *
+     * @return array
+     */
+    public static function probe_tunnel() {
+        $out = array(
+            'enabled'      => self::tunnel_enabled(),
+            'host'         => (string) YIMAI_GSO_Settings::get( 'mtphotos_fetch_host', '' ),
+            'state_file'   => '',
+            'listening'    => false,
+            'http_code'    => 0,
+            'latency_ms'   => 0,
+            'verdict'      => 'off',
+            'detail'       => '',
+            'last_success' => (int) get_option( 'yimai_gso_mt_tunnel_last_success', 0 ),
+        );
+
+        $path = self::state_file_path();
+        $out['state_file'] = is_file( $path ) ? trim( (string) @file_get_contents( $path ) ) : '(缺失)';
+
+        if ( ! $out['enabled'] ) {
+            $out['verdict'] = 'off';
+            $out['detail']  = '开关关着，取图走公网地址（正文与前台不受影响）';
+            return $out;
+        }
+        if ( '' === $out['host'] ) {
+            $out['verdict'] = 'unconfigured';
+            $out['detail']  = '开关开着但没填加速地址，实际仍走公网';
+            return $out;
+        }
+
+        $parts = wp_parse_url( $out['host'] );
+        $dh    = (string) ( $parts['host'] ?? '' );
+        $dp    = (int) ( $parts['port'] ?? 80 );
+
+        // 2) 本机监听
+        $conn = @fsockopen( $dh, $dp, $errno, $errstr, 3 );
+        if ( $conn ) {
+            $out['listening'] = true;
+            fclose( $conn );
+        }
+
+        // 3) 真实 HTTP
+        $t    = microtime( true );
+        $resp = wp_remote_get( $out['host'], array( 'timeout' => 8, 'redirection' => 0 ) );
+        $out['latency_ms'] = (int) round( ( microtime( true ) - $t ) * 1000 );
+
+        if ( is_wp_error( $resp ) ) {
+            $out['verdict'] = 'down';
+            $out['detail']  = '探测失败：' . $resp->get_error_message();
+            return $out;
+        }
+
+        $out['http_code'] = (int) wp_remote_retrieve_response_code( $resp );
+        if ( $out['http_code'] > 0 && $out['http_code'] < 500 ) {
+            $out['verdict'] = 'up';
+            $out['detail']  = 'NAS 在线，' . $out['latency_ms'] . 'ms 响应';
+        } else {
+            $out['verdict'] = 'degraded';
+            $out['detail']  = 'HTTP ' . $out['http_code'] . '，NAS 服务可能没起';
+        }
+        return $out;
+    }
+
+    /**
+     * 是否 MT Photos gateway 图片地址
+     *
+     * 用来区分「能重签的签名地址」和「已经彻底失效的普通外链」——只有前者
+     * 才值得在 401 之后重试，后者重试多少次都是同一个结果。
+     *
+     * @param string $url
+     * @return bool
+     */
+    public static function is_gateway_url( $url ) {
+        $url = (string) $url;
+        return (bool) preg_match( '#/gateway/file/(\d+)/([A-Za-z0-9]+)#', $url )
+            || (bool) preg_match( '#/gateway/h220/([A-Za-z0-9]+)#', $url );
+    }
+
+    /**
+     * 用当前有效的 auth_code 重新签发一张 gateway 图片地址
+     *
+     * 正文里存的是带 auth_code 的签名地址，服务端签发后 24h 失效（失效后返回
+     * 401 {"msg":"Unauthorized"}）。文章一旦活得比 token 久，前台裂图与公众号
+     * 图片转存失败会同时出现；重签是唯一能「不重新选图」就救回原图的办法。
+     *
+     * @param string $url   旧地址（auth_code 可能已过期）
+     * @param bool   $force true=强制重取 auth_code（401 重试时用）
+     * @return string|WP_Error
+     */
+    public function refresh_image_url( $url, $force = false ) {
+        $url = (string) $url;
+        $file_id = 0;
+        $md5     = '';
+        $kind    = 'file';
+
+        if ( preg_match( '#/gateway/file/(\d+)/([A-Za-z0-9]+)#', $url, $m ) ) {
+            $file_id = (int) $m[1];
+            $md5     = (string) $m[2];
+        } elseif ( preg_match( '#/gateway/h220/([A-Za-z0-9]+)#', $url, $m ) ) {
+            $md5  = (string) $m[1];
+            $kind = 'h220';
+        } else {
+            return new WP_Error( 'mtphotos_bad_url', '不是 MT Photos 的图片地址，无法重签：' . $url );
+        }
+
+        $auth_code = $this->ensure_auth_code( (bool) $force );
+        if ( is_wp_error( $auth_code ) ) {
+            return $auth_code;
+        }
+
+        // 保留原地址的 host：文章里写的可能是 photos1，设置里改过域名也不该把旧文章指向新域名
+        $parts = wp_parse_url( $url );
+        $base  = $this->host;
+        if ( ! empty( $parts['scheme'] ) && ! empty( $parts['host'] ) ) {
+            $base = $parts['scheme'] . '://' . $parts['host'];
+        }
+
+        if ( 'h220' === $kind ) {
+            return $base . '/gateway/h220/' . rawurlencode( $md5 )
+                . '?auth_code=' . rawurlencode( $auth_code );
+        }
+
+        $type = '';
+        if ( ! empty( $parts['query'] ) ) {
+            parse_str( (string) $parts['query'], $q );
+            if ( ! empty( $q['type'] ) ) {
+                $type = '&type=' . rawurlencode( (string) $q['type'] );
+            }
+        }
+
+        return $base . '/gateway/file/' . $file_id . '/' . rawurlencode( $md5 )
+            . '?auth_code=' . rawurlencode( $auth_code ) . $type;
+    }
+
+    /**
      * 选图主入口：按关键词匹配带水印文件夹 → 从中随机取 count 张不重复图片
      *
      * @param string $keyword 配图关键词（中文/英文均可）

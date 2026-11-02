@@ -486,9 +486,9 @@ class YIMAI_GSO_Publisher {
                 }
             } else {
                 $err_msg = $attach_id->get_error_message();
-                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( '[YIMAI_GSO_PUB] 封面下载失败: ' . substr( $img_url, 0, 80 ) . ' → ' . $err_msg );
-                }
+                // 不再只在 WP_DEBUG 下记录：正文图没落地就等于「24h 后必裂 + 公众号同步失败」，
+                // 这种故障必须在生产日志里留下证据，否则只能靠事后猜。
+                error_log( '[YIMAI_GSO_PUB] 正文图落地失败: ' . substr( $img_url, 0, 120 ) . ' → ' . $err_msg );
                 $result['download_errors'][] = $err_msg;
             }
         }

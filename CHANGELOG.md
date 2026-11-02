@@ -1,5 +1,30 @@
 # 更新日志
 
+## 2.14.4
+
+取图加速做成可开关、可观测的一等配置（上一版只有裸地址，填了就用，看不见状态）。**补丁版，无数据结构变更。**
+
+- **新增开关 `mtphotos_tunnel_enabled`（默认关）**：关着时 `fetch_host()` 直接返回空，取图走公网地址；开着且填了地址才改写。默认关是因为没配隧道时开着等于多一跳
+- **新增状态文件联动**：开关/地址一变就把 `ABSPATH/mt-tunnel-state.txt` 写成 `on`/`off`（`update_option_*` 钩子 + `admin_init` 兜底对齐）。NAS 上的 `mt-tunnel.service` 每 15s 拉这个文件：读到 off 主动杀 SSH 连接，读到 on 才连——「停用」是真的拆隧道，不是只让插件不用它（实测关闭 15s 内端口消失、打开 25s 内自动恢复）
+- **新增后台状态面板**：`ajax_mt_tunnel_status` 只读探测分三层——开关/地址是否就绪、本机有没有监听转发端口、真发一次 HTTP 探活，返回 `off / unconfigured / up / degraded / down` + 延迟 + 最近一次「走加速地址取图成功」的时间戳；不通时直接给排查顺序。取图成功按 host 命中打点（`mark_success()`），避免只看端口 listening 就以为通
+- **NS 侧改 systemd 常驻**：`/usr/local/bin/mt-tunnel.sh` + `mt-tunnel.service`（`Restart=always`、`enabled` 开机自启），替掉原来的 `@reboot` cron；开关关闭时进程不退出、只 idle，避免 systemd 反复拉起
+- **状态文件缺失会被重建**：`admin_init` 每次对齐，误删或从备份恢复后不会永久卡在 idle
+- 边界：状态文件放在站点根目录（`https://站点/mt-tunnel-state.txt`）为公开可读，只含 `on`/`off`；NAS 侧脚本拉不到时按 idle 处理（保守断开，不会误连）
+
+## 2.14.3
+
+修「3 张图只同步 1 张」：公众号正文图的失败不再被降级成一句灰字。**补丁版，无数据结构变更。**
+
+- **根因（线上实测，非推断）**：配图来源 MT Photos 的图片地址是 `photos1.yimaiyoga.com/gateway/file/{id}/{md5}?auth_code=…` 的**签名外链**，正文里存的就是它。两个坑叠在一起——① 服务端 `auth_code` 24h 失效，过后一律 `401 Unauthorized`（10-27 那篇的两张图现在就是死的）；② 该域名走 Cloudflare，境内服务器到 CF 的 TLS/吞吐极不稳，同一张 141KB 的图 3.9s 可取完，170KB 的图 30s 只收到 16KB（`cURL error 28: SSL connection timeout`）。一次取不到就把外链留在正文，公众号同步再取一次又失败，于是「3 张只上 1 张」，任务还标成功——只在 payload 的 warnings 里留一句
+- **同步失败不再静默少图**：`YIMAI_GSO_Wx_Renderer::render()` 只要有图没转存就返回 `wx_img_incomplete`（列出是哪几张、什么原因），整篇交给队列按退避重试（最多 5 次），不再提交缺图草稿；原来「换成 `[图片未能转存：alt]` 灰字并当成功」的分支已退役
+- **失败自动重签再取**：新增 `YIMAI_GSO_MTPhotos_Client::refresh_image_url()`（按 `/gateway/file/{id}/{md5}` 重建地址 + 当前 auth_code，保留原 host 与 `type` 参数）与 `is_gateway_url()`；下载遇到 401/403/404 先重签再试一次，`cURL 28/35` 这类链路问题不浪费一次签名
+- **成功的图缓存 7 天**：`yimai_gso_wx_img_*` transient（键含源地址哈希，去掉 auth_code 免得重签后重复上传），重试与再次同步只补上次失败的那张，也少烧 uploadimg 配额
+- **渲染时间预算 70s**：PHP-FPM `request_terminate_timeout=100`（本站实测），原来 3 张慢图能把 worker 跑到被杀、连错误都写不回。现在到预算就停手、记一条失败、让队列下一轮从那张继续（已成功的走缓存）
+- **新增 `YIMAI_GSO_Image_Localizer`（每小时补扫）**：发布那一刻没抓完的 `gateway` 外链，由 `yimai_gso_localize_images` 每轮落地 1–2 张（单张 30s、总预算 80s），换成站点媒体库地址并保留正文备份 meta；从此正文不再依赖 Cloudflare 可用性，前台也不会 24h 后裂图。停用时一并清 cron
+- **图片下载失败不再只在 WP_DEBUG 下记录**：`class-publisher` 与 `class-image-handler` 两处 `error_log` 改为始终记录，线上出事有据可查
+- **存量修复**：线上 4 篇带 MT 外链的文章（1739 / 1735 / 1733 / 1288）已用同一套重签+落地逻辑处理，正文改成本地图；1739 重新同步后草稿正文 3 张图全部为 `mmecoa.qpic.cn`（此前 1 张）
+- 边界：补扫只处理 URL 里带 `/gateway/` 的图，作者自己贴的外链图不动；`MAX_IMAGES`（单篇 20 张）超出的部分仍按原逻辑保留外链并告警
+
 ## 2.14.2
 
 新增「批量换图」：把历史文章里失效/不相关的 pexels 图换成自有 MT Photos 图库，**特色图与无图文章一并处理**。纯后台能力，前台与 cron 不加载该模块。

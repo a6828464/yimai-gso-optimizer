@@ -1109,6 +1109,50 @@ function esc(s) {
             });
         });
 
+        // MT Photos 取图加速隧道：状态查询（只读探测）
+        function renderTunnelStatus(d) {
+            var map = {
+                'off':          ['#64748b', '⏸ 未启用', '取图走公网地址（正文与前台不受影响）'],
+                'unconfigured': ['#d97706', '⚠ 未填加速地址', '开关开着但地址为空，实际仍走公网'],
+                'up':           ['#16a34a', '✅ 连通', ''],
+                'degraded':     ['#d97706', '⚠ 通了但不正常', ''],
+                'down':         ['#dc2626', '❌ 不通', '']
+            };
+            var m = map[d.verdict] || ['#64748b', d.verdict, ''];
+            var last = d.last_success ? new Date(d.last_success * 1000).toLocaleString() : '从未';
+            var html = '<span style="color:' + m[0] + ';font-weight:600">' + esc(m[1]) + '</span>';
+            html += '<div style="color:#64748b;margin-top:2px">' + esc(d.detail || m[2]) + '</div>';
+            html += '<div style="color:#94a3b8;margin-top:4px">状态文件：' + esc(d.state_file) +
+                    ' ｜ 本机监听：' + (d.listening ? '有' : '无') +
+                    ' ｜ 最近成功取图：' + esc(last) + '</div>';
+            if ('down' === d.verdict || 'degraded' === d.verdict) {
+                html += '<div style="color:#64748b;margin-top:4px">排查顺序：NAS 上 <code>systemctl status mt-tunnel</code> → ' +
+                        '看 NAS 是否在线 → 确认状态文件是 on。不通时会自动回退公网地址，不会卡住发文。</div>';
+            }
+            $('#mt-tunnel-status').html(html);
+        }
+
+        function loadTunnelStatus() {
+            $('#mt-tunnel-status').html('<span style="color:#94a3b8">探测中…</span>');
+            $.post(yimaiGsoData.ajaxUrl, {
+                action: 'yimai_gso_mt_tunnel_status',
+                nonce: yimaiGsoData.nonce
+            }, function (res) {
+                if (res && res.success) { renderTunnelStatus(res.data); }
+                else { $('#mt-tunnel-status').html('<span style="color:#dc2626">❌ ' + esc((res && res.data && res.data.message) || '探测失败') + '</span>'); }
+            }).fail(function () {
+                $('#mt-tunnel-status').html('<span style="color:#dc2626">❌ 请求失败</span>');
+            });
+        }
+
+        $(document).on('click', '#mt-tunnel-check', loadTunnelStatus);
+        $(document).on('change', 'input[name="yimai_gso_mtphotos_tunnel_enabled"]', function () {
+            // 保存后后端会同步状态文件；这里只提示，不假装已生效
+            var on = $(this).is(':checked');
+            $('#mt-tunnel-status').html('<span style="color:#94a3b8">' +
+                (on ? '保存后生效；NAS 会保留连接' : '保存后生效；NAS 将在 15s 内断开隧道') + '</span>');
+        });
+
         // ★ AI 生图模型版本联动
         function updateAiImgModelText(provider) {
             var defaultModels = {
