@@ -25,6 +25,11 @@ class YIMAI_GSO_MTPhotos_Client {
     /** AI 审核开启时最多翻的文件夹数（平时 5 个） */
     const REVIEW_MAX_FOLDERS = 8;
 
+    /** 隧道熔断：连接层连续失败计数 / 冷却时长 / 触发阈值 */
+    const TUNNEL_BREAKER_KEY  = 'yimai_gso_mtphotos_tunnel_breaker';
+    const TUNNEL_BREAKER_TTL  = 300;
+    const TUNNEL_BREAKER_HITS = 2;
+
     private $host;
     private $api_key;
     private $username;
@@ -176,13 +181,42 @@ class YIMAI_GSO_MTPhotos_Client {
     /* ------------------------------------------------------------------ */
 
     /**
+     * API 请求基址：隧道可用时优先走隧道（NAS 侧是同一个 MT 服务，端口映射到 8063）
+     *
+     * 2026-11 起，公网入口（photos1 经 Cloudflare 回源到家宽）从生产服务器访问时
+     * 单请求 9~40 秒并伴随大量 30 秒超时，取图阶段几乎必失败；同一接口走隧道
+     * 只需 0.14~0.25 秒。图片 URL 仍由 build_image_url() 用公网 host 生成，
+     * 保证正文地址读者可访问；落地时再经 rewrite_to_fetch_host() 走隧道下载。
+     */
+    private function api_base() {
+        $fetch = self::fetch_host();
+        if ( '' === $fetch ) {
+            return $this->host;
+        }
+        // 熔断：连续连接层失败后退回公网，避免每条请求都先白等一次超时
+        if ( (int) get_transient( self::TUNNEL_BREAKER_KEY ) >= self::TUNNEL_BREAKER_HITS ) {
+            return $this->host;
+        }
+        return $fetch;
+    }
+
+    /** 记一次隧道连接层失败（TTL 内累计到阈值即熔断） */
+    private static function mark_tunnel_failure() {
+        $hits = (int) get_transient( self::TUNNEL_BREAKER_KEY );
+        set_transient( self::TUNNEL_BREAKER_KEY, $hits + 1, self::TUNNEL_BREAKER_TTL );
+    }
+
+    /**
      * @param string $method GET|POST
      * @param string $path   以 / 开头，或完整 URL
      * @param array  $args   body(array) / params(array) / no_auth(bool)
      * @param bool   $no_auth 为 true 时不带业务鉴权头（auth/* 接口）
      */
     private function request( $method, $path, $args = array(), $no_auth = false ) {
-        $url = ( 0 === strpos( $path, 'http' ) ) ? $path : $this->host . $path;
+        $absolute   = ( 0 === strpos( $path, 'http' ) );
+        $base       = $absolute ? '' : $this->api_base();
+        $via_tunnel = ! $absolute && $base !== $this->host;
+        $url        = $absolute ? $path : $base . $path;
         if ( ! empty( $args['params'] ) ) {
             $url = add_query_arg( $args['params'], $url );
         }
@@ -207,6 +241,15 @@ class YIMAI_GSO_MTPhotos_Client {
         }
 
         $response = wp_remote_request( $url, $req );
+        // 隧道连接层失败：记熔断并回退公网重试一次（公网慢，但至少还能通）
+        if ( $via_tunnel && is_wp_error( $response ) ) {
+            self::mark_tunnel_failure();
+            $url = $this->host . $path;
+            if ( ! empty( $args['params'] ) ) {
+                $url = add_query_arg( $args['params'], $url );
+            }
+            $response = wp_remote_request( $url, $req );
+        }
         if ( is_wp_error( $response ) ) {
             return $response;
         }

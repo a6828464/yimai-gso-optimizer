@@ -547,7 +547,7 @@ class YIMAI_GSO_Autopilot_Runner {
                     'excerpt'  => $article['excerpt'] ?? '',
                     'language' => $language,
                     'source'   => 'autopilot',
-                ) );
+                ), $item_id );
             }
 
             // 发布阶段前刷锁 + 检查总时间
@@ -713,11 +713,23 @@ class YIMAI_GSO_Autopilot_Runner {
         return implode( ',', $all );
     }
 
-    private function attach_images_to_content( $content, $keyword, $image_count, $context = array() ) {
+    private function attach_images_to_content( $content, $keyword, $image_count, $context = array(), $item_id = 0 ) {
         $handler = new YIMAI_GSO_Image_Handler();
         // $context（title/keyword/excerpt）透传给 MT Photos 的 AI 关联度审核
         $images  = $handler->fetch_images( $keyword, $image_count, $context );
         if ( is_wp_error( $images ) || empty( $images ) ) {
+            // 原来这里静默 return：文章照发、运行记录全绿、只是正文没图。
+            // 2026-11-05/06 连续两天无配图正是因此没被发现。原因同时落 error_log 与运行记录。
+            $reason = is_wp_error( $images )
+                ? $images->get_error_code() . ' ' . $images->get_error_message()
+                : '取图返回空';
+            error_log( '[YIMAI_GSO_IMG] autopilot 配图失败 item=' . absint( $item_id )
+                . ' keyword=' . mb_substr( (string) $keyword, 0, 60 ) . ' | ' . $reason );
+            if ( $item_id > 0 && class_exists( 'YIMAI_GSO_Autopilot_Log' ) ) {
+                YIMAI_GSO_Autopilot_Log::update_item( $item_id, array(
+                    'stage_message' => '配图未完成：' . mb_substr( $reason, 0, 160 ),
+                ) );
+            }
             return $content;
         }
 

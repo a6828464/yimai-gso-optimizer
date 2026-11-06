@@ -1,5 +1,16 @@
 # 更新日志
 
+## 2.14.6
+
+修「永动发布连续两天出文章不配图」。**补丁版，无数据结构变更。**
+
+- **根因（2026-11-06 线上实测）**：配图走 MT Photos，而客户端的 API 请求（`/gateway/folders/search`、`/gateway/folderFiles`、`/auth/auth_code`）用的是公网 `mtphotos_host`。这条公网入口（Cloudflare → 家里 NAS）从河源生产机访问单请求要 9~40 秒、三成直接 30 秒超时；同一台 NAS 的 SSH 反向隧道只要 0.14~0.25 秒。实测同一关键词：隧道 5.6 秒取到 3 张，公网 60 秒返回 `mtphotos_no_folder`
+- **API 请求改走隧道**：新增 `YIMAI_GSO_MTPhotos_Client::api_base()`——隧道开关打开且配了 `mtphotos_fetch_host` 时，所有 API 请求改走隧道地址；图片 URL 仍由 `build_image_url()` 用公网 host 生成（正文地址读者可访问），落地时照旧 `rewrite_to_fetch_host()` 走隧道下载。v2.14.4 的「取图加速隧道」此前只覆盖图片字节，最慢的搜索/列文件一直没走
+- **隧道失败自动熔断回退**：连接层失败记一次（5 分钟窗口、2 次阈值），触发后临时改走公网重试一次，NAS 关机或隧道断掉不会把取图彻底打死
+- **配图失败不再静默**：`attach_images_to_content()` 原来取图失败直接 `return $content`，文章照发、运行记录全绿、只有正文没图（这就是 11-05/11-06 连续两天没人发现的原因）。现在失败原因同时写 `error_log` 与运行记录的 `stage_message`（「配图未完成：…」），后台一眼可见
+- 验证：隧道上 `folders/search`、`folderFiles`、`auth/auth_code`（201）均正常，完整取 3 张图 5.6 秒；`php -l` 与 `tools/` 自测全通过
+- 边界：熔断只影响新增请求，冷却 5 分钟后自动重新尝试隧道；公网入口本身仍慢，治本要在家里侧修 Cloudflare 回源链路（NAS 自己 `curl api.ipify.org` 都不通）
+
 ## 2.14.5
 
 修「查出有新版却没有立即更新按钮」。**补丁版，无数据结构变更。**
