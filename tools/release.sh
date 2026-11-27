@@ -79,7 +79,7 @@ echo "── 发布 v$VERSION ($UPDATED)"
 
 rm -rf "$DIST_DIR" && mkdir -p "$DIST_DIR"
 
-echo "── 打包插件（git archive：遵循 .gitignore，包根即插件根）"
+echo "── 打包插件（git archive：遵循 .gitignore 与 export-ignore，包根为 yimai-gso-optimizer/）"
 # --prefix：包根必须是插件目录名。
 # 不带前缀时 WordPress 手工上传会按 zip 文件名建目录（yimai-gso-optimizer-latest/），
 # 结果是装出一个「重复插件」而不是覆盖原插件；插件自带更新器两种结构都能识别，
