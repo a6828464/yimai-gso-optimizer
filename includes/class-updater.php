@@ -25,6 +25,7 @@ class YIMAI_GSO_Updater {
 	const MANIFEST_NAME = 'yimai-gso-optimizer-manifest.json';
 	const PACKAGE_NAME  = 'yimai-gso-optimizer-latest.zip';
 	const LOCK_TRANSIENT = 'yimai_gso_update_lock';
+	const UA = 'YimaiGSO-Updater/1.0';
 
 	public static function init() {
 		add_action( 'wp_ajax_yimai_gso_update_check', array( __CLASS__, 'ajax_check' ) );
@@ -90,7 +91,9 @@ class YIMAI_GSO_Updater {
 		foreach ( $sources as $source => $urls ) {
 			// 时间戳破缓存：GitHub/Gitee 对同名 Release 资产有 CDN 缓存，重建同名 Release 后可能仍吐旧文件
 			$url = $urls['manifest'] . ( strpos( $urls['manifest'], '?' ) === false ? '?' : '&' ) . 't=' . time();
-			$resp = wp_remote_get( $url, array( 'timeout' => 10, 'headers' => array( 'Accept' => 'application/json' ) ) );
+			// 必须自带 UA：Gitee 对 WordPress 默认 UA（WordPress/6.x; https://站点）直接返回 403，
+			// 2026-11-27 河源生产机实测：同一 URL 用 WP 默认 UA 403，用本插件 UA 200。
+			$resp = wp_remote_get( $url, array( 'timeout' => 10, 'user-agent' => self::UA, 'headers' => array( 'Accept' => 'application/json' ) ) );
 			if ( is_wp_error( $resp ) ) {
 				if ( is_array( $errors ) ) {
 					$errors[] = $source . '：' . $resp->get_error_message();
@@ -190,8 +193,8 @@ class YIMAI_GSO_Updater {
 			}
 			$url  = $urls['package'] . ( strpos( $urls['package'], '?' ) === false ? '?' : '&' ) . 't=' . time();
 			$resp = wp_remote_get( $url, array(
-				'timeout'    => 90,
-				'user-agent' => 'YimaiGSO-Updater/1.0',
+				'timeout'    => 45,
+				'user-agent' => self::UA,
 			) );
 			if ( is_wp_error( $resp ) ) {
 				$errors[] = $source . '：' . $resp->get_error_message();
@@ -386,13 +389,34 @@ class YIMAI_GSO_Updater {
 			$target = $plugin_dir . $rel;
 			self::ensure_dir( dirname( $target ) );
 			if ( ! @copy( $src, $target ) ) {
-				throw new RuntimeException( '文件写入失败（检查目录权限）：' . $rel );
+				throw new RuntimeException( '文件写入失败（检查目录权限）：' . $rel . '。' . self::ownership_hint() );
 			}
 			@touch( $target, (int) $file->getMTime() );
 			$count++;
 		}
 		$log[] = "已应用 {$count} 个文件到插件目录（保留服务器本地文件：备份、更新状态）";
 		return $count;
+	}
+
+	/**
+	 * 权限问题的现场说明：插件目录属主 + PHP 运行用户。
+	 * 2026-11-27 河源生产机实测：目录是 root:root 755、PHP-FPM 跑 www，
+	 * 备份能建、覆盖必失败，报错只说「检查目录权限」用户看不出所以要带属主。
+	 */
+	private static function ownership_hint() {
+		$dir  = YIMAI_GSO_PLUGIN_DIR;
+		$hint = array();
+		if ( function_exists( 'posix_getpwuid' ) ) {
+			$owner = @fileowner( $dir );
+			if ( false !== $owner ) {
+				$pw    = posix_getpwuid( $owner );
+				$grp   = function_exists( 'posix_getgrgid' ) ? @posix_getgrgid( @filegroup( $dir ) ) : null;
+				$hint[] = '插件目录属主 ' . ( $pw['name'] ?? (string) $owner ) . ':' . ( is_array( $grp ) ? ( $grp['name'] ?? '' ) : '' );
+			}
+			$hint[] = 'PHP 运行用户 ' . ( function_exists( 'posix_geteuid' ) ? ( posix_getpwuid( posix_geteuid() )['name'] ?? '?' ) : '?' );
+		}
+		$hint[] = '目录 ' . $dir;
+		return implode( '，', $hint ) . '。两边不一致时执行 chown -R <运行用户>:<运行用户> ' . $dir;
 	}
 
 	private static function cleanup_dir( $dir ) {
@@ -503,7 +527,7 @@ class YIMAI_GSO_Updater {
 			$row = array( 'channel' => $name, 'manifest' => '', 'package' => '' );
 
 			$t0   = microtime( true );
-			$resp = wp_remote_get( $urls['manifest'] . ( strpos( $urls['manifest'], '?' ) === false ? '?' : '&' ) . 't=' . time(), array( 'timeout' => 8, 'headers' => array( 'Accept' => 'application/json' ) ) );
+			$resp = wp_remote_get( $urls['manifest'] . ( strpos( $urls['manifest'], '?' ) === false ? '?' : '&' ) . 't=' . time(), array( 'timeout' => 8, 'user-agent' => self::UA, 'headers' => array( 'Accept' => 'application/json' ) ) );
 			if ( is_wp_error( $resp ) ) {
 				$row['manifest'] = '失败：' . $resp->get_error_message();
 			} else {
@@ -514,7 +538,7 @@ class YIMAI_GSO_Updater {
 			}
 
 			$t0   = microtime( true );
-			$resp = wp_remote_get( $urls['package'] . ( strpos( $urls['package'], '?' ) === false ? '?' : '&' ) . 't=' . time(), array( 'timeout' => 25, 'user-agent' => 'YimaiGSO-Updater/1.0' ) );
+			$resp = wp_remote_get( $urls['package'] . ( strpos( $urls['package'], '?' ) === false ? '?' : '&' ) . 't=' . time(), array( 'timeout' => 25, 'user-agent' => self::UA ) );
 			if ( is_wp_error( $resp ) ) {
 				$row['package'] = '失败：' . $resp->get_error_message();
 			} else {
@@ -536,6 +560,8 @@ class YIMAI_GSO_Updater {
 				'memory_limit'   => (string) ini_get( 'memory_limit' ),
 				'临时目录'       => get_temp_dir() . ( is_writable( get_temp_dir() ) ? '（可写）' : '（不可写）' ),
 				'插件目录'       => YIMAI_GSO_PLUGIN_DIR . ( is_writable( YIMAI_GSO_PLUGIN_DIR ) ? '（可写）' : '（不可写，更新必然失败）' ),
+				'目录属主'       => function_exists( 'posix_getpwuid' ) ? ( posix_getpwuid( @fileowner( YIMAI_GSO_PLUGIN_DIR ) )['name'] ?? '?' ) : '未知',
+				'PHP 运行用户'   => function_exists( 'posix_geteuid' ) ? ( posix_getpwuid( posix_geteuid() )['name'] ?? '?' ) : '未知',
 				'上次清单通道'   => (string) get_transient( 'yimai_gso_update_manifest_source' ),
 			),
 		);
