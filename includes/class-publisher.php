@@ -254,6 +254,7 @@ class YIMAI_GSO_Publisher {
             foreach ( $pending_prompts as $pp ) {
                 $prompt_text = is_array( $pp ) ? ( $pp['prompt'] ?? '' ) : $pp;
                 $section_name = is_array( $pp ) ? ( $pp['section'] ?? '' ) : '';
+                $alt_human = is_array( $pp ) ? trim( (string) ( $pp['alt'] ?? '' ) ) : '';
 
                 if ( empty( $prompt_text ) ) {
                     continue;
@@ -267,6 +268,9 @@ class YIMAI_GSO_Publisher {
 
                 if ( ! is_wp_error( $gen_result ) && ! empty( $gen_result ) ) {
                     $image_item = $gen_result[0];
+                    if ( '' !== $alt_human && is_array( $image_item ) ) {
+                        $image_item['alt'] = $alt_human;
+                    }
                     $images[] = $image_item;
                     $section_map[] = $section_name;
                 }

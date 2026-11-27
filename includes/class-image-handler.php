@@ -626,6 +626,10 @@ class YIMAI_GSO_Image_Handler {
             'tmp_name' => $tmp,
         );
 
+        // 媒体库标题 = sideload 的第三个参数。历史做法把关键词串同时当 alt 和标题，
+        // 媒体库里一列全是「A,B,C,D」；这里先规范化：命中机器串特征就取第一段，保证是人话。
+        $alt_text = self::normalize_image_alt( $alt_text );
+
         $attachment_id = media_handle_sideload( $file_array, 0, $alt_text );
 
         // 清理临时文件
@@ -643,6 +647,34 @@ class YIMAI_GSO_Image_Handler {
         return $attachment_id;
     }
 
+    /**
+     * 图片 alt / 媒体库标题规范化：机器串 → 人话
+     *
+     * 机器串的历史来源是「关键词用逗号拼起来，同时塞进 alt 和 post_title」。
+     * 命中特征后只取第一段：宁可短，也不要把「A,B,C,D」摆在媒体库标题列和读屏里。
+     * 2026-11-27 起生成链路直接产出人话 alt，这里主要兜住存量与其它入口。
+     *
+     * @param string $alt
+     * @return string
+     */
+    public static function normalize_image_alt( $alt ) {
+        $alt = trim( wp_strip_all_tags( (string) $alt ) );
+        if ( '' === $alt ) {
+            return '';
+        }
+        $commas  = preg_match_all( '/[,，]/u', $alt );
+        $is_soup = ( $commas >= 1 )
+            || mb_strlen( $alt ) > 32
+            || preg_match( '/场景配图|示意图|图片$/u', $alt )
+            || preg_match( '/^[a-z0-9 ,\-]+$/i', $alt );
+        if ( ! $is_soup ) {
+            return $alt;
+        }
+        $parts = preg_split( '/[,，]/u', $alt );
+        $first = trim( (string) ( $parts[0] ?? '' ) );
+
+        return ( mb_strlen( $first ) >= 4 ) ? $first : '';
+    }
     /**
      * 确保关键词格式正确
      */

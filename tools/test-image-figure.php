@@ -33,5 +33,15 @@ a( false === strpos( $plain, 'figcaption' ), '无 caption 时也不补 alt 当�
 $empty = YIMAI_GSO_Image_Handler::figure_html( array( 'url' => '' ) );
 a( '' === $empty, '空 url 返回空串' );
 
+
+// alt 规范化：机器串必须变人话
+$a1 = YIMAI_GSO_Image_Handler::normalize_image_alt( '普拉提一周练几次,普拉提多久练一次,普拉提新手频率' );
+a( '普拉提一周练几次' === $a1, '关键词串取第一段' );
+$a2 = YIMAI_GSO_Image_Handler::normalize_image_alt( '变化，不只发生在体重和围度上场景配图' );
+a( false === strpos( $a2, '场景配图' ), '去掉「场景配图」尾巴' );
+$a3 = YIMAI_GSO_Image_Handler::normalize_image_alt( 'yoga studio interior, pilates reformer machine' );
+a( false === strpos( $a3, ',' ), '英文关键词串不含逗号' );
+$a4 = YIMAI_GSO_Image_Handler::normalize_image_alt( '普拉提核心床上的伸展动作' );
+a( '普拉提核心床上的伸展动作' === $a4, '正常人话原样保留' );
 echo "合计 $n 通过, $fail 失败\n";
 exit( $fail ? 1 : 0 );

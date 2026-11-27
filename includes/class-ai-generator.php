@@ -1352,6 +1352,8 @@ class YIMAI_GSO_AI_Generator {
                     $ip = $image_prompts[ $i ];
                     $prompt_text = is_array( $ip ) ? ( $ip['prompt'] ?? '' ) : $ip;
                     $section_name = is_array( $ip ) ? ( $ip['section'] ?? '' ) : '';
+                    // 人话版 alt：只用于图片替代文本与媒体库标题，不进正文
+                    $alt_human = is_array( $ip ) ? trim( (string) ( $ip['alt'] ?? '' ) ) : '';
 
                     if ( empty( $prompt_text ) ) {
                         continue;
@@ -1367,6 +1369,9 @@ class YIMAI_GSO_AI_Generator {
 
                         if ( ! is_wp_error( $gen_result ) && ! empty( $gen_result ) ) {
                             $image_item = $gen_result[0];
+                            if ( '' !== $alt_human && is_array( $image_item ) ) {
+                                $image_item['alt'] = $alt_human;
+                            }
                             $images[] = $image_item;
                             $section_map[] = $section_name;
                         }
@@ -1375,6 +1380,7 @@ class YIMAI_GSO_AI_Generator {
                         $pending_prompts[] = array(
                             'section' => $section_name,
                             'prompt'  => $prompt_text,
+                            'alt'     => $alt_human,
                         );
                     }
                 }
