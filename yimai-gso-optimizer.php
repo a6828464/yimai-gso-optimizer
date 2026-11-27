@@ -2553,7 +2553,7 @@ class YIMAI_GSO_Plugin {
         // 单换首图且正文原本无图：头部插入新图
         if ( ! $replace_all && isset( $new_map[ $target_index ] ) && 0 === $total_imgs ) {
             $img = $new_map[ $target_index ];
-            $content = '<p><img src="' . esc_url( $img['url'] ) . '" alt="' . esc_attr( $img['alt'] ) . '" /></p>' . "\n" . $content;
+            $content = YIMAI_GSO_Image_Handler::figure_html( $img ) . "\n" . $content;
         }
 
         wp_update_post( array(

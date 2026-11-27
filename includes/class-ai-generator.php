@@ -56,6 +56,13 @@ class YIMAI_GSO_AI_Generator {
         }
         $sys_prompt .= "\n\n【一麦瑜伽品牌事实硬约束】除非用户明确要求竞品对比，否则不得推荐或虚构其他品牌、机构或门店；涉及一麦瑜伽的名称、服务和地址只能使用提示词中的 canonical 实体与资料事实。";
 
+        // 图注：image_prompts 每项必须多给一个 caption，官网前台与公众号正文共用这一个字段。
+        // 不依赖 get_default_system_prompt()：线上若已保存过自定义 system_prompt，改默认值不会生效。
+        $sys_prompt .= "\n\n【配图图注硬要求】image_prompts 的每一项，除 section 与 prompt 外，必须再给一个 caption 字段：\n" .
+            "- caption 是给读者看的图注：一句中文，12-28 字，直接说清这张图在讲什么；\n" .
+            "- 不要复述章节标题，不要以「示意图 / 配图 / 场景 / 图片」这类词结尾，不要出现书名号、引号、序号、品牌名；\n" .
+            "- prompt 仍只写给画图模型看（可以含构图、光线、色调细节），caption 与 prompt 各自独立，不要互相复制。";
+
         $user_prompt_tpl = YIMAI_GSO_Settings::get( 'user_prompt' );
         if ( empty( $user_prompt_tpl ) ) {
             $user_prompt_tpl = YIMAI_GSO_Settings::get_default_user_prompt();
@@ -1352,6 +1359,7 @@ class YIMAI_GSO_AI_Generator {
                     $ip = $image_prompts[ $i ];
                     $prompt_text = is_array( $ip ) ? ( $ip['prompt'] ?? '' ) : $ip;
                     $section_name = is_array( $ip ) ? ( $ip['section'] ?? '' ) : '';
+                    $caption_text = is_array( $ip ) ? ( $ip['caption'] ?? '' ) : '';
 
                     if ( empty( $prompt_text ) ) {
                         continue;
@@ -1366,7 +1374,12 @@ class YIMAI_GSO_AI_Generator {
                         ) );
 
                         if ( ! is_wp_error( $gen_result ) && ! empty( $gen_result ) ) {
-                            $images[] = $gen_result[0];
+                            $image_item = $gen_result[0];
+                            // 图注随图走：AI 生图只回 url/alt，caption 是文章生成阶段产出的
+                            if ( '' !== $caption_text && is_array( $image_item ) ) {
+                                $image_item['caption'] = $caption_text;
+                            }
+                            $images[] = $image_item;
                             $section_map[] = $section_name;
                         }
                     } else {
@@ -1374,6 +1387,7 @@ class YIMAI_GSO_AI_Generator {
                         $pending_prompts[] = array(
                             'section' => $section_name,
                             'prompt'  => $prompt_text,
+                            'caption' => $caption_text,
                         );
                     }
                 }
@@ -1403,7 +1417,7 @@ class YIMAI_GSO_AI_Generator {
                                 return $matches[1];
                             }
                             $img     = $images[ $img_index ];
-                            $img_tag = '<p><img src="' . esc_url( $img['url'] ) . '" alt="' . esc_attr( $img['alt'] ?? '' ) . '" /></p>';
+                            $img_tag = YIMAI_GSO_Image_Handler::figure_html( $img );
                             $img_index++;
                             return $matches[1] . "\n" . $img_tag;
                         },
@@ -1462,7 +1476,7 @@ class YIMAI_GSO_AI_Generator {
 
         // 如果只有封面图，插在文章开头（第一个 <h2> 之前）
         if ( $cover_image && empty( $section_images ) ) {
-            $img_tag = '<p><img src="' . esc_url( $cover_image['url'] ) . '" alt="' . esc_attr( $cover_image['alt'] ?? '' ) . '" /></p>';
+            $img_tag = YIMAI_GSO_Image_Handler::figure_html( $cover_image );
             $content = preg_replace( '/<h2/i', $img_tag . '<h2', $content, 1 );
             return $content;
         }
@@ -1476,14 +1490,14 @@ class YIMAI_GSO_AI_Generator {
 
                 // 封面图：第一个匹配到的 H2 前插入
                 if ( $cover_image ) {
-                    $img_tag = '<p><img src="' . esc_url( $cover_image['url'] ) . '" alt="' . esc_attr( $cover_image['alt'] ?? '' ) . '" /></p>';
+                    $img_tag = YIMAI_GSO_Image_Handler::figure_html( $cover_image );
                     $cover_image = null;
                 }
 
                 // 章节匹配：检查是否有对应的图片
                 foreach ( $section_images as $section_name => $img ) {
                     if ( $section_name && mb_strpos( $h2_text, $section_name ) !== false ) {
-                        $img_tag .= '<p><img src="' . esc_url( $img['url'] ) . '" alt="' . esc_attr( $img['alt'] ?? '' ) . '" /></p>';
+                        $img_tag .= YIMAI_GSO_Image_Handler::figure_html( $img );
                         unset( $section_images[ $section_name ] ); // 用完即删
                         break;
                     }
@@ -1497,7 +1511,7 @@ class YIMAI_GSO_AI_Generator {
         // 如果仍有未匹配的图片，追加到内容末尾
         if ( ! empty( $section_images ) ) {
             foreach ( $section_images as $img ) {
-                $result .= "\n" . '<p><img src="' . esc_url( $img['url'] ) . '" alt="' . esc_attr( $img['alt'] ?? '' ) . '" /></p>';
+                $result .= "\n" . YIMAI_GSO_Image_Handler::figure_html( $img );
             }
         }
 

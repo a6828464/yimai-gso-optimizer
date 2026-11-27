@@ -745,11 +745,9 @@ class YIMAI_GSO_Autopilot_Runner {
                     return $match[0];
                 }
 
-                $img     = $images[ $img_index++ ];
-                $img_url = esc_url( $img['url'] ?? '' );
-                $img_alt = esc_attr( $img['alt'] ?? '配图' );
-
-                return $match[0] . "\n<p style=\"text-align:center;margin:20px 0;\"><img src=\"{$img_url}\" alt=\"{$img_alt}\" style=\"max-width:100%;border-radius:8px;display:inline-block;\" /></p>\n";
+                $img = $images[ $img_index++ ];
+                // figure 而非 <p><img>：官网靠 figcaption 显示图注，公众号渲染器也直读 figcaption
+                return $match[0] . "\n" . YIMAI_GSO_Image_Handler::figure_html( $img ) . "\n";
             },
             $content
         );
@@ -758,9 +756,7 @@ class YIMAI_GSO_Autopilot_Runner {
             $content .= "\n<p style=\"text-align:center;color:#999;font-size:14px;margin-top:30px;\">—— 相关配图 ——</p>\n";
             for ( $j = $img_index; $j < $total; $j++ ) {
                 $extra   = $images[ $j ];
-                $img_url = esc_url( $extra['url'] ?? '' );
-                $img_alt = esc_attr( $extra['alt'] ?? '配图' );
-                $content .= "<p style=\"text-align:center;margin:20px 0;\"><img src=\"{$img_url}\" alt=\"{$img_alt}\" style=\"max-width:100%;border-radius:8px;display:inline-block;\" /></p>\n";
+                $content .= YIMAI_GSO_Image_Handler::figure_html( $extra ) . "\n";
             }
         }
 

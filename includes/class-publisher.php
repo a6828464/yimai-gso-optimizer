@@ -254,6 +254,7 @@ class YIMAI_GSO_Publisher {
             foreach ( $pending_prompts as $pp ) {
                 $prompt_text = is_array( $pp ) ? ( $pp['prompt'] ?? '' ) : $pp;
                 $section_name = is_array( $pp ) ? ( $pp['section'] ?? '' ) : '';
+                $caption_text = is_array( $pp ) ? ( $pp['caption'] ?? '' ) : '';
 
                 if ( empty( $prompt_text ) ) {
                     continue;
@@ -266,7 +267,12 @@ class YIMAI_GSO_Publisher {
                 ) );
 
                 if ( ! is_wp_error( $gen_result ) && ! empty( $gen_result ) ) {
-                    $images[] = $gen_result[0];
+                    $image_item = $gen_result[0];
+                    // 图注随图走：生成阶段把 caption 放进 pending_image_prompts，发布阶段在这里接上
+                    if ( '' !== $caption_text && is_array( $image_item ) ) {
+                        $image_item['caption'] = $caption_text;
+                    }
+                    $images[] = $image_item;
                     $section_map[] = $section_name;
                 }
             }
@@ -285,7 +291,7 @@ class YIMAI_GSO_Publisher {
                             return $tag;
                         }
                         $img = $images[ $img_idx ];
-                        $img_tag = '<p><img src="' . esc_url( $img['url'] ) . '" alt="' . esc_attr( $img['alt'] ?? '' ) . '" /></p>';
+                        $img_tag = YIMAI_GSO_Image_Handler::figure_html( $img );
                         $img_idx++;
                         return $tag . "\n" . $img_tag;
                     },
@@ -294,7 +300,7 @@ class YIMAI_GSO_Publisher {
                 // 如果图片比 H2 多，剩余图片追加到末尾
                 while ( $img_idx < $total_pending ) {
                     $img = $images[ $img_idx ];
-                    $content .= "\n" . '<p><img src="' . esc_url( $img['url'] ) . '" alt="' . esc_attr( $img['alt'] ?? '' ) . '" /></p>';
+                    $content .= "\n" . YIMAI_GSO_Image_Handler::figure_html( $img );
                     $img_idx++;
                 }
             }
