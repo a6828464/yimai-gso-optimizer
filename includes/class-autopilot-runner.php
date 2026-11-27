@@ -746,7 +746,7 @@ class YIMAI_GSO_Autopilot_Runner {
                 }
 
                 $img = $images[ $img_index++ ];
-                // figure 而非 <p><img>：官网靠 figcaption 显示图注，公众号渲染器也直读 figcaption
+                // figure 而非 <p><img>：theme 已给 .post-content figure 定好间距；不输出图注（2026-11-27 起明确不要）
                 return $match[0] . "\n" . YIMAI_GSO_Image_Handler::figure_html( $img ) . "\n";
             },
             $content

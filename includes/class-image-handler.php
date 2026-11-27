@@ -777,17 +777,14 @@ class YIMAI_GSO_Image_Handler {
     }
 
     /**
-     * 正文图片块：<figure><img><figcaption>
+     * 正文图片块：<figure><img>
      *
-     * 为什么不再输出裸 <img>：
-     *  - 官网前台靠 figcaption 显示图注（theme 的 article.css 已就绪）；
-     *  - 公众号渲染器可以直读 figcaption，不必再靠「alt 看起来像不像人话」去猜；
-     *  - figcaption 是图片语义最强的 SEO 信号，alt 只能算第二。
+     * 只包一层 <figure>（theme 的 assets/css/article.css 已给 .post-content figure 定好间距），
+     * 不输出 <figcaption>：2026-11-27 起明确不要图片下方那行图注文字，
+     * 之前「AI caption → 清洗 alt → 猜」的两套兜底逻辑一并删掉，避免以后又被别的入口唤醒。
+     * 语义仍由 alt 承载，SEO 不受影响。
      *
-     * 图注优先取 $img['caption']（生成文章时 AI 一并产出）；没有就退回清洗过的 alt；
-     * 两者都不合格时只输出 figure+img —— 空 figcaption 在微信里会多占一行空白。
-     *
-     * @param array $img {url, alt, caption?}
+     * @param array $img {url, alt}
      * @return string
      */
     public static function figure_html( $img ) {
@@ -795,72 +792,8 @@ class YIMAI_GSO_Image_Handler {
         if ( '' === $url ) {
             return '';
         }
-        $alt     = isset( $img['alt'] ) ? esc_attr( (string) $img['alt'] ) : '';
-        $caption = self::figure_caption( $img );
+        $alt = isset( $img['alt'] ) ? esc_attr( (string) $img['alt'] ) : '';
 
-        $html = '<figure><img src="' . $url . '" alt="' . $alt . '" />';
-        if ( '' !== $caption ) {
-            $html .= '<figcaption>' . esc_html( $caption ) . '</figcaption>';
-        }
-
-        return $html . '</figure>';
-    }
-
-    /**
-     * 图注候选：AI caption → 清洗过的 alt → 放弃（空串）
-     */
-    private static function figure_caption( $img ) {
-        $caption = isset( $img['caption'] ) ? self::clean_caption_text( $img['caption'] ) : '';
-        if ( '' !== $caption ) {
-            return $caption;
-        }
-
-        return self::caption_from_alt( isset( $img['alt'] ) ? (string) $img['alt'] : '' );
-    }
-
-    /**
-     * 去标签、压空白、去首尾引号、截断 48 字
-     */
-    private static function clean_caption_text( $text ) {
-        $text = wp_strip_all_tags( (string) $text );
-        $text = preg_replace( '/[\r\n\t]+/u', ' ', $text );
-        $text = preg_replace( '/\s{2,}/u', ' ', $text );
-        $text = trim( $text, " \t\n\r\0\x0B\"'“”‘’" );
-        if ( mb_strlen( $text ) > 48 ) {
-            $text = mb_substr( $text, 0, 48 );
-        }
-
-        return $text;
-    }
-
-    /**
-     * 从 alt 猜图注（老文章兜底）
-     *
-     * 线上 alt 有两种来源：① AI 画图时直接写进去的画面描述（是句人话，能用）；
-     * ② 历史上按「标题：关键词场景配图」拼出来的机器串（给读者看就是事故）。
-     * 这里只做减法：命中机器特征一律返回空 —— 宁可不显示图注，也不显示「XXX场景配图」。
-     */
-    private static function caption_from_alt( $alt ) {
-        $alt = self::clean_caption_text( $alt );
-        if ( '' === $alt ) {
-            return '';
-        }
-        // 机器串：把「配图」当成名词用了
-        if ( preg_match( '/场景配图|配图|示意图|图片|image|photo/iu', $alt ) ) {
-            return '';
-        }
-        // 「标题：描述」结构：冒号前那截是 h2，当图注会和正文标题撞车
-        if ( preg_match( '/^[^：:]{2,40}[：:]/u', $alt ) ) {
-            return '';
-        }
-        // 关键词堆叠（三个以上逗号）
-        if ( preg_match_all( '/[,，]/u', $alt ) >= 3 ) {
-            return '';
-        }
-        if ( mb_strlen( $alt ) < 8 ) {
-            return '';
-        }
-
-        return $alt;
+        return '<figure><img src="' . $url . '" alt="' . $alt . '" /></figure>';
     }
 }

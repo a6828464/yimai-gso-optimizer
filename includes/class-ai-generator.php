@@ -51,13 +51,6 @@ class YIMAI_GSO_AI_Generator {
         // 合规硬约束同样由代码追加：用户改过提示词也不能绕过健康/价格红线
         $sys_prompt .= "\n\n" . YIMAI_GSO_Settings::get_compliance_block();
 
-        // 图注：image_prompts 每项必须多给一个 caption，官网前台与公众号正文共用这一个字段。
-        // 不依赖 get_default_system_prompt()：线上若已保存过自定义 system_prompt，改默认值不会生效。
-        $sys_prompt .= "\n\n【配图图注硬要求】image_prompts 的每一项，除 section 与 prompt 外，必须再给一个 caption 字段：\n" .
-            "- caption 是给读者看的图注：一句中文，12-28 字，直接说清这张图在讲什么；\n" .
-            "- 不要复述章节标题，不要以「示意图 / 配图 / 场景 / 图片」这类词结尾，不要出现书名号、引号、序号、品牌名；\n" .
-            "- prompt 仍只写给画图模型看（可以含构图、光线、色调细节），caption 与 prompt 各自独立，不要互相复制。";
-
         $user_prompt_tpl = YIMAI_GSO_Settings::get( 'user_prompt' );
         if ( empty( $user_prompt_tpl ) ) {
             $user_prompt_tpl = YIMAI_GSO_Settings::get_default_user_prompt();
@@ -1359,7 +1352,6 @@ class YIMAI_GSO_AI_Generator {
                     $ip = $image_prompts[ $i ];
                     $prompt_text = is_array( $ip ) ? ( $ip['prompt'] ?? '' ) : $ip;
                     $section_name = is_array( $ip ) ? ( $ip['section'] ?? '' ) : '';
-                    $caption_text = is_array( $ip ) ? ( $ip['caption'] ?? '' ) : '';
 
                     if ( empty( $prompt_text ) ) {
                         continue;
@@ -1375,10 +1367,6 @@ class YIMAI_GSO_AI_Generator {
 
                         if ( ! is_wp_error( $gen_result ) && ! empty( $gen_result ) ) {
                             $image_item = $gen_result[0];
-                            // 图注随图走：AI 生图只回 url/alt，caption 是文章生成阶段产出的
-                            if ( '' !== $caption_text && is_array( $image_item ) ) {
-                                $image_item['caption'] = $caption_text;
-                            }
                             $images[] = $image_item;
                             $section_map[] = $section_name;
                         }
@@ -1387,7 +1375,6 @@ class YIMAI_GSO_AI_Generator {
                         $pending_prompts[] = array(
                             'section' => $section_name,
                             'prompt'  => $prompt_text,
-                            'caption' => $caption_text,
                         );
                     }
                 }

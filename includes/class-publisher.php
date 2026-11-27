@@ -254,7 +254,6 @@ class YIMAI_GSO_Publisher {
             foreach ( $pending_prompts as $pp ) {
                 $prompt_text = is_array( $pp ) ? ( $pp['prompt'] ?? '' ) : $pp;
                 $section_name = is_array( $pp ) ? ( $pp['section'] ?? '' ) : '';
-                $caption_text = is_array( $pp ) ? ( $pp['caption'] ?? '' ) : '';
 
                 if ( empty( $prompt_text ) ) {
                     continue;
@@ -268,10 +267,6 @@ class YIMAI_GSO_Publisher {
 
                 if ( ! is_wp_error( $gen_result ) && ! empty( $gen_result ) ) {
                     $image_item = $gen_result[0];
-                    // 图注随图走：生成阶段把 caption 放进 pending_image_prompts，发布阶段在这里接上
-                    if ( '' !== $caption_text && is_array( $image_item ) ) {
-                        $image_item['caption'] = $caption_text;
-                    }
                     $images[] = $image_item;
                     $section_map[] = $section_name;
                 }

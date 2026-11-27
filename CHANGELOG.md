@@ -1,5 +1,15 @@
 # 更新日志
 
+## 2.15.4
+
+去掉正文配图下方的图注文字。**补丁版，无数据结构变更。**
+
+- **现象**：2.15.0 起正文配图改成 `<figure><img><figcaption>`，图片下面会多出一行解释文字（AI 生成文章时一并产出的 caption，或从 alt 兜底猜出来的）
+- **改法**：`figure_html()` 只输出 `<figure><img>`，不再输出 `<figcaption>`；同时删掉 caption 的三条来源——生成阶段的 `image_prompts.caption` 硬要求、生成/发布两处 caption 随图传递、从 alt 猜图注的两套兜底。代码里没有任何入口能再写出图注
+- **保留**：`<figure>` 包裹不变（theme 的 `.post-content figure` 间距样式照旧生效），`alt` 照常输出，SEO 语义不受影响
+- **存量清理**：线上仅 1 篇草稿（ID 2143，19:03 生成）带 `<figcaption>`，已就地剥掉；其余 15 篇含 `<figure>` 的文章本来就没有图注
+- 验证：新增 `tools/test-image-figure.php`（6 条断言，含「传了 caption 也必须忽略」），全量 `php -l` 与四套自测通过
+
 ## 2.15.3
 
 在线更新失败的**真因**是目录属主，不是网络也不是 PHP 扩展。**补丁版，无数据结构变更。**
