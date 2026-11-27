@@ -80,7 +80,11 @@ echo "── 发布 v$VERSION ($UPDATED)"
 rm -rf "$DIST_DIR" && mkdir -p "$DIST_DIR"
 
 echo "── 打包插件（git archive：遵循 .gitignore，包根即插件根）"
-git -C "$PLUGIN_DIR" archive --format=zip --output "$DIST_DIR/$ZIP_NAME" HEAD
+# --prefix：包根必须是插件目录名。
+# 不带前缀时 WordPress 手工上传会按 zip 文件名建目录（yimai-gso-optimizer-latest/），
+# 结果是装出一个「重复插件」而不是覆盖原插件；插件自带更新器两种结构都能识别，
+# 所以统一带前缀，手工上传与在线更新都落到 yimai-gso-optimizer/。
+git -C "$PLUGIN_DIR" archive --format=zip --prefix=yimai-gso-optimizer/ --output "$DIST_DIR/$ZIP_NAME" HEAD
 ZIP_SHA="$(shasum -a 256 "$DIST_DIR/$ZIP_NAME" | cut -d' ' -f1)"
 python3 - "$DIST_DIR/$MANIFEST_NAME" "$VERSION" "$UPDATED" "$NOTES" "$ZIP_SHA" <<'PYEOF'
 import json, sys

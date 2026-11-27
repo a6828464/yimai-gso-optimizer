@@ -29,6 +29,7 @@ class YIMAI_GSO_Updater {
 	public static function init() {
 		add_action( 'wp_ajax_yimai_gso_update_check', array( __CLASS__, 'ajax_check' ) );
 		add_action( 'wp_ajax_yimai_gso_update_run', array( __CLASS__, 'ajax_run' ) );
+		add_action( 'wp_ajax_yimai_gso_update_selfcheck', array( __CLASS__, 'ajax_selfcheck' ) );
 	}
 
 	/** 各发布渠道的清单与包地址（Gitee 优先：国内服务器访问 Gitee 稳定，GitHub 常被墙/超时） */
@@ -40,7 +41,11 @@ class YIMAI_GSO_Updater {
 			),
 			'github' => array(
 				'manifest' => 'https://github.com/' . self::GITHUB_REPO . '/releases/download/auto-latest/' . self::MANIFEST_NAME,
-				'package'  => 'https://codeload.github.com/' . self::GITHUB_REPO . '/zip/refs/heads/main',
+				// 2026-11-27：包源从 codeload.github.com（分支实时归档）改为同域 Release 资产。
+				// codeload 与 github.com 走的不是同一批 CDN 节点，国内服务器常见「清单能取到、
+				// codeload 直接超时」，一次 240 秒预算被它吃光，AJAX 到点被杀，用户只看到「更新失败」。
+				// 换成静态资产后：与清单同域（能取到清单就大概率能取到包），字节固定，sha256 可校验。
+				'package'  => 'https://github.com/' . self::GITHUB_REPO . '/releases/download/auto-latest/' . self::PACKAGE_NAME,
 			),
 			// 用户自建 Cloudflare 反代（github.shunan.fun → github.com）：
 			// 国内服务器直连 GitHub 被 DNS 污染/阻断时的第三通道，Release 资产与直连同源
@@ -154,8 +159,19 @@ class YIMAI_GSO_Updater {
 		}
 	}
 
-	/** 下载更新包到临时文件，Gitee 优先、GitHub 兜底，返回 [文件, 来源] */
-	private static function download_package( $dest, array &$errors = array() ) {
+	/**
+	 * 下载更新包到临时文件，按「清单成功通道 → Gitee → 其余」顺序尝试，返回 [文件, 来源]。
+	 *
+	 * 2026-11-27 重写（在线更新失败的修复）：
+	 * - 单通道超时 240s → 90s，并给整次下载 180s 总预算：以前三条通道各挂 240s，
+	 *   累计 720s 远超 PHP max_execution_time（后台请求常见 300s），进程被杀，
+	 *   用户只看到「更新失败」，连报错都拿不到；
+	 * - 校验 sha256 提前到通道内部：某个通道被 CDN 缓存了旧包时换成下一条通道，
+	 *   而不是整次更新直接失败；
+	 * - 200 但不是 zip（登录页/拦截页）当场识别，不再丢给解压器报天书；
+	 * - 失败信息逐通道透出（域名 + HTTP 码 + 字节数 / 超时原因）。
+	 */
+	private static function download_package( $dest, array &$errors = array(), $manifest = null ) {
 		$sources = self::sources();
 
 		// 与清单同源的通道优先（清单在哪取到说明那条路通，包走同一条成功率最高）
@@ -164,26 +180,51 @@ class YIMAI_GSO_Updater {
 			$sources = array( $last_ok => $sources[ $last_ok ] ) + $sources;
 		}
 
+		$expect_sha = is_array( $manifest ) ? (string) ( $manifest['sha256'] ?? '' ) : '';
+		$deadline   = microtime( true ) + 180;
+
 		foreach ( $sources as $source => $urls ) {
-			$url = $urls['package'] . ( strpos( $urls['package'], '?' ) === false ? '?' : '&' ) . 't=' . time();
+			if ( microtime( true ) > $deadline ) {
+				$errors[] = $source . '：跳过（本次更新的下载时间预算已用完）';
+				continue;
+			}
+			$url  = $urls['package'] . ( strpos( $urls['package'], '?' ) === false ? '?' : '&' ) . 't=' . time();
 			$resp = wp_remote_get( $url, array(
-				'timeout'    => 240,
+				'timeout'    => 90,
 				'user-agent' => 'YimaiGSO-Updater/1.0',
 			) );
 			if ( is_wp_error( $resp ) ) {
 				$errors[] = $source . '：' . $resp->get_error_message();
 				continue;
 			}
-			$code = wp_remote_retrieve_response_code( $resp );
-			$body = wp_remote_retrieve_body( $resp );
-			if ( 200 !== (int) $code || strlen( $body ) < 1024 ) {
+			$code = (int) wp_remote_retrieve_response_code( $resp );
+			$body = (string) wp_remote_retrieve_body( $resp );
+			if ( 200 !== $code || strlen( $body ) < 1024 ) {
 				$errors[] = $source . '：HTTP ' . $code . '（' . strlen( $body ) . ' 字节）';
 				continue;
 			}
-			file_put_contents( $dest, $body );
+			if ( "PK\x03\x04" !== substr( $body, 0, 4 ) ) {
+				$errors[] = $source . '：返回的不是 zip（前 4 字节 ' . bin2hex( substr( $body, 0, 4 ) ) . '，可能是登录页/拦截页）';
+				continue;
+			}
+			if ( '' !== $expect_sha ) {
+				$actual = hash( 'sha256', $body );
+				if ( ! hash_equals( $expect_sha, $actual ) ) {
+					$errors[] = $source . '：sha256 与清单不一致（该通道可能缓存了旧包）';
+					continue;
+				}
+			}
+			if ( false === @file_put_contents( $dest, $body ) ) {
+				$errors[] = $source . '：写入临时文件失败（' . get_temp_dir() . '）';
+				continue;
+			}
 			return array( $dest, $source );
 		}
-		throw new RuntimeException( '更新包下载失败：' . ( $errors ? implode( '；', $errors ) : '所有通道均不可达' ) . '。请检查服务器外网后重试。' );
+		// 记忆效应反噬：清单能取到、包取不到时（常见于 github.com 通、资产域名被墙），
+		// 若不清掉记忆，下一次更新还会从同一条通道开始，永远卡在同一处。
+		delete_transient( 'yimai_gso_update_manifest_source' );
+
+		throw new RuntimeException( '更新包下载失败：' . ( $errors ? implode( '；', $errors ) : '所有通道均不可达' ) . '。可先点「更新自检」看各通道状态。' );
 	}
 
 	/**
@@ -379,25 +420,22 @@ class YIMAI_GSO_Updater {
 			}
 			set_transient( self::LOCK_TRANSIENT, 1, 5 * MINUTE_IN_SECONDS );
 
-			// 远端清单：用于包完整性校验
+			// 远端清单：sha256 随清单一并下发，下载阶段就能逐通道校验
 			$manifest_source = null;
 			$manifest        = self::fetch_manifest( $manifest_source );
+			if ( is_array( $manifest ) && ! empty( $manifest['version'] ) ) {
+				$log[] = '远端清单：v' . $manifest['version'] . '（来源 ' . $manifest_source . '）';
+			} else {
+				$log[] = '提示：未取到远端清单，本次跳过 sha256 比对（下载阶段仍有 zip 结构与版本校验）。';
+			}
 
 			$download_errors = array();
-			list( $zipfile, $source ) = self::download_package( get_temp_dir() . 'yimai-gso-' . bin2hex( random_bytes( 4 ) ) . '.zip', $download_errors );
+			list( $zipfile, $source ) = self::download_package( get_temp_dir() . 'yimai-gso-' . bin2hex( random_bytes( 4 ) ) . '.zip', $download_errors, $manifest );
 			$log[] = '更新包下载完成（来源：' . $source . '，' . round( filesize( $zipfile ) / 1024 ) . ' KB）';
-
-			// 包完整性：清单提供 sha256 且包来自同一静态附件渠道（Gitee / 镜像 Release 附件）时强制比对。
-			// GitHub codeload 归档由平台实时生成、分支推进后字节会变，无法预发布哈希，跳过比对。
-			$static_channels = array( 'gitee', 'github_mirror' );
-			if ( is_array( $manifest ) && ! empty( $manifest['sha256'] ) && in_array( $source, $static_channels, true ) && $manifest_source === $source ) {
-				$actual = hash_file( 'sha256', $zipfile );
-				if ( ! hash_equals( (string) $manifest['sha256'], (string) $actual ) ) {
-					throw new RuntimeException( '更新包 sha256 校验失败，已中止安装（包可能被篡改或下载不完整）。' );
-				}
+			if ( is_array( $manifest ) && ! empty( $manifest['sha256'] ) ) {
 				$log[] = '更新包 sha256 校验通过。';
 			} else {
-				$log[] = '提示：本次更新未做 sha256 校验（需发布清单写入 Gitee 包的 sha256 字段）。';
+				$log[] = '提示：清单未提供 sha256，本次未做完整性比对。';
 			}
 
 			$work   = get_temp_dir() . 'yimai-gso-extract-' . bin2hex( random_bytes( 4 ) );
@@ -412,6 +450,16 @@ class YIMAI_GSO_Updater {
 
 			self::backup( $log );
 			self::apply( $root, $log );
+
+			// 落盘校验：文件覆盖完但磁盘上的版本号没变，说明有文件没写进去（权限/OPcache/磁盘满），
+			// 这种情况必须当场报错，否则用户刷新后看到「已更新」却还是旧版本。
+			if ( '' !== $remote_version ) {
+				$installed = self::read_package_version( YIMAI_GSO_PLUGIN_DIR . 'yimai-gso-optimizer.php' );
+				if ( '' !== $installed && version_compare( $installed, $remote_version, '<' ) ) {
+					throw new RuntimeException( '文件已覆盖但磁盘上仍是 v' . $installed . '（应为 v' . $remote_version . '）：可能有文件未写入成功，请检查插件目录权限后重试，或手动上传覆盖。' );
+				}
+				$log[] = '落盘校验通过：插件目录当前 v' . $installed . '。';
+			}
 
 			$state = array(
 				'version' => $remote_version,
@@ -442,12 +490,70 @@ class YIMAI_GSO_Updater {
 		return '';
 	}
 
+	/**
+	 * 更新自检：逐通道探活 + 环境体检。
+	 *
+	 * 为什么要有它：在线更新失败以前只回一句「更新失败」，用户拿不到任何可诊断信息，
+	 * 只能靠猜（是墙？权限？zip 扩展？）。自检把三件事一次说清：
+	 * 每条通道的清单与包能不能取到、服务器能不能写、解压走的是哪条路径。
+	 */
+	public static function selfcheck() {
+		$rows = array();
+		foreach ( self::sources() as $name => $urls ) {
+			$row = array( 'channel' => $name, 'manifest' => '', 'package' => '' );
+
+			$t0   = microtime( true );
+			$resp = wp_remote_get( $urls['manifest'] . ( strpos( $urls['manifest'], '?' ) === false ? '?' : '&' ) . 't=' . time(), array( 'timeout' => 8, 'headers' => array( 'Accept' => 'application/json' ) ) );
+			if ( is_wp_error( $resp ) ) {
+				$row['manifest'] = '失败：' . $resp->get_error_message();
+			} else {
+				$json = json_decode( (string) wp_remote_retrieve_body( $resp ), true );
+				$row['manifest'] = 'HTTP ' . (int) wp_remote_retrieve_response_code( $resp )
+					. ' · ' . round( microtime( true ) - $t0, 1 ) . 's'
+					. ( is_array( $json ) && ! empty( $json['version'] ) ? ' · v' . $json['version'] : ' · 无版本字段' );
+			}
+
+			$t0   = microtime( true );
+			$resp = wp_remote_get( $urls['package'] . ( strpos( $urls['package'], '?' ) === false ? '?' : '&' ) . 't=' . time(), array( 'timeout' => 25, 'user-agent' => 'YimaiGSO-Updater/1.0' ) );
+			if ( is_wp_error( $resp ) ) {
+				$row['package'] = '失败：' . $resp->get_error_message();
+			} else {
+				$body = (string) wp_remote_retrieve_body( $resp );
+				$row['package'] = 'HTTP ' . (int) wp_remote_retrieve_response_code( $resp )
+					. ' · ' . round( strlen( $body ) / 1024 ) . ' KB'
+					. ' · ' . round( microtime( true ) - $t0, 1 ) . 's'
+					. ( "PK\x03\x04" === substr( $body, 0, 4 ) ? ' · 是 zip' : ' · 不是 zip（可能被拦截）' );
+			}
+			$rows[] = $row;
+		}
+
+		return array(
+			'channels' => $rows,
+			'env'      => array(
+				'PHP 版本'       => PHP_VERSION,
+				'zip 扩展'       => class_exists( 'ZipArchive' ) ? '有（用 ZipArchive）' : '无（用 WordPress 内置 PclZip，慢且挑包）',
+				'max_execution'  => (string) ini_get( 'max_execution_time' ),
+				'memory_limit'   => (string) ini_get( 'memory_limit' ),
+				'临时目录'       => get_temp_dir() . ( is_writable( get_temp_dir() ) ? '（可写）' : '（不可写）' ),
+				'插件目录'       => YIMAI_GSO_PLUGIN_DIR . ( is_writable( YIMAI_GSO_PLUGIN_DIR ) ? '（可写）' : '（不可写，更新必然失败）' ),
+				'上次清单通道'   => (string) get_transient( 'yimai_gso_update_manifest_source' ),
+			),
+		);
+	}
 	public static function ajax_check() {
 		check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => '无权限' ), 403 );
 		}
 		wp_send_json_success( self::check() );
+	}
+
+	public static function ajax_selfcheck() {
+		check_ajax_referer( 'yimai_gso_nonce', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => '无权限' ), 403 );
+		}
+		wp_send_json_success( self::selfcheck() );
 	}
 
 	public static function ajax_run() {

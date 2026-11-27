@@ -95,7 +95,47 @@
 		});
 	}
 
+	/**
+	 * 更新自检：逐通道看「清单/包能不能取到」+ 服务器环境。
+	 * 更新失败时先跑这个，把「墙、权限、zip 扩展」三种原因分开，
+	 * 而不是让用户对着「更新失败」四个字猜。
+	 */
+	function selfcheck() {
+		var $out = $('#yimai-gso-updater-selfcheck-out');
+		var $btn = $('#yimai-gso-updater-selfcheck');
+		var label = $btn.text();
+		$out.show().text('自检中，最多等 1 分钟…');
+		$btn.prop('disabled', true).text('自检中…');
+		$.post(yimaiGsoData.ajaxUrl, { action: 'yimai_gso_update_selfcheck', nonce: yimaiGsoData.nonce })
+			.done(function (res) {
+				var d = res && res.data ? res.data : {};
+				var lines = [];
+				var names = { gitee: 'Gitee', github: 'GitHub', github_mirror: 'GitHub 反代' };
+				if (d.channels && d.channels.length) {
+					lines.push('【通道】');
+					$.each(d.channels, function (i, c) {
+						lines.push('- ' + (names[c.channel] || c.channel));
+						lines.push('    清单：' + c.manifest);
+						lines.push('    更新包：' + c.package);
+					});
+				}
+				if (d.env) {
+					lines.push('');
+					lines.push('【环境】');
+					$.each(d.env, function (k, v) { lines.push('- ' + k + '：' + v); });
+				}
+				$out.text(lines.length ? lines.join('\n') : '自检没有返回数据。');
+			})
+			.fail(function () {
+				$out.text('自检请求失败：可能是 AJAX 被安全插件拦截，或登录已超时。');
+			})
+			.always(function () {
+				$btn.prop('disabled', false).text(label);
+			});
+	}
+
 	$('#yimai-gso-updater-check').on('click', check);
+	$('#yimai-gso-updater-selfcheck').on('click', selfcheck);
 	$('#yimai-gso-updater-run').on('click', run);
 
 	// 首次切到「在线更新」页签时自动检查一次

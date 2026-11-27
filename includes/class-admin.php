@@ -2782,8 +2782,11 @@ class YIMAI_GSO_Admin {
                              用户会以为根本没有更新入口。现在按钮永远在，只是不可点时用 title 说明原因。 */ ?>
                     <button type="button" class="button button-primary" id="yimai-gso-updater-run"
                             disabled title="先点「检查更新」">立即更新</button>
+                    <button type="button" class="button" id="yimai-gso-updater-selfcheck"
+                            title="逐通道探活：清单与更新包能否取到、目录是否可写。更新失败时先点这个">更新自检</button>
                 </p>
                 <pre id="yimai-gso-updater-log" style="display:none"></pre>
+                <pre id="yimai-gso-updater-selfcheck-out" style="display:none"></pre>
                 <?php else : ?>
                 <p>更新插件需要管理员权限（manage_options）。</p>
                 <?php endif; ?>
