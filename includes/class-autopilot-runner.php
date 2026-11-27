@@ -317,14 +317,16 @@ class YIMAI_GSO_Autopilot_Runner {
             // 首次执行时生成全部标题，存入 settings_snapshot 供后续批次复用
             $saved_titles = $snapshot['generated_titles'] ?? null;
             if ( empty( $saved_titles ) || ! is_array( $saved_titles ) ) {
-                $titles = $this->prepare_titles( $generator, $topic, $count );
+                $topic_list = array();
+                $titles = $this->prepare_titles( $generator, $topic, $count, $topic_list );
                 if ( is_wp_error( $titles ) ) {
                     throw new Exception( $titles->get_error_message() );
                 }
                 if ( empty( $titles ) ) {
                     throw new Exception( 'AI 没有返回可用标题。' );
                 }
-                $snapshot['generated_titles'] = $titles;
+                $snapshot['generated_titles']       = $titles;
+                $snapshot['generated_title_topics'] = $topic_list;  // 每篇各自的主题，供分类映射与正文提示使用
                 YIMAI_GSO_Autopilot_Log::update_run( $run_id, array(
                     'settings_snapshot' => $snapshot,
                 ) );
@@ -352,6 +354,9 @@ class YIMAI_GSO_Autopilot_Runner {
                     break;
                 }
 
+                // 每篇用自己的主题：多主题模式下 $topic 只是本轮的起始主题
+                $item_topic = $snapshot['generated_title_topics'][ $i ] ?? $topic;
+
                 $item = YIMAI_GSO_Autopilot_Log::create_item(
                     $run_id,
                     $i + 1,
@@ -365,7 +370,7 @@ class YIMAI_GSO_Autopilot_Runner {
                     continue;
                 }
 
-                $result = $this->run_single_item( $item, $snapshot, $topic, $i );
+                $result = $this->run_single_item( $item, $snapshot, $item_topic, $i );
                 if ( is_wp_error( $result ) ) {
                     $failed_count++;
                     $last_message = '本轮有部分文章执行失败，请查看日志。';
@@ -638,10 +643,35 @@ class YIMAI_GSO_Autopilot_Runner {
         }
     }
 
-    private function prepare_titles( $generator, $topic, $count ) {
-        $topic = trim( (string) $topic );
+    private function prepare_titles( $generator, $topic, $count, &$topics = array() ) {
+        $topic  = trim( (string) $topic );
+        $topics = array();
         if ( '' === $topic ) {
             return new WP_Error( 'missing_topic', '缺少当天主题词。' );
+        }
+
+        // 多篇模式：同一主题连出 N 个标题，等于一天发 N 篇同题文章，互相蚕食排名。
+        // 改为按主题池顺序取 N 个不同主题，每个主题生成 1 个标题。
+        // 池里只有一个主题时退回旧行为（同一主题出 N 个角度）。
+        if ( $count > 1 && class_exists( 'YIMAI_GSO_Autopilot_Plan' ) ) {
+            $pool = YIMAI_GSO_Autopilot_Plan::get_topic_lines();
+            if ( count( $pool ) > 1 ) {
+                $start = array_search( $topic, $pool, true );
+                $start = ( false === $start ) ? 0 : (int) $start;
+                $titles = array();
+                for ( $k = 0; $k < $count; $k++ ) {
+                    $candidate = $pool[ ( $start + $k ) % count( $pool ) ];
+                    $one       = $this->pick_single_title( $generator, $candidate );
+                    if ( '' === $one ) {
+                        // 标题生成失败不能空转：用主题原文兜底，宁可标题平一点也不要少一篇
+                        $one = $candidate;
+                    }
+                    $titles[] = $one;
+                    $topics[] = $candidate;
+                }
+
+                return $titles;
+            }
         }
 
         $title_count = max( 5, $count );
@@ -654,8 +684,29 @@ class YIMAI_GSO_Autopilot_Runner {
         if ( count( $titles ) > $count ) {
             $titles = array_slice( $titles, 0, $count );
         }
+        foreach ( $titles as $unused_title ) {
+            $topics[] = $topic;
+        }
 
         return $titles;
+    }
+
+    /**
+     * 为一个主题取一个标题（generate_titles 最少返回 5 个，这里只取第一个可用项）
+     */
+    private function pick_single_title( $generator, $topic ) {
+        $titles = $generator->generate_titles( $topic, 5, array() );
+        if ( is_wp_error( $titles ) ) {
+            return '';
+        }
+        foreach ( (array) $titles as $title ) {
+            $title = sanitize_text_field( (string) $title );
+            if ( '' !== $title ) {
+                return $title;
+            }
+        }
+
+        return '';
     }
 
     private function build_tags( $snapshot, $article ) {

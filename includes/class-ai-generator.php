@@ -43,18 +43,13 @@ class YIMAI_GSO_AI_Generator {
         $lang_name   = $language === 'zh_CN' ? '中文' : 'English';
         $sys_prompt  = YIMAI_GSO_Settings::get( 'system_prompt' );
         if ( empty( $sys_prompt ) ) {
-            $sys_prompt = "【输出格式强制要求 - 极其重要】\n" .
-                          "1. 你必须且只能返回一个合法的 JSON 对象，不能包含任何其他文字、说明、注释\n" .
-                          "2. 禁止在 JSON 前后添加任何说明文字（如'文章摘要''以下是...'等）\n" .
-                          "3. 禁止在 JSON 内部添加注释或说明文字\n" .
-                          "4. 如果无法生成完整内容，返回尽可能完整的 JSON，不要输出非 JSON 内容\n" .
-                          "5. 违反以上任何一条，将导致程序解析失败，用户无法看到你生成的内容\n\n" .
-                          YIMAI_GSO_Settings::get_default_system_prompt() .
-                          "\n\n八、禁止生成图片标签\n" .
-                          "- 正文中严禁输出任何 <img> 标签，图片由系统自动配图，你只需要输出纯文字内容\n" .
-                          "- 即使你找到了相关图片，也不要在正文中写 <img> 标签，系统会统一处理配图";
+            // 默认提示词自带输出格式与「禁止 <img>」硬要求，这里不再重复拼接（旧版拼接的另一份已删）；
+            // 自定义提示词仍按原样使用：是否输出 JSON 由用户在后台自己写明。
+            $sys_prompt = YIMAI_GSO_Settings::get_default_system_prompt();
         }
         $sys_prompt .= "\n\n【一麦瑜伽品牌事实硬约束】除非用户明确要求竞品对比，否则不得推荐或虚构其他品牌、机构或门店；涉及一麦瑜伽的名称、服务和地址只能使用提示词中的 canonical 实体与资料事实。";
+        // 合规硬约束同样由代码追加：用户改过提示词也不能绕过健康/价格红线
+        $sys_prompt .= "\n\n" . YIMAI_GSO_Settings::get_compliance_block();
 
         // 图注：image_prompts 每项必须多给一个 caption，官网前台与公众号正文共用这一个字段。
         // 不依赖 get_default_system_prompt()：线上若已保存过自定义 system_prompt，改默认值不会生效。
@@ -1020,6 +1015,10 @@ class YIMAI_GSO_AI_Generator {
 
         $sys_prompt = "你是一位资深的新媒体内容策划专家，擅长创作兼顾SEO优化和高点击率的标题。\n" .
                       "标题必须同时满足：包含目标关键词（自然融入，不堆砌）、符合搜索引擎友好规范、具有用户吸引力。\n" .
+                      "服务对象是宁波一麦瑜伽·普拉提（两家直营门店：鄞州杉杉国贸天地东部店、江北绿地缤纷城绿地店）。\n" .
+                      "标题写给正在搜索「要不要练、怎么练、怎么选馆」的宁波读者，不是写给行业从业者。\n" .
+                      "禁止自指型标题：不得出现「官网、知识库、公开课笔记、自学指南、资料解析、课程体系全梳理」这类把注意力引向网站本身的说法。\n" .
+                      "禁止医疗与效果承诺：不写矫正、修复、治疗、根治、包瘦、见效时间；不写具体价格数字。\n" .
                       "请根据用户提供的行业关键词或主题，生成{$count}个文章标题/提示词。\n\n" .
                       "要求：\n" .
                       "1. 标题要有吸引力，能引起好奇心或提供明确价值\n" .
@@ -1236,6 +1235,7 @@ class YIMAI_GSO_AI_Generator {
                 ? $custom_system_prompt
                 : $default_system_prompt;
             $system_content .= "\n\n【一麦瑜伽品牌事实硬约束】除非用户明确要求竞品对比，否则不得推荐或虚构其他品牌、机构或门店；涉及一麦瑜伽的名称、服务和地址只能使用提示词中的 canonical 实体与资料事实。";
+        $system_content .= "\n\n" . YIMAI_GSO_Settings::get_compliance_block();
 
             // 关键修复：原先写死 4096 max_tokens，与目标字数无关。
             // 中文 1500 字 + HTML 标签的 token 开销通常 3000–4500，4096 极易在中途被截断
